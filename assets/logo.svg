@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d1a24"/>
+      <stop offset="1" stop-color="#0d0c11"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd98a"/>
+      <stop offset="0.55" stop-color="#e9b04b"/>
+      <stop offset="1" stop-color="#b9792a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#e9b04b" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#e9b04b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="190" fill="url(#bg)"/>
+  <rect x="100" y="100" width="824" height="824" rx="190" fill="url(#glow)"/>
+  <!-- bell -->
+  <path d="M262 520 C262 340 382 250 512 250 C642 250 762 340 762 520 C700 498 650 532 600 512 C560 496 540 528 512 528 C484 528 464 496 424 512 C374 532 324 498 262 520 Z" fill="url(#gold)"/>
+  <!-- four gonad rings -->
+  <g fill="none" stroke="#1a1720" stroke-width="22" stroke-linecap="round" opacity="0.85">
+    <path d="M430 390 a34 34 0 1 1 0.1 0"/>
+    <path d="M594 390 a34 34 0 1 1 0.1 0"/>
+    <path d="M470 452 a26 26 0 1 1 0.1 0"/>
+    <path d="M554 452 a26 26 0 1 1 0.1 0"/>
+  </g>
+  <!-- tentacles -->
+  <g fill="none" stroke="url(#gold)" stroke-width="20" stroke-linecap="round">
+    <path d="M360 560 C340 630 390 680 360 760"/>
+    <path d="M450 570 C430 650 480 700 452 800"/>
+    <path d="M574 570 C594 650 544 700 572 800"/>
+    <path d="M664 560 C684 630 634 680 664 760"/>
+  </g>
+</svg>

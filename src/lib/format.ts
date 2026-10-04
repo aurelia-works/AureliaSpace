@@ -1,0 +1,27 @@
+let home = "";
+
+export function setHome(dir: string) {
+  home = dir.replace(/\/+$/, "");
+}
+
+export function shortenPath(p?: string): string {
+  if (!p) return "";
+  if (home && (p === home || p.startsWith(home + "/"))) return "~" + p.slice(home.length);
+  return p;
+}
+
+export function basename(p?: string): string {
+  if (!p) return "";
+  if (home && p === home) return "~";
+  return p.replace(/\/+$/, "").split("/").pop() || "/";
+}
+
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
+  const m = Math.floor(s / 60);
+  const rem = Math.floor(s % 60);
+  if (m < 60) return `${m}m ${rem.toString().padStart(2, "0")}s`;
+  return `${Math.floor(m / 60)}h ${(m % 60).toString().padStart(2, "0")}m`;
+}
