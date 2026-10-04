@@ -1,0 +1,97 @@
+/* Stage, title cards, captions and keycaps around the recreated app. */
+
+html, body { margin: 0; padding: 0; overflow: hidden; background: #08070b; }
+* { box-sizing: border-box; }
+
+#stage {
+  position: relative;
+  overflow: hidden;
+  background: #08070b;
+  font-family: var(--ui);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+.clip { position: absolute; inset: 0; }
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 55% at 50% 46%, rgba(233, 176, 75, 0.075), rgba(233, 176, 75, 0) 70%),
+    radial-gradient(120% 90% at 50% 50%, #100e15 0%, #08070b 70%);
+}
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 100% at 50% 50%, transparent 60%, rgba(0,0,0,.45) 100%); }
+
+#cam { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: 0 0; }
+
+/* ---------- Hook ---------- */
+.hook {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.hook-text { font: 400 46px/1.6 var(--mono); color: var(--text); white-space: pre; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+.hook-text .l1 { transition: none; }
+.hook-text .cur { display: inline-block; width: 4px; height: 1.05em; margin-left: 4px; vertical-align: -0.16em; background: var(--accent); border-radius: 1px; }
+.portrait .hook-text { font-size: 40px; }
+
+/* ---------- Logo card / outro ---------- */
+.card {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+}
+.card .mark { width: 168px; height: 168px; display: block; }
+.wordmark {
+  margin-top: 18px;
+  font: 650 92px/1.05 var(--ui);
+  letter-spacing: -0.035em;
+  background: linear-gradient(180deg, #ffd98a 0%, #e9b04b 55%, #c58a35 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  padding-bottom: 6px;
+}
+.tagline { margin-top: 22px; font: 400 30px/1.4 var(--ui); color: var(--text-dim); letter-spacing: -0.005em; }
+.portrait .wordmark { font-size: 96px; }
+.portrait .tagline { font-size: 38px; max-width: 860px; }
+.outro .mark { width: 132px; height: 132px; }
+.outro .wordmark { font-size: 76px; margin-top: 14px; }
+.outro .free { margin-top: 30px; font: 600 34px/1.3 var(--ui); color: var(--text); letter-spacing: -0.01em; }
+.outro .url { margin-top: 12px; font: 400 25px/1.3 var(--mono); color: var(--accent); }
+.outro .plat { margin-top: 26px; font: 500 20px/1.3 var(--ui); color: var(--text-dim); letter-spacing: 0.02em; }
+.outro .fine { position: absolute; bottom: 46px; left: 0; right: 0; font: 400 15px/1.3 var(--ui); color: var(--text-faint); }
+.portrait .outro .wordmark { font-size: 84px; }
+.portrait .outro .free { font-size: 42px; }
+.portrait .outro .url { font-size: 28px; }
+.portrait .outro .plat { font-size: 26px; }
+.portrait .outro .fine { font-size: 20px; bottom: 120px; }
+
+/* ---------- Captions ---------- */
+.captions { position: absolute; left: 0; right: 0; pointer-events: none; }
+.scrim { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none; background: linear-gradient(180deg, rgba(8,7,11,0) 0%, rgba(8,7,11,.72) 55%, rgba(8,7,11,.9) 100%); }
+.cap {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  text-align: center;
+  font: 500 36px/1.25 var(--ui);
+  letter-spacing: -0.012em;
+  color: var(--text);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+.cap .k { font-family: var(--mono); font-weight: 500; color: var(--accent); font-size: 0.9em; }
+.cap .dim { color: var(--text-dim); }
+.portrait .cap { font-size: 50px; line-height: 1.22; padding: 0 70px; }
+
+/* ---------- Keycaps HUD ---------- */
+.hud { position: absolute; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; }
+.keys { position: absolute; display: flex; gap: 10px; left: 50%; }
+.key {
+  min-width: 64px; height: 64px; padding: 0 16px;
+  display: grid; place-items: center;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #2a2832, #1e1d25);
+  border: 1px solid #3c3946;
+  box-shadow: 0 1px 0 rgba(255,255,255,.07) inset, 0 6px 0 #121117, 0 14px 30px rgba(0,0,0,.5);
+  font: 500 30px/1 var(--mono);
+  color: var(--text);
+}
+.key.mod { color: var(--accent-strong); }
+.portrait .key { min-width: 84px; height: 84px; font-size: 40px; border-radius: 16px; }
+[hidden] { display: none !important; }

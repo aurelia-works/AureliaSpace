@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape" data-orient="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>AureliaSpace launch</title>
+    <link rel="stylesheet" href="src/app.css" />
+    <link rel="stylesheet" href="src/video.css" />
+    <script src="assets/vendor/gsap.min.js"></script>
+    <style>
+      /* SF Pro is used when present (macOS); Inter stands in elsewhere. */
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Regular.woff2") format("woff2"); font-weight: 400; font-display: block; }
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Medium.woff2") format("woff2"); font-weight: 500; font-display: block; }
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Bold.woff2") format("woff2"); font-weight: 700; font-display: block; }
+      @font-face { font-family: "Inter"; src: url("assets/fonts/inter-400.woff2") format("woff2"); font-weight: 400; font-display: block; }
+      @font-face { font-family: "Inter"; src: url("assets/fonts/inter-500.woff2") format("woff2"); font-weight: 500; font-display: block; }
+      @font-face { font-family: "Inter"; src: url("assets/fonts/inter-600.woff2") format("woff2"); font-weight: 600 650; font-display: block; }
+      @font-face { font-family: "Inter"; src: url("assets/fonts/inter-700.woff2") format("woff2"); font-weight: 700; font-display: block; }
+      html, body, #stage { width: 1920px; height: 1080px; }
+    </style>
+  </head>
+  <body>
+    <div id="stage" data-composition-id="main" data-start="0" data-duration="50" data-width="1920" data-height="1080"></div>
+    <script src="src/video.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = window.__aureliaTimeline;
+    </script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+# Compressed copies of the masters (for chat upload limits) and the pre-normalization mix.
+renders/preview/
+audio/score.wav
+snapshots/
+.hyperframes/
