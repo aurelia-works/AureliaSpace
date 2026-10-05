@@ -4,8 +4,176 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AureliaSpace</title>
+    <style>
+      /* Load-in splash: inline so it paints before the app bundle loads. Removed by hideSplash() in main.tsx. */
+      #splash {
+        --splash-bg: #0d0c11;
+        --splash-text: #e6e1d6;
+        --splash-glow: rgba(233, 176, 75, 0.22);
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(60% 50% at 50% 45%, #1a1720 0%, var(--splash-bg) 70%);
+        transition: opacity 0.5s ease, transform 0.6s ease;
+        overflow: hidden;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      @media (prefers-color-scheme: light) {
+        #splash {
+          --splash-bg: #e9e4da;
+          --splash-text: #26232b;
+          --splash-glow: rgba(185, 121, 42, 0.2);
+          background: radial-gradient(60% 50% at 50% 45%, #f5f2ec 0%, var(--splash-bg) 70%);
+        }
+      }
+      #splash.out {
+        opacity: 0;
+        transform: scale(1.04);
+        pointer-events: none;
+      }
+      #splash .stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+      }
+      #splash .jelly {
+        width: 108px;
+        height: 108px;
+        filter: drop-shadow(0 0 22px var(--splash-glow));
+        animation: jelly-rise 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both, jelly-bob 3.2s ease-in-out 1.1s infinite;
+      }
+      #splash .bell {
+        transform-origin: 50% 60%;
+        animation: bell-pulse 1.6s ease-in-out 0.3s infinite;
+      }
+      #splash .tentacle {
+        stroke-dasharray: 60;
+        stroke-dashoffset: 60;
+        transform-origin: 50% 0;
+        animation: draw 0.9s ease-out forwards, sway 2.4s ease-in-out infinite;
+      }
+      #splash .tentacle:nth-child(1) { animation-delay: 0.35s, 1.2s; }
+      #splash .tentacle:nth-child(2) { animation-delay: 0.45s, 1.4s; }
+      #splash .tentacle:nth-child(3) { animation-delay: 0.5s, 1.3s; }
+      #splash .tentacle:nth-child(4) { animation-delay: 0.6s, 1.5s; }
+      #splash .name {
+        font: 600 17px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        letter-spacing: 0.32em;
+        text-indent: 0.32em;
+        color: var(--splash-text);
+        display: flex;
+      }
+      #splash .name span {
+        opacity: 0;
+        transform: translateY(6px);
+        animation: letter 0.5s ease-out forwards;
+        animation-delay: calc(0.55s + var(--i) * 0.035s);
+      }
+      #splash .name .gold {
+        color: #e9b04b;
+      }
+      #splash .mote {
+        position: absolute;
+        bottom: -10px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #ffd98a;
+        box-shadow: 0 0 8px 2px rgba(233, 176, 75, 0.6);
+        opacity: 0;
+        animation: mote linear infinite;
+      }
+      @keyframes jelly-rise {
+        from { opacity: 0; transform: translateY(40px) scale(0.85); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes jelly-bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+      }
+      @keyframes bell-pulse {
+        0%, 100% { transform: scale(1, 1); }
+        40% { transform: scale(1.06, 0.93); }
+        70% { transform: scale(0.97, 1.04); }
+      }
+      @keyframes draw {
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes sway {
+        0%, 100% { transform: skewX(0deg); }
+        50% { transform: skewX(6deg); }
+      }
+      @keyframes letter {
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes mote {
+        0% { opacity: 0; transform: translate(0, 0); }
+        15% { opacity: 0.9; }
+        100% { opacity: 0; transform: translate(var(--dx), -105vh); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash *, #splash { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; transition: opacity 0.2s; }
+        #splash .mote { display: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <div class="stage">
+        <svg class="jelly" viewBox="0 0 120 120">
+          <defs>
+            <linearGradient id="sp-gold" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ffd98a" />
+              <stop offset="0.55" stop-color="#e9b04b" />
+              <stop offset="1" stop-color="#b9792a" />
+            </linearGradient>
+          </defs>
+          <g class="bell">
+            <path d="M18 62C18 34 37 20 60 20s42 14 42 42c-8-3-14 2-20-1-5-2-8 2-12 2H52c-4 0-7-4-12-2-6 3-12-2-22 1z" fill="url(#sp-gold)" />
+            <g fill="none" stroke="#1a1720" stroke-width="3" opacity="0.75">
+              <circle cx="49" cy="42" r="5" />
+              <circle cx="71" cy="42" r="5" />
+              <circle cx="54" cy="51" r="3.6" />
+              <circle cx="66" cy="51" r="3.6" />
+            </g>
+          </g>
+          <g fill="none" stroke="url(#sp-gold)" stroke-width="3.2" stroke-linecap="round">
+            <path class="tentacle" d="M34 68c-3 10 4 17 0 30" />
+            <path class="tentacle" d="M49 70c-3 12 4 19 0 34" />
+            <path class="tentacle" d="M71 70c3 12-4 19 0 34" />
+            <path class="tentacle" d="M86 68c3 10-4 17 0 30" />
+          </g>
+        </svg>
+        <div class="name"></div>
+      </div>
+    </div>
+    <script>
+      (() => {
+        const name = document.querySelector("#splash .name");
+        "AureliaSpace".split("").forEach((ch, i) => {
+          const s = document.createElement("span");
+          s.textContent = ch;
+          s.style.setProperty("--i", i);
+          if (i >= 7) s.className = "gold";
+          name.appendChild(s);
+        });
+        const splash = document.getElementById("splash");
+        for (let i = 0; i < 14; i++) {
+          const m = document.createElement("div");
+          m.className = "mote";
+          m.style.left = `${8 + Math.random() * 84}%`;
+          m.style.setProperty("--dx", `${(Math.random() - 0.5) * 80}px`);
+          m.style.animationDuration = `${4 + Math.random() * 4}s`;
+          m.style.animationDelay = `${Math.random() * 2.5}s`;
+          splash.appendChild(m);
+        }
+        window.__splashStart = performance.now();
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -3,7 +3,7 @@ import { waitingAgents, worstStatus, useAgents } from "../store/agents";
 import { paneIds, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { useUi } from "../store/ui";
-import { CloseIcon, DiffIcon, FolderIcon, GearIcon, GridIcon, PanelIcon, PlusIcon, SparkIcon } from "./Icons";
+import { AureliaMark, CloseIcon, DiffIcon, GearIcon, GridIcon, PanelIcon, PlusIcon, SidebarIcon, SparkIcon } from "./Icons";
 import { paneTitle } from "./PaneHeader";
 
 export function TabBar() {
@@ -13,13 +13,24 @@ export function TabBar() {
   const runtime = useRuntime((s) => s.panes);
   const sessions = useAgents((s) => s.sessions);
   const agentPanelOpen = useUi((s) => s.agentPanelOpen);
-  const filesOpen = useUi((s) => s.filesOpen);
+  const sidebarOpen = useUi((s) => s.sidebarOpen);
+  const mode = useUi((s) => s.mode);
+  const reviewOpen = useUi((s) => s.reviewOpen);
   const waiting = waitingAgents(sessions);
   const { activateTab, closeTab, newTab } = useLayout.getState();
   const ui = useUi.getState();
 
   return (
     <div className="tabbar" data-tauri-drag-region>
+      <div className="brand" data-tauri-drag-region>
+        <AureliaMark />
+        <span className="brand-name" data-tauri-drag-region>
+          AureliaSpace
+        </span>
+        <button className={`icon-btn${sidebarOpen ? " on" : ""}`} title="Projects sidebar (⌘\)" onClick={() => ui.set({ sidebarOpen: !sidebarOpen })}>
+          <SidebarIcon />
+        </button>
+      </div>
       <div className="tabs" data-tauri-drag-region>
         {tabs.map((tab, i) => {
           const ids = paneIds(tab.root);
@@ -52,7 +63,7 @@ export function TabBar() {
             </div>
           );
         })}
-        <button className="icon-btn tab-new" title="New tab (⌘T)" onClick={() => newTab()}>
+        <button className="icon-btn tab-new" title="New tab (⌘T)" onClick={() => newTab({ launcher: true })}>
           <PlusIcon />
         </button>
         <button
@@ -66,6 +77,26 @@ export function TabBar() {
           <GridIcon />
         </button>
       </div>
+      <div className="mode-switch" role="tablist" aria-label="Mode">
+        {(
+          [
+            ["agents", "Agents", "⇧⌘1"],
+            ["terminals", "Terminals", "⇧⌘2"],
+            ["review", "Review", "⇧⌘3"],
+          ] as const
+        ).map(([id, label, key]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={(reviewOpen ? "review" : mode) === id}
+            className={(reviewOpen ? "review" : mode) === id ? "on" : ""}
+            title={`${label} (${key})`}
+            onClick={() => (id === "review" ? ui.set({ reviewOpen: true }) : ui.set({ mode: id }))}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="tabbar-right">
         {waiting.length > 0 && (
           <button
@@ -76,9 +107,6 @@ export function TabBar() {
             {waiting.length} waiting <kbd>⌘J</kbd>
           </button>
         )}
-        <button className={`icon-btn${filesOpen ? " on" : ""}`} title="Files (⇧⌘F)" onClick={() => ui.set({ filesOpen: !filesOpen })}>
-          <FolderIcon />
-        </button>
         <button className="icon-btn" title="Review changes (⇧⌘R)" onClick={() => ui.set({ reviewOpen: true })}>
           <DiffIcon />
         </button>

@@ -17,9 +17,12 @@ export interface Config {
   usageScript: string;
   usageRefreshSeconds: number;
   theme: "system" | "light" | "dark";
+  palette: string;
   notifications: boolean;
   /** Command that opens `path[:line[:col]]`; empty = Cursor, then VS Code, then default app. */
   editor: string;
+  /** Folder new panes open in when they have no cwd to inherit. */
+  defaultWorkspace: string;
   terminal: {
     fontFamily: string;
     fontSize: number;

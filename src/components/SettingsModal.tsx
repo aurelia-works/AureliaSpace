@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { ipc, type Config, type ProviderName } from "../lib/ipc";
+import { PALETTES, swatchColors } from "../lib/palettes";
 import { shortcutHelp } from "../lib/shortcuts";
 import { applyAppearance } from "../lib/terminals";
+import { resolveDark } from "../lib/theme";
 import { useConfig } from "../store/config";
 import { useUi } from "../store/ui";
 
@@ -28,7 +30,8 @@ export function SettingsModal() {
         setHasKey(Object.fromEntries(r)),
       );
     }
-  }, [open, config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open || !draft) return null;
   const close = () => useUi.getState().set({ settingsOpen: false });
@@ -126,6 +129,28 @@ export function SettingsModal() {
                 </button>
               ))}
             </div>
+            <div className="palette-grid">
+              {PALETTES.map((p) => {
+                const [bg, accent, fg] = swatchColors(p, resolveDark(draft.theme));
+                return (
+                  <button
+                    key={p.id}
+                    className={`palette-card${draft.palette === p.id ? " on" : ""}`}
+                    onClick={() => {
+                      update((c) => (c.palette = p.id));
+                      // Applies live (UI and every terminal); other edits stay in the draft.
+                      if (config) useConfig.getState().save({ ...config, palette: p.id }).catch(() => {});
+                    }}
+                  >
+                    <span className="palette-swatch" style={{ background: bg }}>
+                      <i style={{ background: accent }} />
+                      <i style={{ background: fg }} />
+                    </span>
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
             <label className="field">
               <span>Font size</span>
               <input
@@ -148,6 +173,23 @@ export function SettingsModal() {
               <input type="checkbox" checked={draft.notifications} onChange={(e) => update((c) => (c.notifications = e.target.checked))} />
               <span>Notify when a background agent finishes or needs input</span>
             </label>
+          </section>
+
+          <section>
+            <h4>Workspace</h4>
+            <label className="field">
+              <span>Default folder</span>
+              <input
+                value={draft.defaultWorkspace ?? ""}
+                placeholder="~"
+                onChange={(e) => update((c) => (c.defaultWorkspace = e.target.value))}
+                spellCheck={false}
+              />
+            </label>
+            <p className="hint">
+              Where new tabs and Claude panes start when there's no folder to inherit, e.g. <code>~/Developer</code>. Splits
+              still open in the current pane's folder.
+            </p>
           </section>
 
           <section>

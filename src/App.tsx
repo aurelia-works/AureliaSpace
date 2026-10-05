@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { AccountPicker } from "./components/AccountPicker";
+import { AgentsBoard } from "./components/AgentsBoard";
 import { AgentPanel } from "./components/AgentPanel";
 import { DiffReview } from "./components/DiffReview";
 import { FilesPanel } from "./components/FilesPanel";
 import { GridPicker } from "./components/GridPicker";
 import { LayoutView } from "./components/LayoutView";
+import { ProjectsSidebar } from "./components/ProjectsSidebar";
 import { SettingsModal } from "./components/SettingsModal";
 import { TabBar } from "./components/TabBar";
 import { Toast } from "./components/Toast";
@@ -17,32 +19,39 @@ export function App() {
   const activeTabId = useLayout((s) => s.activeTabId);
   const agentPanelOpen = useUi((s) => s.agentPanelOpen);
   const filesOpen = useUi((s) => s.filesOpen);
+  const sidebarOpen = useUi((s) => s.sidebarOpen);
+  const mode = useUi((s) => s.mode);
   const focusKey = useLayout((s) => `${s.activeTabId}:${s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId}`);
   const modalOpen = useUi((s) => s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen);
 
   // Keyboard focus follows the focused pane.
   useEffect(() => {
-    if (modalOpen) return;
+    if (modalOpen || useUi.getState().mode === "agents") return;
     const id = requestAnimationFrame(() => {
       const pane = activeTab()?.focusedPaneId;
-      if (pane && useUi.getState().suggestPaneId !== pane) focusTerminal(pane);
+      if (!pane) return;
+      if (useLayout.getState().panes[pane]?.launcher) {
+        document.querySelector<HTMLElement>(`[data-pane-id="${pane}"] .start-screen`)?.focus();
+      } else if (useUi.getState().suggestPaneId !== pane) focusTerminal(pane);
     });
     return () => cancelAnimationFrame(id);
-  }, [focusKey, modalOpen]);
+  }, [focusKey, modalOpen, mode]);
 
   return (
     <div className="app">
       <TabBar />
       <div className="workspace">
+        {sidebarOpen && <ProjectsSidebar />}
         {filesOpen && <FilesPanel />}
-        <main className="tabs-area">
+        <main className={`tabs-area${mode === "agents" ? " mode-hidden" : ""}`}>
           {tabs.map((tab) => (
             <div key={tab.id} className={`tab-content${tab.id === activeTabId ? "" : " hidden"}`}>
               <LayoutView node={tab.root} />
             </div>
           ))}
         </main>
-        {agentPanelOpen && <AgentPanel />}
+        {mode === "agents" && <AgentsBoard />}
+        {agentPanelOpen && mode !== "agents" && <AgentPanel />}
       </div>
       <AccountPicker />
       <GridPicker />

@@ -15,7 +15,8 @@ npm run app:build   # → src-tauri/target/release/bundle/macos/AureliaSpace.app
 
 | Keys | Action |
 | --- | --- |
-| ⌘T | New tab (same cwd) |
+| ⌘T | New tab (start screen: pick a Claude account, Terminal, Codex or Gemini) |
+| ⇧⌘1 / ⇧⌘2 / ⇧⌘3 | Mode: Agents board / Terminals / Review |
 | ⌘D / ⇧⌘D | Split right / down |
 | ⌘W / ⇧⌘W | Close pane / tab |
 | ⌥⌘ arrows | Focus pane in that direction |
@@ -28,6 +29,7 @@ npm run app:build   # → src-tauri/target/release/bundle/macos/AureliaSpace.app
 | ⌘-click | Open a URL, or a `path:line:col` in output in your editor |
 | ⌘I | Command suggestion (inserted at the prompt, never run) |
 | ⌘B | Agent panel |
+| ⌘\ | Projects sidebar |
 | ⇧⌘↑ / ⇧⌘↓ | Jump to previous / next command block |
 | ⌘K | Clear |
 | ⌘+ ⌘- ⌘0 | Font size |

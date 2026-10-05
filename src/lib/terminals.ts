@@ -12,7 +12,8 @@ import { useUi } from "../store/ui";
 import { BlockTracker } from "./blocks";
 import { ipc } from "./ipc";
 import { installLinks } from "./links";
-import { darkTerminalTheme, lightTerminalTheme, resolveDark } from "./theme";
+import { terminalThemeFor } from "./palettes";
+import { resolveDark } from "./theme";
 
 /**
  * xterm instances live outside React so that re-parenting a pane (splitting, closing
@@ -49,7 +50,8 @@ function fontSize() {
 }
 
 export function currentTerminalTheme() {
-  return resolveDark(getConfig().theme) ? darkTerminalTheme : lightTerminalTheme;
+  const cfg = getConfig();
+  return terminalThemeFor(cfg.palette, resolveDark(cfg.theme));
 }
 
 export function ensureTerminal(pane: PaneMeta): TermEntry {
@@ -109,7 +111,7 @@ export function ensureTerminal(pane: PaneMeta): TermEntry {
   });
   term.onTitleChange((title) => runtime.patch(pane.id, { title }));
 
-  if (pane.account) entry.pendingInit = queuedInit.get(pane.id) ?? "claude";
+  if (pane.account || queuedInit.has(pane.id)) entry.pendingInit = queuedInit.get(pane.id) ?? "claude";
   queuedInit.delete(pane.id);
   entries.set(pane.id, entry);
   return entry;

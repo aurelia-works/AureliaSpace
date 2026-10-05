@@ -11,6 +11,8 @@ export interface PaneMeta {
   /** Claude account this pane was launched as (runs `claude` on start). */
   account?: string;
   cwd?: string;
+  /** Shows the start screen instead of a terminal until the user picks what to run. */
+  launcher?: boolean;
 }
 
 export interface Tab {
@@ -22,6 +24,7 @@ export interface Tab {
 export interface NewPaneOpts {
   account?: string;
   cwd?: string;
+  launcher?: boolean;
 }
 
 interface LayoutState {
@@ -85,7 +88,7 @@ export function onPanesClosed(fn: CloseListener) {
 const emitClosed = (ids: string[]) => ids.length && closeListeners.forEach((fn) => fn(ids));
 
 function makePane(opts?: NewPaneOpts): PaneMeta {
-  return { id: uid("pane"), account: opts?.account, cwd: opts?.cwd };
+  return { id: uid("pane"), account: opts?.account, cwd: opts?.cwd, launcher: opts?.launcher || undefined };
 }
 
 /** Balanced binary splits whose ratios give every leaf the same share of space. */
@@ -148,7 +151,7 @@ export const useLayout = create<LayoutState>((set, get) => ({
     if (activeTabId === tabId) activeTabId = tabs[Math.min(idx, tabs.length - 1)]?.id ?? "";
     set({ tabs, panes, activeTabId });
     emitClosed(closed);
-    if (tabs.length === 0) get().newTab();
+    if (tabs.length === 0) get().newTab({ launcher: true });
   },
 
   activateTab(tabId) {
@@ -249,7 +252,7 @@ export const useLayout = create<LayoutState>((set, get) => ({
       }
     }
     set({ hydrated: true });
-    get().newTab();
+    get().newTab({ launcher: true });
   },
 }));
 

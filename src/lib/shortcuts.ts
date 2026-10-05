@@ -49,7 +49,8 @@ export interface ShortcutHelp {
 }
 
 export const shortcutHelp: ShortcutHelp[] = [
-  { keys: "⌘T", label: "New tab" },
+  { keys: "⌘T", label: "New tab (start screen)" },
+  { keys: "⇧⌘1 / ⇧⌘2 / ⇧⌘3", label: "Agents / Terminals / Review mode" },
   { keys: "⌘D / ⇧⌘D", label: "Split right / down" },
   { keys: "⌘W / ⇧⌘W", label: "Close pane / tab" },
   { keys: "⌥⌘ ←↑↓→", label: "Focus pane in direction" },
@@ -62,6 +63,7 @@ export const shortcutHelp: ShortcutHelp[] = [
   { keys: "⌘-click", label: "Open link or file:line in output" },
   { keys: "⌘I", label: "Suggest a command" },
   { keys: "⌘B", label: "Toggle agent panel" },
+  { keys: "⌘\\", label: "Toggle projects sidebar" },
   { keys: "⇧⌘↑ / ⇧⌘↓", label: "Previous / next command block" },
   { keys: "⌘K", label: "Clear pane" },
   { keys: "⌘+ / ⌘- / ⌘0", label: "Font size" },
@@ -88,7 +90,7 @@ export function installShortcuts(): () => void {
     let action: (() => void) | undefined;
     switch (e.code) {
       case "KeyT":
-        if (!shift && !alt) action = () => layout.newTab({ cwd });
+        if (!shift && !alt) action = () => layout.newTab({ cwd, launcher: true });
         break;
       case "KeyD":
         if (pane && !alt) action = () => layout.splitPane(pane, shift ? "column" : "row");
@@ -130,6 +132,9 @@ export function installShortcuts(): () => void {
       case "KeyB":
         if (!shift && !alt) action = () => ui.set({ agentPanelOpen: !ui.agentPanelOpen });
         break;
+      case "Backslash":
+        if (!shift && !alt) action = () => ui.set({ sidebarOpen: !ui.sidebarOpen });
+        break;
       case "KeyK":
         if (!shift && !alt && pane) action = () => clearTerminal(pane);
         break;
@@ -149,7 +154,10 @@ export function installShortcuts(): () => void {
         action = () => ui.set({ fontDelta: 0 });
         break;
       default:
-        if (/^Digit[1-9]$/.test(e.code) && !shift && !alt) {
+        if (shift && !alt && /^Digit[1-3]$/.test(e.code)) {
+          const n = Number(e.code.slice(5));
+          action = () => (n === 3 ? ui.set({ reviewOpen: true }) : ui.set({ mode: n === 1 ? "agents" : "terminals" }));
+        } else if (/^Digit[1-9]$/.test(e.code) && !shift && !alt) {
           const n = Number(e.code.slice(5));
           action = () => layout.activateTabIndex(n === 9 ? -1 : n - 1);
         }

@@ -70,3 +70,25 @@ export const BranchIcon = (p: SVGProps<SVGSVGElement>) => (
 export const PlayIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M5 3.5l7 4.5-7 4.5z" /></svg>
 );
+export const SidebarIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M6 2.5v11" /></svg>
+);
+/** The Aurelia jellyfish from assets/logo.svg, simplified for 16-20px. */
+export const AureliaMark = (p: SVGProps<SVGSVGElement>) => (
+  <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden {...p}>
+    <defs>
+      <linearGradient id="aurelia-gold" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#ffd98a" />
+        <stop offset="0.55" stopColor="#e9b04b" />
+        <stop offset="1" stopColor="#b9792a" />
+      </linearGradient>
+    </defs>
+    <path d="M3 12.2C3 6.9 7 4 12 4s9 2.9 9 8.2c-1.6-.5-2.9.4-4.2-.1-1-.4-1.6.4-2.4.4h-4.8c-.8 0-1.4-.8-2.4-.4-1.3.5-2.6-.4-4.2.1z" fill="url(#aurelia-gold)" />
+    <g fill="none" stroke="url(#aurelia-gold)" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M7 14c-.5 1.8.8 3-.1 5" />
+      <path d="M10.3 14.3c-.5 2 .8 3.2 0 5.7" />
+      <path d="M13.7 14.3c.5 2-.8 3.2 0 5.7" />
+      <path d="M17 14c.5 1.8-.8 3 .1 5" />
+    </g>
+  </svg>
+);

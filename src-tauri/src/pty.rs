@@ -52,11 +52,11 @@ fn build_command(pane_id: &str, cwd: Option<String>, account: Option<String>) ->
     let mut cmd = CommandBuilder::new(&shell);
     cmd.arg("-l");
 
-    let home = config::home_dir();
     let dir = cwd
+        .or_else(|| Some(cfg.default_workspace.clone()).filter(|w| !w.is_empty()))
         .map(|c| config::expand_path(&c))
         .filter(|c| Path::new(c).is_dir())
-        .unwrap_or_else(|| home.to_string_lossy().into_owned());
+        .unwrap_or_else(|| config::home_dir().to_string_lossy().into_owned());
     cmd.cwd(dir);
 
     // Don't leak the environment of whatever launched the app (e.g. a Claude Code

@@ -25,3 +25,10 @@ export function formatDuration(ms: number): string {
   if (m < 60) return `${m}m ${rem.toString().padStart(2, "0")}s`;
   return `${Math.floor(m / 60)}h ${(m % 60).toString().padStart(2, "0")}m`;
 }
+
+/** Inverse of shortenPath for typed input: expands a leading `~`. */
+export function expandPath(p: string): string {
+  const t = p.trim();
+  if (home && (t === "~" || t.startsWith("~/"))) return home + t.slice(1);
+  return t;
+}

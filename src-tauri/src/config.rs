@@ -125,10 +125,14 @@ pub struct Config {
     pub usage_refresh_seconds: u64,
     /// "system" | "light" | "dark"
     pub theme: String,
+    /// Named color palette: "aurelia" | "midnight" | "nord" | "solarized" | "rose-pine" | "catppuccin"
+    pub palette: String,
     pub notifications: bool,
     /// Command used to open files (receives `path[:line[:col]]`); empty = Cursor, then
     /// VS Code, then the default app.
     pub editor: String,
+    /// Folder new panes open in when they have no cwd to inherit.
+    pub default_workspace: String,
     pub terminal: TerminalConfig,
     pub suggestions: SuggestionsConfig,
 }
@@ -140,8 +144,10 @@ impl Default for Config {
             usage_script: "~/.claude/fetch-usage.sh".into(),
             usage_refresh_seconds: 180,
             theme: "system".into(),
+            palette: "aurelia".into(),
             notifications: true,
             editor: String::new(),
+            default_workspace: "~".into(),
             terminal: TerminalConfig::default(),
             suggestions: SuggestionsConfig::default(),
         }

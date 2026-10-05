@@ -5,6 +5,7 @@ import { App } from "./App";
 import { installFileDrop } from "./lib/filedrop";
 import { setHome } from "./lib/format";
 import { ipc } from "./lib/ipc";
+import { applyPaletteVars } from "./lib/palettes";
 import { primeNotifications } from "./lib/notify";
 import { installShortcuts } from "./lib/shortcuts";
 import { applyAppearance } from "./lib/terminals";
@@ -17,11 +18,14 @@ import { loadTasks } from "./store/tasks";
 import { loadUiState, useUi } from "./store/ui";
 import { startUsagePolling } from "./store/usage";
 import "./styles.css";
+import "./launcher.css";
+import "./sidebar.css";
 
 function applyTheme() {
   const cfg = useConfig.getState().config;
   const dark = resolveDark(cfg?.theme ?? "system");
   document.documentElement.dataset.theme = dark ? "dark" : "light";
+  applyPaletteVars(cfg?.palette, dark);
   applyAppearance();
 }
 
@@ -63,8 +67,22 @@ async function boot() {
   primeNotifications();
 
   createRoot(document.getElementById("root")!).render(<App />);
+  hideSplash();
+}
+
+/** Fades out the load-in splash from index.html once the first frame is up, after a minimum show time. */
+function hideSplash() {
+  const splash = document.getElementById("splash");
+  if (!splash) return;
+  const start = (window as { __splashStart?: number }).__splashStart ?? 0;
+  const wait = Math.max(0, 1600 - (performance.now() - start));
+  setTimeout(() => {
+    requestAnimationFrame(() => splash.classList.add("out"));
+    setTimeout(() => splash.remove(), 700);
+  }, wait);
 }
 
 boot().catch((e) => {
+  document.getElementById("splash")?.remove();
   document.body.textContent = `AureliaSpace failed to start: ${e}`;
 });

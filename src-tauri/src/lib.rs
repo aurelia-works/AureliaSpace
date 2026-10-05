@@ -5,6 +5,7 @@ mod integration;
 mod pty;
 mod suggest;
 mod usage;
+mod which;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager, RunEvent};
@@ -96,6 +97,7 @@ pub fn run() {
             suggest::suggest_command,
             suggest::set_api_key,
             suggest::has_api_key,
+            which::which,
         ])
         .build(tauri::generate_context!())
         .expect("error while building AureliaSpace");

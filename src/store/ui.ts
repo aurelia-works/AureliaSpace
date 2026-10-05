@@ -8,9 +8,14 @@ export interface PickerTask {
   title: string;
 }
 
+export type Mode = "agents" | "terminals";
+
 interface UiState {
+  /** Title-bar mode: agent board or the tab/pane view (Review is the diff modal). */
+  mode: Mode;
   agentPanelOpen: boolean;
   filesOpen: boolean;
+  sidebarOpen: boolean;
   settingsOpen: boolean;
   gridOpen: boolean;
   reviewOpen: boolean;
@@ -28,8 +33,10 @@ interface UiState {
 }
 
 export const useUi = create<UiState>((set) => ({
+  mode: "terminals",
   agentPanelOpen: true,
   filesOpen: false,
+  sidebarOpen: true,
   settingsOpen: false,
   gridOpen: false,
   reviewOpen: false,
@@ -43,8 +50,10 @@ export const useUi = create<UiState>((set) => ({
 }));
 
 interface SavedUi {
+  mode?: Mode;
   agentPanelOpen?: boolean;
   filesOpen?: boolean;
+  sidebarOpen?: boolean;
   useWorktree?: boolean;
   fontDelta?: number;
 }
@@ -53,8 +62,10 @@ export async function loadUiState() {
   const saved = await ipc.loadState<SavedUi>("ui").catch(() => null);
   if (saved) {
     useUi.setState({
+      mode: saved.mode === "agents" ? "agents" : "terminals",
       agentPanelOpen: saved.agentPanelOpen ?? true,
       filesOpen: saved.filesOpen ?? false,
+      sidebarOpen: saved.sidebarOpen ?? true,
       useWorktree: saved.useWorktree ?? false,
       fontDelta: saved.fontDelta ?? 0,
     });
@@ -62,8 +73,10 @@ export async function loadUiState() {
   let last = "";
   useUi.subscribe((s) => {
     const next = JSON.stringify({
+      mode: s.mode,
       agentPanelOpen: s.agentPanelOpen,
       filesOpen: s.filesOpen,
+      sidebarOpen: s.sidebarOpen,
       useWorktree: s.useWorktree,
       fontDelta: s.fontDelta,
     });
