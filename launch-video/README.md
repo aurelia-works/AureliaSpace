@@ -8,7 +8,8 @@ A 50-second HyperFrames composition (HTML + GSAP) that recreates the AureliaSpac
 - `src/video.js` contains the whole video. One paused GSAP timeline tweens a clock, and every frame is a pure function of time, so any seek renders the same frame.
 - `TIMING.md` is the timing sheet for cutting music.
 - `storyboard/` holds one still per scene for each cut.
-- `audio/compose.py` generates the original score (about 105.3 BPM, D major, synthesized with numpy, so there's nothing to license). `audio/score-master.wav` is the score normalized to −16 LUFS.
+- `audio/compose.py` generates the score used in the renders: "anthem x soul", an original piece inspired by football-anthem orchestration and soul-sample hip-hop (D minor resolving to D major, 105.33 BPM, synthesized with numpy, with no samples or quoted melodies). `audio/score-master.wav` is that score normalized to −14 LUFS.
+- `audio/compose_ambient.py` and `audio/score-ambient-master.wav` are the earlier calm ambient score (−16 LUFS), kept as an alternate.
 
 ## Commands
 
@@ -20,7 +21,7 @@ npx hyperframes@0.8.125 render vertical -f 60 -q delivery -o renders/aureliaspac
 
 # music: regenerate, normalize, then mux (video stream is copied)
 python3 audio/compose.py   # → audio/score.wav (needs numpy)
-ffmpeg -i audio/score.wav -af "volume=-5.2dB,alimiter=limit=0.84:level=false" audio/score-master.wav
+ffmpeg -i audio/score.wav -af "volume=-6.6dB,alimiter=limit=0.89:level=false" audio/score-master.wav   # → −14 LUFS
 ffmpeg -i renders/aureliaspace-1920x1080-60fps.mp4 -i audio/score-master.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 256k -shortest out.mp4
 
 # stills at given times (Playwright)

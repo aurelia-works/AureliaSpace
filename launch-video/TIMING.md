@@ -67,7 +67,24 @@ Both cuts share one timeline, so every time below applies to both. There's no vo
 
 ## The included score
 
-The renders now include an original score from `audio/compose.py` at 105.33 BPM, so beat 0 is 5.10 s and beat 56 is 37.0 s. A riser leads into the logo, and the pulse comes in at the ⌘G grid split (beat 9). The kick drops out for the worktrees section and returns at ⇧⌘R (beat 44). Bells mark the hits, the three quick cuts land on beats 56, 59 and 62, and the final chord hits at beat 70 (45.0 s). It's mixed to −16 LUFS integrated and fades with the picture. To use your own track, swap it in with the mux command in README.md.
+The renders use "anthem x soul" from `audio/compose.py`. It's an original piece in the spirit of a European football anthem crossed with soul-sample hip-hop, with no melodies or samples taken from any existing track. It runs at 105.33 BPM, so beat 0 is 5.10 s and beat 56 is 37.0 s.
+
+| Time | What the music does |
+|---:|---|
+| 0.45–5.10 | A lo-fi Rhodes plays soul chords through a narrow "old radio" filter, with vinyl crackle. The choir and brass swell and a timpani roll builds |
+| 5.10 | Logo: full orchestral hit (timpani, crash, brass, choir) on D minor 9 |
+| 5.10–10.2 | Anthem bed: string chords and a low-string ostinato that gradually builds |
+| 10.2 | ⌘G: boom-bap drums, bass and chopped Rhodes come in (beat 9) |
+| 17.6 | Attention beat: brass and timpani stab. Chopped "vocal" hook enters |
+| 20.8 | ⌘J stab |
+| 24.0–30.15 | Worktrees breakdown: drums and bass drop out, the choir sings "oo", hats stay soft |
+| 30.15 | ⇧⌘R: everything returns. The ostinato doubles to 16ths |
+| 37.0 / 38.7 / 40.4 | Quick cuts: a stab on each (beats 56, 59, 62) |
+| 42.1 | Pull back: drums out, the choir swells on A, a guitar-style lead solo begins, timpani roll |
+| 45.0 | End card: the lift to D major 9, with choir, brass, strings, and the solo holding a high F♯ |
+| 49.35–50 | Fades with the picture |
+
+It's mixed to −14 LUFS integrated, with 5.5 LU of loudness range and a −4.2 dBFS peak. The earlier calm ambient score is still available as `audio/score-ambient-master.wav`.
 
 ## Cutting music to it
 
