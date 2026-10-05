@@ -138,7 +138,7 @@ kbd {
 .brand-name {
   font-weight: 600;
   font-size: 13px;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   color: var(--text);
   margin-right: 2px;
 }
