@@ -28,6 +28,9 @@ export const CloseIcon = (p: SVGProps<SVGSVGElement>) => (
 export const PlusIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M8 3v10M3 8h10" /></svg>
 );
+export const BellIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 11.5V7a4 4 0 018 0v4.5l1 1H3z" /><path d="M6.6 14a1.5 1.5 0 002.8 0" /></svg>
+);
 export const SparkIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M8 1.8l1.5 4.2 4.3 1.6-4.3 1.6L8 13.4 6.5 9.2 2.2 7.6l4.3-1.6z" /></svg>
 );

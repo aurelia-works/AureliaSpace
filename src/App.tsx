@@ -6,6 +6,7 @@ import { DiffReview } from "./components/DiffReview";
 import { FilesPanel } from "./components/FilesPanel";
 import { GridPicker } from "./components/GridPicker";
 import { LayoutView } from "./components/LayoutView";
+import { NoticeStack } from "./components/Notices";
 import { ProjectsSidebar } from "./components/ProjectsSidebar";
 import { SettingsModal } from "./components/SettingsModal";
 import { TabBar } from "./components/TabBar";
@@ -64,6 +65,7 @@ export function App() {
       <GridPicker />
       <DiffReview />
       <SettingsModal />
+      <NoticeStack />
       <Toast />
     </div>
   );

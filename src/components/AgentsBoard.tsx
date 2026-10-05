@@ -8,6 +8,7 @@ import { tasksForPane, useTasks } from "../store/tasks";
 import { useUi } from "../store/ui";
 import { CacheBadge } from "./CacheBadge";
 import { BranchIcon, SparkIcon } from "./Icons";
+import { MetricsLine, PermissionButtons } from "./SessionExtras";
 import { statusLabel } from "./PaneHeader";
 
 const urgency = { needs_input: 0, working: 1, starting: 2, idle: 3 } as const;
@@ -44,6 +45,8 @@ function Card({ s, now }: { s: AgentSession; now: number }) {
       {task && <span className="board-task">◆ {task.title}</span>}
       {s.status === "working" && s.tool && <span className="board-detail">{s.tool}</span>}
       {s.status === "needs_input" && s.message && <span className="board-detail">{s.message}</span>}
+      {s.status === "needs_input" && <PermissionButtons paneId={s.paneId} />}
+      <MetricsLine paneId={s.paneId} />
     </button>
   );
 }

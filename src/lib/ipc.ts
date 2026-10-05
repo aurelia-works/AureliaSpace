@@ -19,6 +19,7 @@ export interface Config {
   theme: "system" | "light" | "dark";
   palette: string;
   notifications: boolean;
+  hud: { enabled: boolean };
   /** Command that opens `path[:line[:col]]`; empty = Cursor, then VS Code, then default app. */
   editor: string;
   /** Folder new panes open in when they have no cwd to inherit. */
@@ -54,6 +55,17 @@ export interface Usage {
   fiveHourResetsAt: string | null;
   sevenDayResetsAt: string | null;
   updatedAt: number;
+}
+
+export interface TranscriptUsage {
+  id: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_creation_1h_tokens: number;
+  timestamp: string;
 }
 
 export interface GitInfo {
@@ -116,6 +128,9 @@ export const ipc = {
   gitDiff: (cwd: string) => invoke<Diff>("git_diff", { cwd }),
 
   fetchUsage: (account: string, force = false) => invoke<Usage | null>("fetch_usage", { account, force }),
+
+  transcriptUsage: (path: string, offset: number) =>
+    invoke<{ entries: TranscriptUsage[]; offset: number }>("transcript_usage", { path, offset }),
 
   suggestCommand: (request: SuggestRequest) => invoke<string>("suggest_command", { request }),
   setApiKey: (provider: ProviderName, key: string) => invoke<void>("set_api_key", { provider, key }),

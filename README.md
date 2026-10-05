@@ -11,6 +11,11 @@ npm run app:dev     # dev window with hot reload
 npm run app:build   # → src-tauri/target/release/bundle/macos/AureliaSpace.app
 ```
 
+Builds are signed with your "Apple Development" certificate (`bundle.macOS.signingIdentity`;
+in dev, `src-tauri/.cargo/config.toml` runs `scripts/dev-sign.sh`) under the fixed id
+`space.aurelia.terminal`. macOS ties folder-access and Keychain grants to that signature, so
+they survive rebuilds instead of being asked for again on every launch.
+
 ## Shortcuts
 
 | Keys | Action |
@@ -32,6 +37,7 @@ npm run app:build   # → src-tauri/target/release/bundle/macos/AureliaSpace.app
 | ⌘\ | Projects sidebar |
 | ⇧⌘↑ / ⇧⌘↓ | Jump to previous / next command block |
 | ⌘K | Clear |
+| ⇧⌘H | Toggle the floating HUD |
 | ⌥⌘V | Dictate into the focused pane (needs Aurelia Voice) |
 | ⌘+ ⌘- ⌘0 | Font size |
 | ⌘, | Settings |
@@ -59,6 +65,14 @@ npm run app:build   # → src-tauri/target/release/bundle/macos/AureliaSpace.app
   line to `run/agent-events.jsonl`, which the app tails. Background panes send a macOS
   notification when Claude finishes or needs input. Tasks are stored per git root in
   `tasks.json`, and the pin button attaches a task to the focused pane.
+- **Permission prompts**: `src/lib/permissions.ts` reads the bottom of a pane's xterm
+  buffer for Claude Code's numbered Yes / No dialog; Allow / Always / Deny buttons (notice
+  card, agents board, agent panel) type the option's number, or Esc to deny. Screen
+  scraping, so an unrecognised dialog layout simply shows no buttons.
+- **Metrics**: hooks pass `transcript_path`; `transcript.rs` returns usage appended to the
+  JSONL since an offset (restricted to `.claude*/projects/`), and `store/metrics.ts` turns it
+  into context fill, tokens, estimated API-price cost and burn rate. A hot session raises a
+  "Hand off" action that opens a fresh pane seeded with the old transcript's path.
 - **Links**: `src/lib/links.ts`. URLs and file references in output are underlined;
   ⌘-click opens them. Candidate paths are checked for existence (`files.rs`) relative
   to the pane's cwd (Claude's own cwd in agent panes). Files open in the `editor`
@@ -78,6 +92,16 @@ npm run app:build   # → src-tauri/target/release/bundle/macos/AureliaSpace.app
   `qwen2.5-coder:1.5b`), Gemini or OpenRouter free tiers; keys live in the Keychain
   (service `AureliaSpace`). Sends cwd, shell, and the last 5 commands. The last
   command's output is sent only when "last output" is ticked.
+- **Limit forecast**: `src/lib/forecast.ts`, fed by `src/store/usage.ts`. Each usage
+  poll adds a sample; a least-squares fit over the last 45 min (5h window) or 18 h (7d)
+  projects when you reach 100%. If that is before the reset, the meter shows
+  "out in ~1h 40m" and a "limit" notice fires once per window (when under 1 h / 24 h
+  away, or at 90%). History is in memory only.
+- **HUD**: `src-tauri/src/hud.rs` creates a frameless, transparent, always-on-top,
+  non-focusable window (`hud.html`, `src/hud/`) at the top right. It's shown only while
+  enabled in Settings (or ⇧⌘H) and AureliaSpace isn't the focused app. The main window
+  (`src/lib/hudBridge.ts`) pushes snapshots over events and handles Open / Allow /
+  Always / Deny back.
 - **State**: `layout.json` (tabs, splits, cwd and account per pane), `tasks.json`,
   `ui.json`, all in the app support dir.
 

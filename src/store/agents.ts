@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { notify } from "../lib/notify";
 import { useConfig } from "./config";
 import { activeTab, useLayout } from "./layout";
+import { answerPermission, permissionOptions } from "../lib/permissions";
+import { alertUser, useNotices, type NoticeAction } from "./notifications";
 import { useUi } from "./ui";
 
 export type AgentStatus = "starting" | "idle" | "working" | "needs_input";
@@ -12,6 +13,7 @@ export interface AgentSession {
   status: AgentStatus;
   account?: string;
   cwd?: string;
+  transcriptPath?: string;
   message?: string;
   tool?: string;
   /** Finished or needs input while in the background, and not looked at since. */
@@ -33,6 +35,8 @@ export interface AgentEvent {
     notification_type?: string;
     message?: string;
     tool_name?: string;
+    transcript_path?: string;
+    model?: string;
   };
 }
 
@@ -83,6 +87,17 @@ function isBackground(paneId: string): boolean {
   return activeTab()?.focusedPaneId !== paneId;
 }
 
+function permissionActions(paneId: string): NoticeAction[] | undefined {
+  const opts = permissionOptions(paneId);
+  if (!opts) return undefined;
+  const ask = (c: "allow" | "always" | "deny") => () => answerPermission(paneId, c);
+  return [
+    { label: "Allow", tone: "primary", run: ask("allow") },
+    ...(opts.always ? [{ label: "Always", run: ask("always") }] : []),
+    { label: "Deny", tone: "danger" as const, run: ask("deny") },
+  ];
+}
+
 export const label = (s: AgentSession) => {
   const where = s.cwd ? s.cwd.split("/").filter(Boolean).pop() : undefined;
   return [s.account ?? "claude", where].filter(Boolean).join(" · ");
@@ -103,6 +118,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       status,
       account: accountFor(ev.pane, ev.configDir) ?? prev?.account,
       cwd: ev.payload.cwd ?? prev?.cwd,
+      transcriptPath: ev.payload.transcript_path ?? prev?.transcriptPath,
       message: ev.event === "Notification" ? ev.payload.message : status === "working" ? undefined : prev?.message,
       tool: ev.event === "PreToolUse" ? ev.payload.tool_name : status === "working" ? prev?.tool : undefined,
       attention: status === "working" ? false : prev?.attention,
@@ -116,11 +132,30 @@ export const useAgents = create<AgentsState>((set, get) => ({
     if ((finished || asking) && background) next.attention = true;
     set((s) => ({ sessions: { ...s.sessions, [ev.pane]: next } }));
 
-    if (useConfig.getState().config?.notifications === false || !background) return;
+    // Back at work means whatever it was waiting on got answered.
+    if (status === "working") useNotices.getState().resolvePane(ev.pane, ["finished", "needs_input", "permission"]);
     if (finished) {
-      notify(`${label(next)} finished`, "Claude is done and waiting for you.");
+      alertUser({ kind: "finished", key: `finished:${ev.pane}`, paneId: ev.pane, title: `${label(next)} finished`, body: "Claude is done and waiting for you.", reply: true });
     } else if (asking) {
-      notify(`${label(next)} needs input`, next.message || "Claude needs your attention.");
+      const permission = ev.payload.notification_type === "permission_prompt";
+      const notice = (actions?: NoticeAction[]) =>
+        alertUser({
+          kind: permission ? "permission" : "needs_input",
+          key: `ask:${ev.pane}`,
+          paneId: ev.pane,
+          title: `${label(next)} ${permission ? "wants permission" : "needs input"}`,
+          body: next.message || "Claude needs your attention.",
+          reply: !permission,
+          actions,
+          desktop: !actions,
+        });
+      notice();
+      // The dialog renders a moment after the hook fires; once it's on screen, re-post the card with its buttons.
+      if (permission)
+        setTimeout(() => {
+          const actions = get().sessions[ev.pane]?.status === "needs_input" && permissionActions(ev.pane);
+          if (actions) notice(actions);
+        }, 400);
     }
   },
 
@@ -137,6 +172,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
   },
 
   remove(paneId) {
+    useNotices.getState().resolvePane(paneId);
     if (!get().sessions[paneId]) return;
     set((s) => {
       const sessions = { ...s.sessions };

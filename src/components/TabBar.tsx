@@ -4,6 +4,7 @@ import { paneIds, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { useUi } from "../store/ui";
 import { AureliaMark, CloseIcon, DiffIcon, GearIcon, GridIcon, PanelIcon, PlusIcon, SidebarIcon, SparkIcon } from "./Icons";
+import { NoticeBell } from "./Notices";
 import { paneTitle } from "./PaneHeader";
 
 export function TabBar() {
@@ -107,6 +108,7 @@ export function TabBar() {
             {waiting.length} waiting <kbd>⌘J</kbd>
           </button>
         )}
+        <NoticeBell />
         <button className="icon-btn" title="Review changes (⇧⌘R)" onClick={() => ui.set({ reviewOpen: true })}>
           <DiffIcon />
         </button>

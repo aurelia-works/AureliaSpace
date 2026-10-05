@@ -204,6 +204,24 @@ export function writeToPane(paneId: string, data: string) {
   if (entries.get(paneId)?.spawned) ipc.ptyWrite(paneId, data).catch(() => {});
 }
 
+/** Brings a pane into view and gives it keyboard focus, from any mode. */
+export function showPane(paneId: string) {
+  useUi.getState().set({ mode: "terminals" });
+  useLayout.getState().focusPane(paneId);
+  requestAnimationFrame(() => requestAnimationFrame(() => focusTerminal(paneId)));
+}
+
+/** Types a message into a pane as one paste and submits it, without moving focus. */
+export function submitToPane(paneId: string, text: string) {
+  const entry = entries.get(paneId);
+  if (!entry?.spawned) return false;
+  const body = entry.term.modes.bracketedPasteMode ? `\x1b[200~${text}\x1b[201~` : text.replace(/\s*\n\s*/g, " ");
+  writeToPane(paneId, body);
+  // Let the paste land before submitting it.
+  setTimeout(() => writeToPane(paneId, "\r"), 120);
+  return true;
+}
+
 /** Inserts text at the prompt without running it (bracketed paste when available). */
 export function insertAtPrompt(paneId: string, text: string) {
   const entry = entries.get(paneId);

@@ -1,0 +1,3 @@
+# Keep a stable code signature in dev so macOS privacy grants survive rebuilds.
+[target.'cfg(target_os = "macos")']
+runner = "scripts/dev-sign.sh"

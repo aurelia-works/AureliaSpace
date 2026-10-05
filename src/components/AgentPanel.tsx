@@ -11,6 +11,7 @@ import { useUi } from "../store/ui";
 import { useUsage } from "../store/usage";
 import { BranchIcon, CloseIcon, PinIcon, PlayIcon } from "./Icons";
 import { statusLabel } from "./PaneHeader";
+import { MetricsLine, PermissionButtons } from "./SessionExtras";
 import { UsageMeter } from "./UsageMeter";
 
 const urgency: Record<AgentStatus, number> = { needs_input: 0, working: 1, starting: 2, idle: 3 };
@@ -46,6 +47,8 @@ function AgentRow({ s, tabIndex }: { s: AgentSession; tabIndex: number }) {
           )}
           <span className="agent-ago">{when}</span>
         </span>
+        {s.status === "needs_input" && <PermissionButtons paneId={s.paneId} />}
+        <MetricsLine paneId={s.paneId} />
       </span>
     </button>
   );

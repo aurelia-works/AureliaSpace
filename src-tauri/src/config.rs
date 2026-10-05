@@ -137,6 +137,13 @@ pub struct VoiceConfig {
     pub shell_cleanup: bool,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct HudConfig {
+    /// Floating session HUD, shown only while AureliaSpace isn't the focused app.
+    pub enabled: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Config {
@@ -157,6 +164,7 @@ pub struct Config {
     pub suggestions: SuggestionsConfig,
     pub cache: CacheConfig,
     pub voice: VoiceConfig,
+    pub hud: HudConfig,
 }
 
 impl Default for Config {
@@ -174,6 +182,7 @@ impl Default for Config {
             suggestions: SuggestionsConfig::default(),
             cache: CacheConfig::default(),
             voice: VoiceConfig::default(),
+            hud: HudConfig::default(),
         }
     }
 }

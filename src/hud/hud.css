@@ -1,0 +1,161 @@
+/* Floating HUD: the window is transparent, the panel supplies the rounded look. */
+html,
+body,
+#root {
+  background: transparent;
+  overflow: hidden;
+  height: auto;
+  min-height: 0;
+}
+
+.hud-panel {
+  background: var(--chrome);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.hud-head {
+  padding: 8px 10px 7px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  cursor: grab;
+}
+.hud-brand {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.hud-usages {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hud-usage {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hud-acct {
+  color: var(--accent);
+  font-weight: 600;
+}
+.hud-pct b {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.hud-pct b.warn {
+  color: var(--warn);
+}
+.hud-pct b.crit {
+  color: var(--err);
+}
+.hud-pct i {
+  font-style: normal;
+  color: var(--warn);
+  margin-left: 4px;
+}
+
+.hud-rows {
+  max-height: 560px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.hud-row {
+  display: flex;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.hud-row:hover {
+  background: var(--surface-2);
+}
+.hud-row.needs_input {
+  background: var(--accent-soft);
+}
+.hud-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+.hud-dot.working {
+  background: var(--accent);
+}
+.hud-dot.done {
+  background: var(--ok);
+}
+.hud-dot.needs_input {
+  background: var(--warn);
+  animation: hud-pulse 1.3s ease-in-out infinite;
+}
+@keyframes hud-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.hud-main {
+  min-width: 0;
+  flex: 1;
+}
+.hud-title {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 11.5px;
+}
+.hud-folder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-meta {
+  flex: none;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.hud-meta.hot {
+  color: var(--err);
+}
+.hud-text {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-perm {
+  display: flex;
+  gap: 5px;
+  margin-top: 6px;
+}
+.hud-perm button {
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--surface-3);
+}
+.hud-perm button:hover {
+  background: var(--border-strong);
+}
+.hud-perm .primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.hud-perm .danger {
+  color: var(--err);
+}

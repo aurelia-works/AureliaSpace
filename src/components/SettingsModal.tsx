@@ -174,6 +174,10 @@ export function SettingsModal() {
               <input type="checkbox" checked={draft.notifications} onChange={(e) => update((c) => (c.notifications = e.target.checked))} />
               <span>Notify when a background agent finishes or needs input</span>
             </label>
+            <label className="field check">
+              <input type="checkbox" checked={draft.hud?.enabled ?? false} onChange={(e) => update((c) => (c.hud = { ...c.hud, enabled: e.target.checked }))} />
+              <span>Floating HUD of your sessions while you're in other apps (⇧⌘H)</span>
+            </label>
           </section>
 
           <section>

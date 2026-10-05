@@ -1,9 +1,11 @@
 mod config;
 mod files;
 mod git;
+mod hud;
 mod integration;
 mod pty;
 mod suggest;
+mod transcript;
 mod usage;
 mod voice;
 mod which;
@@ -97,6 +99,11 @@ pub fn run() {
             git::create_worktree,
             git::git_diff,
             usage::fetch_usage,
+            hud::hud_show,
+            hud::hud_hide,
+            hud::hud_resize,
+            hud::focus_main,
+            transcript::transcript_usage,
             suggest::suggest_command,
             suggest::set_api_key,
             suggest::has_api_key,
@@ -108,6 +115,11 @@ pub fn run() {
         .expect("error while building AureliaSpace");
 
     app.run(|handle, event| {
+        if let RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } = &event {
+            if label == "main" {
+                hud::close(handle);
+            }
+        }
         if let RunEvent::Exit = event {
             pty::kill_all(&handle.state::<pty::PtyState>());
             voice::cleanup();

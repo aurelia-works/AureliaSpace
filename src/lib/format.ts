@@ -32,3 +32,14 @@ export function expandPath(p: string): string {
   if (home && (t === "~" || t.startsWith("~/"))) return home + t.slice(1);
   return t;
 }
+
+/** 1234 -> "1.2k", 1_200_000 -> "1.2M". */
+export function formatTokens(n: number): string {
+  if (n < 1000) return String(Math.round(n));
+  if (n < 1e6) return `${(n / 1000).toFixed(n < 1e4 ? 1 : 0)}k`;
+  return `${(n / 1e6).toFixed(n < 1e7 ? 2 : 1)}M`;
+}
+
+export function formatCost(usd: number): string {
+  return usd < 0.01 ? "$0.00" : usd < 100 ? `$${usd.toFixed(2)}` : `$${Math.round(usd)}`;
+}

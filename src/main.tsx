@@ -8,22 +8,28 @@ import { setHome } from "./lib/format";
 import { ipc } from "./lib/ipc";
 import { applyPaletteVars } from "./lib/palettes";
 import { primeNotifications } from "./lib/notify";
+import { startHudBridge } from "./lib/hudBridge";
 import { installShortcuts } from "./lib/shortcuts";
 import { applyAppearance } from "./lib/terminals";
 import { onSystemThemeChange, resolveDark } from "./lib/theme";
 import { startVoice } from "./lib/voice";
 import { trackAttention, useAgents, type AgentEvent } from "./store/agents";
+import { trackNoticeFocus } from "./store/notifications";
 import { useConfig } from "./store/config";
 import { startGitPolling } from "./store/git";
 import { serializeLayout, useLayout, type SavedLayout } from "./store/layout";
 import { loadTasks } from "./store/tasks";
 import { loadUiState, useUi } from "./store/ui";
+import { startMetrics } from "./store/metrics";
 import { startUsagePolling } from "./store/usage";
 import "./styles.css";
 import "./launcher.css";
 import "./sidebar.css";
 import "./cache.css";
 import "./voice.css";
+import "./notices.css";
+import "./forecast.css";
+import "./metrics.css";
 
 function applyTheme() {
   const cfg = useConfig.getState().config;
@@ -68,9 +74,12 @@ async function boot() {
   startUsagePolling();
   startGitPolling();
   trackAttention();
+  trackNoticeFocus();
   startCacheWatch();
+  startMetrics();
   startVoice().catch(() => {});
   primeNotifications();
+  startHudBridge().catch(() => {});
 
   createRoot(document.getElementById("root")!).render(<App />);
   hideSplash();

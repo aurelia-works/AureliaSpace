@@ -1,0 +1,11 @@
+/* Limit forecast on usage meters. */
+.meter-eta {
+  color: var(--warn);
+  font-size: 10px;
+}
+.meter.out .meter-fill {
+  background: var(--warn);
+}
+.usage.compact .meter-eta {
+  margin-left: -1px;
+}

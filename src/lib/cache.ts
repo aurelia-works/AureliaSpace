@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { label, useAgents, type AgentSession } from "../store/agents";
 import { useConfig } from "../store/config";
-import { notify } from "./notify";
+import { alertUser } from "../store/notifications";
 
 /** Amber (and the one-time notification) once this fraction of the TTL is left. */
 export const WARN_FRACTION = 0.15;
@@ -61,7 +61,7 @@ export function startCacheWatch() {
   const notified = new Map<string, number>();
   setInterval(() => {
     const cfg = useConfig.getState().config;
-    if (!cfg || cfg.notifications === false) return;
+    if (!cfg) return;
     const t = Date.now();
     const ttl = cacheTtlMs();
     const sessions = useAgents.getState().sessions;
@@ -72,7 +72,13 @@ export function startCacheWatch() {
       if (c.kind !== "warn" || notified.get(s.paneId) === s.lastRequestAt) continue;
       notified.set(s.paneId, s.lastRequestAt!);
       const mins = Math.ceil(c.remainingMs / 60_000);
-      void notify(`${label(s)}: cache cools ${c.remainingMs < 60_000 ? "in under a minute" : `in ${mins} min`}`, "The next message will re-write the whole context at a higher cost.");
+      alertUser({
+        kind: "cache",
+        key: `cache:${s.paneId}`,
+        paneId: s.paneId,
+        title: `${label(s)}: cache cools ${c.remainingMs < 60_000 ? "in under a minute" : `in ${mins} min`}`,
+        body: "The next message will re-write the whole context at a higher cost.",
+      });
     }
   }, 1000);
 }

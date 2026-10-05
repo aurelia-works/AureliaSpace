@@ -13,5 +13,7 @@ export default defineConfig({
   build: {
     target: "safari16",
     chunkSizeWarningLimit: 2000,
+    // The HUD window is a second, lightweight entry (no terminals, no bootstrap).
+    rollupOptions: { input: { main: "index.html", hud: "hud.html" } },
   },
 });
