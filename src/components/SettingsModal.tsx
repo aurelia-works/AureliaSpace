@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ipc, type Config, type ProviderName } from "../lib/ipc";
+import { shortenPath } from "../lib/format";
 import { PALETTES, swatchColors } from "../lib/palettes";
 import { shortcutHelp } from "../lib/shortcuts";
 import { applyAppearance } from "../lib/terminals";
@@ -176,15 +177,51 @@ export function SettingsModal() {
           </section>
 
           <section>
+            <h4>Prompt cache</h4>
+            <div className="seg">
+              {([5, 60] as const).map((m) => (
+                <button key={m} className={(draft.cache?.ttlMinutes ?? 60) === m ? "on" : ""} onClick={() => update((c) => (c.cache = { ...c.cache, ttlMinutes: m }))}>
+                  {m === 5 ? "5 min" : "1 hour"}
+                </button>
+              ))}
+            </div>
+            <p className="hint">How long Claude's prompt cache stays warm after a request; used for the cache timers on panes and the Agents board.</p>
+          </section>
+
+          <section>
+            <h4>Voice</h4>
+            <label className="field check">
+              <input
+                type="checkbox"
+                checked={draft.voice?.shellCleanup ?? false}
+                onChange={(e) => update((c) => (c.voice = { ...c.voice, shellCleanup: e.target.checked }))}
+              />
+              <span>Tidy dictation in shell panes ("dash dash" becomes --, trailing period dropped)</span>
+            </label>
+            <p className="hint">Dictation comes from Aurelia Voice via the mic button or ⌥⌘V. Claude panes always get the raw text.</p>
+          </section>
+
+          <section>
             <h4>Workspace</h4>
             <label className="field">
               <span>Default folder</span>
-              <input
-                value={draft.defaultWorkspace ?? ""}
-                placeholder="~"
-                onChange={(e) => update((c) => (c.defaultWorkspace = e.target.value))}
-                spellCheck={false}
-              />
+              <div className="field-row">
+                <input
+                  value={draft.defaultWorkspace ?? ""}
+                  placeholder="~"
+                  onChange={(e) => update((c) => (c.defaultWorkspace = e.target.value))}
+                  spellCheck={false}
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const picked = await ipc.pickFolder(draft.defaultWorkspace || "~").catch(() => null);
+                    if (picked) update((c) => (c.defaultWorkspace = shortenPath(picked)));
+                  }}
+                >
+                  Choose…
+                </button>
+              </div>
             </label>
             <p className="hint">
               Where new tabs and Claude panes start when there's no folder to inherit, e.g. <code>~/Developer</code>. Splits

@@ -192,6 +192,10 @@ function flushInit(entry: TermEntry) {
   ipc.ptyWrite(entry.paneId, cmd + "\r").catch(() => {});
 }
 
+export function fitAllTerminals() {
+  for (const id of entries.keys()) fitTerminal(id);
+}
+
 export function focusTerminal(paneId: string) {
   entries.get(paneId)?.term.focus();
 }

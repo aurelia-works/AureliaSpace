@@ -5,6 +5,7 @@ mod integration;
 mod pty;
 mod suggest;
 mod usage;
+mod voice;
 mod which;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -66,6 +67,7 @@ pub fn run() {
             }
             config::load(); // writes the default config on first run
             integration::watch_events(app.handle().clone());
+            voice::listen(app.handle().clone());
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| {
                 if event.id() == "settings" {
@@ -75,6 +77,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            files::pick_folder,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_write_binary,
@@ -97,6 +100,8 @@ pub fn run() {
             suggest::suggest_command,
             suggest::set_api_key,
             suggest::has_api_key,
+            voice::voice_toggle,
+            voice::voice_installed,
             which::which,
         ])
         .build(tauri::generate_context!())
@@ -105,6 +110,7 @@ pub fn run() {
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
             pty::kill_all(&handle.state::<pty::PtyState>());
+            voice::cleanup();
         }
     });
 }

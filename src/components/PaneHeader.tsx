@@ -1,11 +1,13 @@
 import { basename, shortenPath } from "../lib/format";
 import { useAgents, type AgentStatus } from "../store/agents";
 import { useGit } from "../store/git";
-import { useLayout } from "../store/layout";
+import { focusedPaneId, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { tasksForPane, useTasks } from "../store/tasks";
 import { useUsage } from "../store/usage";
-import { BranchIcon, CloseIcon, SplitDownIcon, SplitRightIcon } from "./Icons";
+import { toggleVoice, useVoice } from "../lib/voice";
+import { BranchIcon, CloseIcon, MicIcon, SplitDownIcon, SplitRightIcon } from "./Icons";
+import { CacheBadge } from "./CacheBadge";
 import { UsageMeter } from "./UsageMeter";
 
 export const statusLabel: Record<AgentStatus, string> = {
@@ -25,6 +27,8 @@ export function PaneHeader({ paneId }: { paneId: string }) {
   const dir = agent?.cwd ?? pane?.cwd;
   const git = useGit((s) => (dir ? s.info[dir] : undefined));
   const { splitPane, closePane } = useLayout.getState();
+  const voiceInstalled = useVoice((s) => s.installed);
+  const voiceState = useVoice((s) => (focusedPaneId() === paneId ? s.state : "idle"));
   if (!pane) return null;
 
   const attached = tasksForPane(projects, paneId);
@@ -59,6 +63,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
           </span>
         )}
         {agent && agent.status !== "idle" && <span className={`agent-badge ${agent.status}`}>{statusLabel[agent.status]}</span>}
+        {agent && <CacheBadge session={agent} />}
         {agent?.attention && agent.status === "idle" && <span className="agent-badge done">done</span>}
         {task && (
           <span className={`pane-task ${task.status}`} title={`Attached task (${task.status})`}>
@@ -67,7 +72,13 @@ export function PaneHeader({ paneId }: { paneId: string }) {
         )}
       </div>
       <div className="pane-actions">
+        {voiceState !== "idle" && <span className={`voice-dot ${voiceState}`} title={`Dictation: ${voiceState}`} />}
         {account && <UsageMeter usage={usage} compact />}
+        {voiceInstalled && (
+          <button className={`icon-btn mic${voiceState !== "idle" ? " live" : ""}`} title="Dictate (⌥⌘V)" onClick={() => toggleVoice(paneId)}>
+            <MicIcon />
+          </button>
+        )}
         <button className="icon-btn" title="Split right (⌘D)" onClick={() => splitPane(paneId, "row")}>
           <SplitRightIcon />
         </button>

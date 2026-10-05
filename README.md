@@ -32,6 +32,7 @@ npm run app:build   # → src-tauri/target/release/bundle/macos/AureliaSpace.app
 | ⌘\ | Projects sidebar |
 | ⇧⌘↑ / ⇧⌘↓ | Jump to previous / next command block |
 | ⌘K | Clear |
+| ⌥⌘V | Dictate into the focused pane (needs Aurelia Voice) |
 | ⌘+ ⌘- ⌘0 | Font size |
 | ⌘, | Settings |
 

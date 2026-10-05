@@ -2,6 +2,7 @@ import { useAgents, waitingAgents } from "../store/agents";
 import { activeTab, focusedPaneId, paneIds, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
 import { clearTerminal, focusTerminal, getEntry, jumpBlock } from "./terminals";
+import { toggleVoice } from "./voice";
 
 /** Focuses the agent that has waited longest for you (needs input first). */
 export function jumpToWaiting() {
@@ -66,6 +67,7 @@ export const shortcutHelp: ShortcutHelp[] = [
   { keys: "⌘\\", label: "Toggle projects sidebar" },
   { keys: "⇧⌘↑ / ⇧⌘↓", label: "Previous / next command block" },
   { keys: "⌘K", label: "Clear pane" },
+  { keys: "⌥⌘V", label: "Dictate into the focused pane (Aurelia Voice)" },
   { keys: "⌘+ / ⌘- / ⌘0", label: "Font size" },
   { keys: "⌘,", label: "Settings" },
 ];
@@ -134,6 +136,9 @@ export function installShortcuts(): () => void {
         break;
       case "Backslash":
         if (!shift && !alt) action = () => ui.set({ sidebarOpen: !ui.sidebarOpen });
+        break;
+      case "KeyV":
+        if (alt && !shift && pane) action = () => toggleVoice(pane);
         break;
       case "KeyK":
         if (!shift && !alt && pane) action = () => clearTerminal(pane);

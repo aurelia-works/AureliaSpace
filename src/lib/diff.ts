@@ -24,8 +24,12 @@ export function parseDiff(text: string): DiffFile[] {
   let newNo = 0;
   for (const raw of text.split("\n")) {
     if (raw.startsWith("diff --git ")) {
-      const m = raw.match(/^diff --git (\S+) (\S+)$/);
-      file = { path: stripPrefix(m?.[2] ?? raw.slice(11)), status: "modified", binary: false, lines: [], adds: 0, dels: 0 };
+      const rest = raw.slice(11);
+      const m = rest.match(/^(\S+) (\S+)$/);
+      // Paths with spaces: both halves are the same length, so split at the middle.
+      const half = (rest.length - 1) / 2;
+      const guess = Number.isInteger(half) ? rest.slice(half + 1) : rest;
+      file = { path: stripPrefix(m?.[2] ?? guess), status: "modified", binary: false, lines: [], adds: 0, dels: 0 };
       files.push(file);
       continue;
     }
@@ -37,7 +41,7 @@ export function parseDiff(text: string): DiffFile[] {
       file.path = raw.slice(10);
     } else if (raw.startsWith("Binary files")) file.binary = true;
     else if (raw.startsWith("+++ ")) {
-      const p = raw.slice(4);
+      const p = raw.slice(4).replace(/\t$/, "");
       if (p !== "/dev/null") file.path = stripPrefix(p);
     } else if (raw.startsWith("--- ") || raw.startsWith("index ") || raw.startsWith("similarity") || raw.startsWith("rename from")) {
       continue;

@@ -96,3 +96,19 @@ pub fn open_url(url: String) -> Result<(), String> {
     }
     Command::new("open").arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
+
+/// Native "choose folder" dialog via AppleScript (no dialog plugin needed). Returns None on cancel.
+#[tauri::command]
+pub async fn pick_folder(start: Option<String>) -> Option<String> {
+    let mut script = String::from("POSIX path of (choose folder with prompt \"Choose a workspace folder\"");
+    if let Some(dir) = start.map(|s| crate::config::expand_path(&s)).filter(|d| std::path::Path::new(d).is_dir()) {
+        script.push_str(&format!(" default location (POSIX file \"{}\")", dir.replace('\\', "\\\\").replace('"', "\\\"")));
+    }
+    script.push(')');
+    let out = std::process::Command::new("osascript").arg("-e").arg(&script).output().ok()?;
+    if !out.status.success() {
+        return None; // user cancelled
+    }
+    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (!path.is_empty()).then(|| crate::config::expand_path(&path))
+}

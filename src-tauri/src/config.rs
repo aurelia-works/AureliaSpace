@@ -119,6 +119,26 @@ impl Default for TerminalConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct CacheConfig {
+    /// Prompt-cache TTL in minutes: 5 (default API TTL) or 60 (1-hour TTL).
+    pub ttl_minutes: u32,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self { ttl_minutes: 60 }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct VoiceConfig {
+    /// Tidy dictation typed into plain shell panes ("dash dash" -> "--", trailing period dropped).
+    pub shell_cleanup: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct Config {
     pub accounts: Vec<Account>,
     pub usage_script: String,
@@ -135,6 +155,8 @@ pub struct Config {
     pub default_workspace: String,
     pub terminal: TerminalConfig,
     pub suggestions: SuggestionsConfig,
+    pub cache: CacheConfig,
+    pub voice: VoiceConfig,
 }
 
 impl Default for Config {
@@ -150,6 +172,8 @@ impl Default for Config {
             default_workspace: "~".into(),
             terminal: TerminalConfig::default(),
             suggestions: SuggestionsConfig::default(),
+            cache: CacheConfig::default(),
+            voice: VoiceConfig::default(),
         }
     }
 }

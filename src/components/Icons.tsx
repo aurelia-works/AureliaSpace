@@ -19,6 +19,9 @@ export const SplitRightIcon = (p: SVGProps<SVGSVGElement>) => (
 export const SplitDownIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 8h12" /></svg>
 );
+export const MicIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="6" y="1.8" width="4" height="7" rx="2" /><path d="M3.5 7.5a4.5 4.5 0 009 0M8 12v2.2" /></svg>
+);
 export const CloseIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M4 4l8 8M12 4l-8 8" /></svg>
 );
@@ -27,6 +30,9 @@ export const PlusIcon = (p: SVGProps<SVGSVGElement>) => (
 );
 export const SparkIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M8 1.8l1.5 4.2 4.3 1.6-4.3 1.6L8 13.4 6.5 9.2 2.2 7.6l4.3-1.6z" /></svg>
+);
+export const ThermometerIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M6.5 9.4V3.5a1.5 1.5 0 013 0v5.9a3 3 0 11-3 0z" /><path d="M8 6v5" /></svg>
 );
 export const PanelIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M10 2.5v11" /></svg>

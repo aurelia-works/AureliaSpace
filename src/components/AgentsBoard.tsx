@@ -6,6 +6,7 @@ import { useGit } from "../store/git";
 import { useLayout } from "../store/layout";
 import { tasksForPane, useTasks } from "../store/tasks";
 import { useUi } from "../store/ui";
+import { CacheBadge } from "./CacheBadge";
 import { BranchIcon, SparkIcon } from "./Icons";
 import { statusLabel } from "./PaneHeader";
 
@@ -39,6 +40,7 @@ function Card({ s, now }: { s: AgentSession; now: number }) {
           {git.branch}
         </span>
       )}
+      <CacheBadge session={s} />
       {task && <span className="board-task">◆ {task.title}</span>}
       {s.status === "working" && s.tool && <span className="board-detail">{s.tool}</span>}
       {s.status === "needs_input" && s.message && <span className="board-detail">{s.message}</span>}

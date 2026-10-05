@@ -16,6 +16,8 @@ export interface AgentSession {
   tool?: string;
   /** Finished or needs input while in the background, and not looked at since. */
   attention?: boolean;
+  /** Start of the last model request (user prompt or tool result); drives the prompt-cache timer. */
+  lastRequestAt?: number;
   updatedAt: number;
 }
 
@@ -81,7 +83,7 @@ function isBackground(paneId: string): boolean {
   return activeTab()?.focusedPaneId !== paneId;
 }
 
-const label = (s: AgentSession) => {
+export const label = (s: AgentSession) => {
   const where = s.cwd ? s.cwd.split("/").filter(Boolean).pop() : undefined;
   return [s.account ?? "claude", where].filter(Boolean).join(" · ");
 };
@@ -104,6 +106,8 @@ export const useAgents = create<AgentsState>((set, get) => ({
       message: ev.event === "Notification" ? ev.payload.message : status === "working" ? undefined : prev?.message,
       tool: ev.event === "PreToolUse" ? ev.payload.tool_name : status === "working" ? prev?.tool : undefined,
       attention: status === "working" ? false : prev?.attention,
+      // Each prompt and each tool result triggers a new API request that refreshes the cache.
+      lastRequestAt: ev.event === "UserPromptSubmit" || ev.event === "PostToolUse" ? Date.now() : prev?.lastRequestAt,
       updatedAt: Date.now(),
     };
     const finished = ev.event === "Stop" && prev?.status === "working";

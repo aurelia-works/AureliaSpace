@@ -1,0 +1,23 @@
+.voice-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: #d4a84b;
+  animation: voice-pulse 1.1s ease-in-out infinite;
+}
+.voice-dot.transcribing {
+  animation-duration: 0.55s;
+  opacity: 0.8;
+}
+.voice-dot.error {
+  background: #e5534b;
+  animation: none;
+}
+.icon-btn.mic.live {
+  color: #d4a84b;
+}
+@keyframes voice-pulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.45; }
+  50% { transform: scale(1.15); opacity: 1; }
+}

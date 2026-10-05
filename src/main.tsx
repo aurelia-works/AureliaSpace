@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { homeDir } from "@tauri-apps/api/path";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { startCacheWatch } from "./lib/cache";
 import { installFileDrop } from "./lib/filedrop";
 import { setHome } from "./lib/format";
 import { ipc } from "./lib/ipc";
@@ -10,6 +11,7 @@ import { primeNotifications } from "./lib/notify";
 import { installShortcuts } from "./lib/shortcuts";
 import { applyAppearance } from "./lib/terminals";
 import { onSystemThemeChange, resolveDark } from "./lib/theme";
+import { startVoice } from "./lib/voice";
 import { trackAttention, useAgents, type AgentEvent } from "./store/agents";
 import { useConfig } from "./store/config";
 import { startGitPolling } from "./store/git";
@@ -20,6 +22,8 @@ import { startUsagePolling } from "./store/usage";
 import "./styles.css";
 import "./launcher.css";
 import "./sidebar.css";
+import "./cache.css";
+import "./voice.css";
 
 function applyTheme() {
   const cfg = useConfig.getState().config;
@@ -64,6 +68,8 @@ async function boot() {
   startUsagePolling();
   startGitPolling();
   trackAttention();
+  startCacheWatch();
+  startVoice().catch(() => {});
   primeNotifications();
 
   createRoot(document.getElementById("root")!).render(<App />);

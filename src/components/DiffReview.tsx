@@ -163,6 +163,8 @@ export function DiffReview() {
   const load = () => {
     const pane = focusedPaneId();
     const dir = pane ? paneDir(pane) : undefined;
+    setComments({}); // comments are keyed by line index; a reload can shift lines
+    setEditing(null);
     if (!dir) return setState({ error: "The focused pane has no working directory yet." });
     setState(null);
     ipc.gitDiff(dir).then(
@@ -180,13 +182,14 @@ export function DiffReview() {
   }, [open]);
 
   const root = state && "root" in state ? state.root : undefined;
-  const agents = useMemo(() => Object.values(sessions), [sessions]);
+  // A "starting" session is still a shell prompt: pasting + Enter there would run the text as commands.
+  const agents = useMemo(() => Object.values(sessions).filter((a) => a.status !== "starting"), [sessions]);
 
   // Default target: the focused pane if it's an agent, else an agent in the same repo.
   useEffect(() => {
     if (!open) return;
     const focused = focusedPaneId();
-    if (focused && sessions[focused]) return setTarget(focused);
+    if (focused && sessions[focused] && sessions[focused].status !== "starting") return setTarget(focused);
     const sameRepo = agents.find((a) => a.cwd && gitInfo[a.cwd]?.root === root);
     setTarget(sameRepo?.paneId ?? agents[0]?.paneId ?? "");
   }, [open, root]);
@@ -201,6 +204,7 @@ export function DiffReview() {
     // Let the bracketed paste land before submitting it.
     setTimeout(() => writeToPane(target, "\r"), 120);
     close();
+    useUi.getState().set({ mode: "terminals" });
     useLayout.getState().focusPane(target);
     requestAnimationFrame(() => focusTerminal(target));
     toast(`Sent ${list.length} comment${list.length === 1 ? "" : "s"} to Claude`);

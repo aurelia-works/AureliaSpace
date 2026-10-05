@@ -10,7 +10,7 @@ import { ProjectsSidebar } from "./components/ProjectsSidebar";
 import { SettingsModal } from "./components/SettingsModal";
 import { TabBar } from "./components/TabBar";
 import { Toast } from "./components/Toast";
-import { focusTerminal } from "./lib/terminals";
+import { fitAllTerminals, focusTerminal } from "./lib/terminals";
 import { activeTab, useLayout } from "./store/layout";
 import { useUi } from "./store/ui";
 
@@ -23,6 +23,13 @@ export function App() {
   const mode = useUi((s) => s.mode);
   const focusKey = useLayout((s) => `${s.activeTabId}:${s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId}`);
   const modalOpen = useUi((s) => s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen);
+
+  // Panes fit to 0 size while .tabs-area is display:none, so refit on the way back.
+  useEffect(() => {
+    if (mode !== "terminals") return;
+    const id = requestAnimationFrame(fitAllTerminals);
+    return () => cancelAnimationFrame(id);
+  }, [mode]);
 
   // Keyboard focus follows the focused pane.
   useEffect(() => {

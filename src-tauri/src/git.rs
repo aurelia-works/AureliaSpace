@@ -51,7 +51,7 @@ pub fn git_info(cwd: String) -> Option<GitInfo> {
 }
 
 fn git(dir: &Path, args: &[&str]) -> Result<std::process::Output, String> {
-    Command::new("git").arg("-C").arg(dir).args(args).output().map_err(|e| format!("git: {e}"))
+    Command::new("git").arg("-C").arg(dir).args(["-c", "core.quotepath=false"]).args(args).output().map_err(|e| format!("git: {e}"))
 }
 
 fn git_ok(dir: &Path, args: &[&str]) -> Result<String, String> {
@@ -131,8 +131,8 @@ pub fn git_diff(cwd: String) -> Result<Diff, String> {
         Err(_) => git_ok(&top, &base)?, // no commits yet
     };
     let mut diff = tracked;
-    let untracked = git_ok(&top, &["ls-files", "--others", "--exclude-standard"])?;
-    for file in untracked.lines().filter(|l| !l.is_empty()).take(MAX_UNTRACKED) {
+    let untracked = git_ok(&top, &["ls-files", "-z", "--others", "--exclude-standard"])?;
+    for file in untracked.split('\0').filter(|l| !l.is_empty()).take(MAX_UNTRACKED) {
         if fs::metadata(top.join(file)).map(|m| m.len() > MAX_UNTRACKED_BYTES).unwrap_or(true) {
             continue;
         }

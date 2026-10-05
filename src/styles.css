@@ -1713,3 +1713,13 @@ button.primary kbd {
 .toast.error {
   color: var(--err);
 }
+.field-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+}
+.field-row input {
+  flex: 1;
+  min-width: 0;
+}

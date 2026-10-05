@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { basename, expandPath, shortenPath } from "../lib/format";
+import { ipc } from "../lib/ipc";
 import { queueInit } from "../lib/terminals";
 import { useConfig } from "../store/config";
 import { useLayout } from "../store/layout";
@@ -60,6 +61,12 @@ export function StartScreen({ paneId }: { paneId: string }) {
     ...(tools.codex ? [{ key: "codex", label: "Codex", hint: "codex", run: () => start({}, "codex") }] : []),
     ...(tools.gemini ? [{ key: "gemini", label: "Gemini CLI", hint: "gemini", run: () => start({}, "gemini") }] : []),
   ];
+
+  const browseFolder = async () => {
+    const picked = await ipc.pickFolder(folder).catch(() => null);
+    if (picked) updatePane(paneId, { cwd: picked });
+    rootRef.current?.focus();
+  };
 
   const applyFolder = () => {
     const p = expandPath(draft);
@@ -124,7 +131,10 @@ export function StartScreen({ paneId }: { paneId: string }) {
                   setEditing(true);
                 }}
               >
-                Change folder…
+                Type path…
+              </button>
+              <button className="start-link" onClick={browseFolder}>
+                Choose folder…
               </button>
             </>
           )}

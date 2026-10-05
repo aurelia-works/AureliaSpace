@@ -38,6 +38,14 @@ export interface Config {
     gemini: ProviderConfig;
     openrouter: ProviderConfig;
   };
+  cache: {
+    /** Prompt-cache TTL in minutes: 5 or 60. */
+    ttlMinutes: number;
+  };
+  voice: {
+    /** Tidy dictation typed into plain shell panes (never Claude panes). */
+    shellCleanup: boolean;
+  };
 }
 
 export interface Usage {
@@ -94,6 +102,7 @@ export const ipc = {
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
   loadState: <T>(name: "layout" | "tasks" | "ui") => invoke<T | null>("load_state", { name }),
   saveState: (name: "layout" | "tasks" | "ui", value: unknown) => invoke<void>("save_state", { name, value }),
+  pickFolder: (start?: string) => invoke<string | null>("pick_folder", { start: start ?? null }),
   revealConfig: (file: boolean) => invoke<void>("reveal_config", { file }),
   projectRoot: (cwd: string) => invoke<string>("project_root", { cwd }),
 
@@ -111,4 +120,7 @@ export const ipc = {
   suggestCommand: (request: SuggestRequest) => invoke<string>("suggest_command", { request }),
   setApiKey: (provider: ProviderName, key: string) => invoke<void>("set_api_key", { provider, key }),
   hasApiKey: (provider: ProviderName) => invoke<boolean>("has_api_key", { provider }),
+
+  voiceToggle: () => invoke<void>("voice_toggle"),
+  voiceInstalled: () => invoke<boolean>("voice_installed"),
 };
