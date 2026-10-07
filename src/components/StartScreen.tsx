@@ -1,3 +1,4 @@
+import { accountForFolder } from "../lib/handoff";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { basename, expandPath, shortenPath } from "../lib/format";
@@ -5,6 +6,8 @@ import { ipc } from "../lib/ipc";
 import { queueInit } from "../lib/terminals";
 import { useConfig } from "../store/config";
 import { useLayout } from "../store/layout";
+import { useRecents } from "../store/recents";
+import { useUi } from "../store/ui";
 
 /** Which optional CLIs are installed; resolved once per session. */
 let toolsCache: Promise<Record<string, boolean>> | undefined;
@@ -28,6 +31,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const cwd = useLayout((s) => s.panes[paneId]?.cwd);
   const accounts = useConfig((s) => s.config?.accounts ?? []);
+  const recents = useRecents((s) => s.folders);
   const workspace = useConfig((s) => s.config?.defaultWorkspace);
   const [tools, setTools] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState(false);
@@ -43,6 +47,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
   }, []);
 
   const folder = cwd || workspace || "~";
+  const preferred = accountForFolder(cwd || workspace);
   const { updatePane } = useLayout.getState();
   const start = (patch: { account?: string }, command?: string) => {
     if (command) queueInit(paneId, command);
@@ -50,9 +55,10 @@ export function StartScreen({ paneId }: { paneId: string }) {
   };
 
   const choices: Choice[] = [
-    ...accounts.map((a) => ({
+    // The folder's preferred account (workspace override, else the default) comes first.
+    ...[...accounts].sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred)).map((a) => ({
       key: `acct-${a.name}`,
-      label: `Claude · ${a.name}`,
+      label: `Claude · ${a.name}${a.name === preferred ? " (default)" : ""}`,
       hint: shortenPath(a.configDir),
       accent: true,
       run: () => start({ account: a.name }),
@@ -60,7 +66,14 @@ export function StartScreen({ paneId }: { paneId: string }) {
     { key: "terminal", label: "Terminal", hint: "plain shell", run: () => start({}) },
     ...(tools.codex ? [{ key: "codex", label: "Codex", hint: "codex", run: () => start({}, "codex") }] : []),
     ...(tools.gemini ? [{ key: "gemini", label: "Gemini CLI", hint: "gemini", run: () => start({}, "gemini") }] : []),
+    {
+      key: "more",
+      label: "More agents…",
+      hint: "launch several CLIs at once",
+      run: () => useUi.getState().set({ accountPicker: { target: "tab" } }),
+    },
   ];
+  const quickOpen = recents.filter((r) => r !== folder).slice(0, 5);
 
   const browseFolder = async () => {
     const picked = await ipc.pickFolder(folder).catch(() => null);
@@ -139,6 +152,22 @@ export function StartScreen({ paneId }: { paneId: string }) {
             </>
           )}
         </div>
+        {quickOpen.length > 0 && (
+          <div className="start-recents">
+            <h4>Recent folders</h4>
+            {quickOpen.map((r) => (
+              <div key={r} className="recent-row">
+                <button className="recent-open" onClick={() => updatePane(paneId, { cwd: r })} title={`Start in ${r}`}>
+                  <span className="recent-name">{basename(r)}</span>
+                  <span className="recent-path">{shortenPath(r)}</span>
+                </button>
+                <button className="icon-btn recent-del" onClick={() => useRecents.getState().remove(r)} title="Remove from recents">
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="start-foot">
           <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>↵</kbd> terminal
         </div>

@@ -1,6 +1,7 @@
 import { useAgents, waitingAgents } from "../store/agents";
 import { activeTab, focusedPaneId, paneIds, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
+import { openInBrowserPane } from "./browser";
 import { toggleHud } from "./hudBridge";
 import { clearTerminal, focusTerminal, getEntry, jumpBlock } from "./terminals";
 import { toggleVoice } from "./voice";
@@ -65,6 +66,7 @@ export const shortcutHelp: ShortcutHelp[] = [
   { keys: "⌘-click", label: "Open link or file:line in output" },
   { keys: "⌘I", label: "Suggest a command" },
   { keys: "⌘B", label: "Toggle agent panel" },
+  { keys: "⇧⌘B", label: "Open browser pane (reuses one in the tab)" },
   { keys: "⌘\\", label: "Toggle projects sidebar" },
   { keys: "⇧⌘↑ / ⇧⌘↓", label: "Previous / next command block" },
   { keys: "⌘K", label: "Clear pane" },
@@ -135,6 +137,7 @@ export function installShortcuts(): () => void {
         break;
       case "KeyB":
         if (!shift && !alt) action = () => ui.set({ agentPanelOpen: !ui.agentPanelOpen });
+        else if (shift && !alt) action = () => openInBrowserPane(pane, "");
         break;
       case "Backslash":
         if (!shift && !alt) action = () => ui.set({ sidebarOpen: !ui.sidebarOpen });

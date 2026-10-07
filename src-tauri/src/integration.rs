@@ -55,6 +55,7 @@ fn claude_settings(hook_path: &str) -> Value {
             "PostToolUse": cmd("PostToolUse"),
             "Notification": plain("Notification"),
             "Stop": plain("Stop"),
+            "StopFailure": plain("StopFailure"),
             "SessionEnd": plain("SessionEnd")
         }
     })

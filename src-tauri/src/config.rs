@@ -146,6 +146,23 @@ pub struct HudConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct DiscordConfig {
+    /// Discord Rich Presence; on by default, like a game's.
+    pub enabled: bool,
+    /// Unused: AureliaSpace ships its own Discord application. Kept so old configs parse.
+    pub client_id: String,
+    /// Show "Working in a project" instead of the project name.
+    pub hide_project: bool,
+}
+
+impl Default for DiscordConfig {
+    fn default() -> Self {
+        Self { enabled: true, client_id: String::new(), hide_project: false }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct Config {
     pub accounts: Vec<Account>,
     pub usage_script: String,
@@ -165,6 +182,11 @@ pub struct Config {
     pub cache: CacheConfig,
     pub voice: VoiceConfig,
     pub hud: HudConfig,
+    pub discord: DiscordConfig,
+    /// Account new Claude panes use when none is chosen; empty = ask.
+    pub default_account: String,
+    /// Folder -> account name; wins over `default_account` for panes in that folder.
+    pub workspace_accounts: std::collections::HashMap<String, String>,
 }
 
 impl Default for Config {
@@ -183,6 +205,9 @@ impl Default for Config {
             cache: CacheConfig::default(),
             voice: VoiceConfig::default(),
             hud: HudConfig::default(),
+            discord: DiscordConfig::default(),
+            default_account: String::new(),
+            workspace_accounts: Default::default(),
         }
     }
 }
@@ -246,7 +271,7 @@ fn write_json(path: &Path, value: &Value) -> Result<(), String> {
 /// Only these state files may be read/written from the frontend.
 fn state_path(name: &str) -> Result<PathBuf, String> {
     match name {
-        "layout" | "tasks" | "ui" => Ok(app_dir().join(format!("{name}.json"))),
+        "layout" | "tasks" | "ui" | "recents" => Ok(app_dir().join(format!("{name}.json"))),
         _ => Err(format!("unknown state file: {name}")),
     }
 }
@@ -256,8 +281,29 @@ pub fn get_config() -> Config {
     load()
 }
 
+/// Trims and checks accounts so a bad edit can't leave panes pointing at a missing or duplicated account.
+fn validate_accounts(accounts: &mut [Account]) -> Result<(), String> {
+    if accounts.is_empty() {
+        return Err("at least one account is required".into());
+    }
+    for a in accounts.iter_mut() {
+        a.name = a.name.trim().to_string();
+        a.config_dir = a.config_dir.trim().to_string();
+        if a.name.is_empty() || a.config_dir.is_empty() {
+            return Err("every account needs a name and a config folder".into());
+        }
+    }
+    for (i, a) in accounts.iter().enumerate() {
+        if accounts[..i].iter().any(|b| b.name.eq_ignore_ascii_case(&a.name)) {
+            return Err(format!("duplicate account name '{}'", a.name));
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
-pub fn save_config(config: Config) -> Result<(), String> {
+pub fn save_config(mut config: Config) -> Result<(), String> {
+    validate_accounts(&mut config.accounts)?;
     write_json(&config_path(), &serde_json::to_value(&config).map_err(|e| e.to_string())?)
 }
 

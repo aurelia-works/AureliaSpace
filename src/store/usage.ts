@@ -3,6 +3,7 @@ import { FORECAST_5H, FORECAST_7D, forecast, trimAfterReset, type Forecast, type
 import { ipc, type Usage } from "../lib/ipc";
 import { useConfig } from "./config";
 import { useLayout } from "./layout";
+import { offerForAccount } from "../lib/limits";
 import { alertUser } from "./notifications";
 
 export type WindowId = "5h" | "7d";
@@ -53,6 +54,8 @@ function track(account: string, u: Usage): Forecasts {
     const period = `${account}:${w.id}:${resetAt === null ? "" : Math.round(resetAt / 3600_000)}`;
     if (pct !== null && (hot || soon) && !alerted.has(period)) {
       alerted.add(period);
+      // At the cap, panes still working on this account get a "continue elsewhere" card instead.
+      if (pct >= 100 && offerForAccount(account) > 0) continue;
       const left = resetAt === null ? "" : ` Resets in ${formatReset(w.reset(u))}.`;
       alertUser({
         kind: "limit",

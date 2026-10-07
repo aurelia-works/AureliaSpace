@@ -3,16 +3,14 @@ import { basename, shortenPath } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { focusTerminal } from "../lib/terminals";
 import { useAgents, type AgentSession, type AgentStatus } from "../store/agents";
-import { useConfig } from "../store/config";
 import { useGit } from "../store/git";
 import { paneIds, useLayout } from "../store/layout";
+import { useRecents } from "../store/recents";
 import { useTasks, type Task, type TaskStatus } from "../store/tasks";
 import { useUi } from "../store/ui";
-import { useUsage } from "../store/usage";
 import { BranchIcon, CloseIcon, PinIcon, PlayIcon } from "./Icons";
 import { statusLabel } from "./PaneHeader";
 import { MetricsLine, PermissionButtons } from "./SessionExtras";
-import { UsageMeter } from "./UsageMeter";
 
 const urgency: Record<AgentStatus, number> = { needs_input: 0, working: 1, starting: 2, idle: 3 };
 
@@ -194,41 +192,28 @@ function Tasks() {
   );
 }
 
-function Accounts() {
-  const accounts = useConfig((s) => s.config?.accounts ?? []);
-  const usage = useUsage((s) => s.usage);
-  const fetchedAt = useUsage((s) => s.fetchedAt);
-  const refreshSecs = useConfig((s) => s.config?.usageRefreshSeconds ?? 180);
-  useEffect(() => {
-    const tick = () => {
-      const { refresh, fetchedAt } = useUsage.getState();
-      accounts.forEach((a) => {
-        if (Date.now() - (fetchedAt[a.name] ?? 0) > refreshSecs * 1000) refresh(a.name);
-      });
-    };
-    tick();
-    const id = setInterval(tick, 30_000);
-    return () => clearInterval(id);
-  }, [accounts, refreshSecs]);
-
+function Recents() {
+  const folders = useRecents((s) => s.folders);
   return (
     <section className="panel-section">
       <h3>
-        Accounts
-        <button
-          className="link-btn"
-          onClick={() => accounts.forEach((a) => useUsage.getState().refresh(a.name, true))}
-          title="Refresh usage now"
-        >
-          refresh
-        </button>
+        Recent folders <span className="count">{folders.length}</span>
       </h3>
-      {accounts.map((a) => (
-        <div key={a.name} className="account-row" title={a.configDir}>
-          <span className="account-chip">{a.name}</span>
-          <UsageMeter usage={fetchedAt[a.name] ? usage[a.name] : undefined} />
-        </div>
-      ))}
+      {folders.length === 0 ? (
+        <p className="empty">Folders you work in show up here.</p>
+      ) : (
+        folders.map((f) => (
+          <div key={f} className="recent-row">
+            <button className="recent-open" onClick={() => useLayout.getState().newTab({ launcher: true, cwd: f })} title={`Open ${f} in a new tab`}>
+              <span className="recent-name">{basename(f)}</span>
+              <span className="recent-path">{shortenPath(f)}</span>
+            </button>
+            <button className="icon-btn recent-del" onClick={() => useRecents.getState().remove(f)} title="Remove from recents">
+              <CloseIcon width={11} height={11} />
+            </button>
+          </div>
+        ))
+      )}
     </section>
   );
 }
@@ -238,7 +223,7 @@ export function AgentPanel() {
     <aside className="agent-panel">
       <Agents />
       <Tasks />
-      <Accounts />
+      <Recents />
     </aside>
   );
 }

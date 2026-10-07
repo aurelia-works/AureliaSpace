@@ -177,7 +177,7 @@ function spawn(entry: TermEntry, cols: number, rows: number) {
   const onData = new Channel<ArrayBuffer>();
   onData.onmessage = (buf) => entry.term.write(new Uint8Array(buf));
   ipc
-    .ptySpawn({ paneId: entry.paneId, cwd: pane?.cwd, account: pane?.account, cols, rows, onData })
+    .ptySpawn({ paneId: entry.paneId, cwd: pane?.cwd, account: pane?.account, env: pane?.env, secretEnv: pane?.secretEnv, cols, rows, onData })
     .catch((err) => {
       entry.term.write(`\r\n\x1b[31m[AureliaSpace] could not start shell: ${err}\x1b[0m\r\n`);
     });
@@ -190,6 +190,22 @@ function flushInit(entry: TermEntry) {
   if (!cmd || !entry.spawned) return;
   entry.pendingInit = undefined;
   ipc.ptyWrite(entry.paneId, cmd + "\r").catch(() => {});
+}
+
+/**
+ * Restarts a pane's shell so it picks up the pane's current account and cwd, then
+ * types `init` at its first prompt. The old process is killed without a pty-exit event.
+ */
+export function respawnPane(paneId: string, init: string): boolean {
+  const entry = entries.get(paneId);
+  if (!entry) return false;
+  ipc.ptyKill(paneId).catch(() => {});
+  entry.pendingInit = init;
+  entry.spawned = false;
+  entry.sentSize = undefined;
+  entry.term.write("\r\n\x1b[2m[AureliaSpace] switching account…\x1b[0m\r\n");
+  fitTerminal(paneId);
+  return true;
 }
 
 export function fitAllTerminals() {

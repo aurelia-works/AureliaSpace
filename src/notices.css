@@ -259,3 +259,37 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Pane account chip: switch the session to another account */
+.account-chip.switchable { cursor: pointer; border: 0; font: inherit; }
+.account-chip.switchable:hover { filter: brightness(1.2); }
+.account-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 190px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+.account-menu-head { padding: 4px 8px; font-size: 11px; color: var(--text-dim); opacity: 0.7; }
+.account-menu button {
+  color: var(--text);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.account-menu button:hover { background: var(--surface-3); }
+.account-menu button.on { font-weight: 600; }
+.account-room { opacity: 0.6; font-size: 11px; }

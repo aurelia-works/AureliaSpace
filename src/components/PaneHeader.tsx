@@ -1,4 +1,5 @@
 import { basename, shortenPath } from "../lib/format";
+import { openInBrowserPane } from "../lib/browser";
 import { useAgents, type AgentStatus } from "../store/agents";
 import { useGit } from "../store/git";
 import { focusedPaneId, useLayout } from "../store/layout";
@@ -7,6 +8,7 @@ import { tasksForPane, useTasks } from "../store/tasks";
 import { useUsage } from "../store/usage";
 import { toggleVoice, useVoice } from "../lib/voice";
 import { BranchIcon, CloseIcon, MicIcon, SplitDownIcon, SplitRightIcon } from "./Icons";
+import { AccountSwitch } from "./AccountSwitch";
 import { CacheBadge } from "./CacheBadge";
 import { UsageMeter } from "./UsageMeter";
 
@@ -31,6 +33,27 @@ export function PaneHeader({ paneId }: { paneId: string }) {
   const voiceState = useVoice((s) => (focusedPaneId() === paneId ? s.state : "idle"));
   if (!pane) return null;
 
+  if (pane.browser) {
+    return (
+      <div className="pane-header">
+        <div className="pane-title">
+          <span className="pane-path">🌐 {pane.browser.url ? hostOf(pane.browser.url) : "Browser"}</span>
+        </div>
+        <div className="pane-actions">
+          <button className="icon-btn" title="Split right (⌘D)" onClick={() => splitPane(paneId, "row")}>
+            <SplitRightIcon />
+          </button>
+          <button className="icon-btn" title="Split down (⇧⌘D)" onClick={() => splitPane(paneId, "column")}>
+            <SplitDownIcon />
+          </button>
+          <button className="icon-btn" title="Close pane (⌘W)" onClick={() => closePane(paneId)}>
+            <CloseIcon />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const attached = tasksForPane(projects, paneId);
   const task = attached.find((t) => t.status === "doing") ?? attached[0];
   const running = runtime?.running;
@@ -43,7 +66,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
         ) : (
           <span className={`status-dot shell${running ? " busy" : ""}`} />
         )}
-        {account && <span className="account-chip">{account}</span>}
+        {account && (agent || pane.account ? <AccountSwitch paneId={paneId} account={account} /> : <span className="account-chip">{account}</span>)}
         <span className="pane-path" title={dir}>
           {shortenPath(dir) || "~"}
         </span>
@@ -79,6 +102,9 @@ export function PaneHeader({ paneId }: { paneId: string }) {
             <MicIcon />
           </button>
         )}
+        <button className="icon-btn" title="Open browser pane (⇧⌘B)" onClick={() => openInBrowserPane(paneId, "")}>
+          🌐
+        </button>
         <button className="icon-btn" title="Split right (⌘D)" onClick={() => splitPane(paneId, "row")}>
           <SplitRightIcon />
         </button>
@@ -91,6 +117,14 @@ export function PaneHeader({ paneId }: { paneId: string }) {
       </div>
     </div>
   );
+}
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
 }
 
 export function paneTitle(cwd: string | undefined, running: string | undefined): string {

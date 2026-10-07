@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { useConfig } from "./config";
 import { activeTab, useLayout } from "./layout";
+import { onStopFailure } from "../lib/limits";
 import { answerPermission, permissionOptions } from "../lib/permissions";
 import { alertUser, useNotices, type NoticeAction } from "./notifications";
 import { useUi } from "./ui";
@@ -37,6 +38,10 @@ export interface AgentEvent {
     tool_name?: string;
     transcript_path?: string;
     model?: string;
+    /** StopFailure: "rate_limit", "billing_error", ... */
+    error?: string;
+    error_details?: string;
+    last_assistant_message?: string;
   };
 }
 
@@ -66,6 +71,7 @@ function statusFor(ev: AgentEvent, prev?: AgentStatus): AgentStatus | null {
     case "PostToolUse":
       return "working";
     case "Stop":
+    case "StopFailure":
       return "idle";
     case "Notification": {
       const type = ev.payload.notification_type ?? "";
@@ -131,6 +137,8 @@ export const useAgents = create<AgentsState>((set, get) => ({
     const background = isBackground(ev.pane);
     if ((finished || asking) && background) next.attention = true;
     set((s) => ({ sessions: { ...s.sessions, [ev.pane]: next } }));
+
+    if (ev.event === "StopFailure") onStopFailure(ev.pane, ev.payload);
 
     // Back at work means whatever it was waiting on got answered.
     if (status === "working") useNotices.getState().resolvePane(ev.pane, ["finished", "needs_input", "permission"]);

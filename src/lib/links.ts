@@ -2,6 +2,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import type { ILink, Terminal } from "@xterm/xterm";
 import { useAgents } from "../store/agents";
 import { useLayout } from "../store/layout";
+import { isLocalUrl, openInBrowserPane } from "./browser";
 import { ipc } from "./ipc";
 
 /**
@@ -57,7 +58,10 @@ function paneCwd(paneId: string) {
 export function installLinks(term: Terminal, paneId: string) {
   term.loadAddon(
     new WebLinksAddon((event, uri) => {
-      if (event.metaKey) ipc.openUrl(uri).catch(() => {});
+      if (!event.metaKey) return;
+      // localhost links preview in a browser pane; hold ⌥ for the external browser.
+      if (isLocalUrl(uri) && !event.altKey) openInBrowserPane(paneId, uri);
+      else ipc.openUrl(uri).catch(() => {});
     }),
   );
 

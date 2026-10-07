@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Commands you run in AureliaSpace may control other apps.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Commands you run in AureliaSpace may use the microphone.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Commands you run in AureliaSpace may use the camera.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Commands you run in AureliaSpace may read files on your Desktop.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Commands you run in AureliaSpace may read files in Documents.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Commands you run in AureliaSpace may read files in Downloads.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Commands you run in AureliaSpace may read files on network volumes.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Commands you run in AureliaSpace may read files on removable volumes.</string>
+</dict>
+</plist>

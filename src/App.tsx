@@ -8,7 +8,7 @@ import { GridPicker } from "./components/GridPicker";
 import { LayoutView } from "./components/LayoutView";
 import { NoticeStack } from "./components/Notices";
 import { ProjectsSidebar } from "./components/ProjectsSidebar";
-import { SettingsModal } from "./components/SettingsModal";
+import { SettingsPage } from "./components/settings/SettingsPage";
 import { TabBar } from "./components/TabBar";
 import { Toast } from "./components/Toast";
 import { fitAllTerminals, focusTerminal } from "./lib/terminals";
@@ -64,7 +64,7 @@ export function App() {
       <AccountPicker />
       <GridPicker />
       <DiffReview />
-      <SettingsModal />
+      <SettingsPage />
       <NoticeStack />
       <Toast />
     </div>

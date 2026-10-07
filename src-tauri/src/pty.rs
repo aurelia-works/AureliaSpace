@@ -46,7 +46,13 @@ fn default_shell(cfg: &config::Config) -> String {
     std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/zsh".into())
 }
 
-fn build_command(pane_id: &str, cwd: Option<String>, account: Option<String>) -> Result<CommandBuilder, String> {
+fn build_command(
+    pane_id: &str,
+    cwd: Option<String>,
+    account: Option<String>,
+    env: Option<HashMap<String, String>>,
+    secret_env: Option<HashMap<String, String>>,
+) -> Result<CommandBuilder, String> {
     let cfg = config::load();
     let shell = default_shell(&cfg);
     let mut cmd = CommandBuilder::new(&shell);
@@ -96,6 +102,10 @@ fn build_command(pane_id: &str, cwd: Option<String>, account: Option<String>) ->
         }
         cmd.env("AURELIA_ACCOUNT", &acct.name);
     }
+    // Agent CLI settings (e.g. an API key from the Keychain) go in last so they win.
+    for (k, v) in crate::agents::resolve_env(env, secret_env)? {
+        cmd.env(k, v);
+    }
     Ok(cmd)
 }
 
@@ -107,6 +117,8 @@ pub fn pty_spawn(
     pane_id: String,
     cwd: Option<String>,
     account: Option<String>,
+    env: Option<HashMap<String, String>>,
+    secret_env: Option<HashMap<String, String>>,
     cols: u16,
     rows: u16,
     on_data: Channel<InvokeResponseBody>,
@@ -119,7 +131,7 @@ pub fn pty_spawn(
     let pair = native_pty_system()
         .openpty(PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 })
         .map_err(|e| e.to_string())?;
-    let cmd = build_command(&pane_id, cwd, account)?;
+    let cmd = build_command(&pane_id, cwd, account, env, secret_env)?;
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave); // so the reader sees EOF when the shell exits
 

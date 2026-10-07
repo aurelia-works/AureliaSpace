@@ -3,6 +3,7 @@ import { homeDir } from "@tauri-apps/api/path";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { startCacheWatch } from "./lib/cache";
+import { startDiscord } from "./lib/discord";
 import { installFileDrop } from "./lib/filedrop";
 import { setHome } from "./lib/format";
 import { ipc } from "./lib/ipc";
@@ -14,10 +15,11 @@ import { applyAppearance } from "./lib/terminals";
 import { onSystemThemeChange, resolveDark } from "./lib/theme";
 import { startVoice } from "./lib/voice";
 import { trackAttention, useAgents, type AgentEvent } from "./store/agents";
-import { trackNoticeFocus } from "./store/notifications";
+import { trackNoticeFocus, useNotices } from "./store/notifications";
 import { useConfig } from "./store/config";
 import { startGitPolling } from "./store/git";
 import { serializeLayout, useLayout, type SavedLayout } from "./store/layout";
+import { loadRecents } from "./store/recents";
 import { loadTasks } from "./store/tasks";
 import { loadUiState, useUi } from "./store/ui";
 import { startMetrics } from "./store/metrics";
@@ -25,6 +27,7 @@ import { startUsagePolling } from "./store/usage";
 import "./styles.css";
 import "./launcher.css";
 import "./sidebar.css";
+import "./settings.css";
 import "./cache.css";
 import "./voice.css";
 import "./notices.css";
@@ -53,7 +56,7 @@ function persistLayout() {
 async function boot() {
   await useConfig.getState().load();
   setHome(await homeDir().catch(() => ""));
-  await Promise.all([loadUiState(), loadTasks()]);
+  await Promise.all([loadUiState(), loadTasks(), loadRecents()]);
   const saved = await ipc.loadState<SavedLayout>("layout").catch(() => null);
   useLayout.getState().hydrate(saved);
   persistLayout();
@@ -80,9 +83,28 @@ async function boot() {
   startVoice().catch(() => {});
   primeNotifications();
   startHudBridge().catch(() => {});
+  startDiscord();
+  checkFullDiskAccess();
 
   createRoot(document.getElementById("root")!).render(<App />);
   hideSplash();
+}
+
+/** Without Full Disk Access, commands run in the terminals trigger a macOS prompt per
+ *  folder, and "access data from other apps" comes back every launch. */
+async function checkFullDiskAccess() {
+  if (await ipc.hasFullDiskAccess().catch(() => true)) return;
+  useNotices.getState().push({
+    kind: "info",
+    key: "full-disk-access",
+    sticky: true,
+    title: "Give AureliaSpace Full Disk Access",
+    body: "Stops the repeated macOS permission popups. Turn on AureliaSpace in the list, then reopen the app.",
+    actions: [
+      { label: "Open Settings", tone: "primary", run: () => void ipc.openFullDiskAccessSettings() },
+      { label: "Not now", run: () => {} },
+    ],
+  });
 }
 
 /** Fades out the load-in splash from index.html once the first frame is up, after a minimum show time. */

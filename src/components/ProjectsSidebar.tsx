@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { basename } from "../lib/format";
 import { focusTerminal } from "../lib/terminals";
-import { resolveDark } from "../lib/theme";
 import { useAgents } from "../store/agents";
 import { useConfig } from "../store/config";
 import { paneDir, useGit } from "../store/git";
@@ -11,18 +10,6 @@ import { useUi } from "../store/ui";
 import { useUsage } from "../store/usage";
 import { GearIcon, PlusIcon } from "./Icons";
 import { UsageMeter } from "./UsageMeter";
-
-const SunIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-    <circle cx="8" cy="8" r="2.8" />
-    <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" />
-  </svg>
-);
-const MoonIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M13 9.6A5.5 5.5 0 0 1 6.4 3 5.5 5.5 0 1 0 13 9.6z" />
-  </svg>
-);
 
 interface Project {
   root: string;
@@ -78,7 +65,6 @@ export function ProjectsSidebar() {
   const activeTabId = useLayout((s) => s.activeTabId);
   const sessions = useAgents((s) => s.sessions);
   const git = useGit((s) => s.info);
-  const config = useConfig((s) => s.config);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -99,12 +85,6 @@ export function ProjectsSidebar() {
       p.panes.push(id);
     }
   }
-
-  const dark = resolveDark(config?.theme ?? "system");
-  const toggleTheme = () => {
-    if (!config) return;
-    useConfig.getState().save({ ...config, theme: dark ? "light" : "dark" }).catch(() => {});
-  };
 
   return (
     <aside className="sidebar">
@@ -132,9 +112,6 @@ export function ProjectsSidebar() {
       <div className="sb-footer">
         <UsageStrip />
         <div className="sb-actions">
-          <button className="icon-btn" title={dark ? "Switch to light" : "Switch to dark"} onClick={toggleTheme}>
-            {dark ? <SunIcon /> : <MoonIcon />}
-          </button>
           <button className="icon-btn" title="Settings (⌘,)" onClick={() => useUi.getState().set({ settingsOpen: true })}>
             <GearIcon />
           </button>

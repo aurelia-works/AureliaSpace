@@ -7,7 +7,7 @@ if [ -z "$AURELIA_PANE_ID" ] || [ -z "$AURELIA_EVENTS_FILE" ]; then
   exit 0
 fi
 if command -v jq >/dev/null 2>&1; then
-  payload=$(jq -c '{session_id, cwd, hook_event_name, notification_type, message, tool_name, transcript_path, model}' 2>/dev/null)
+  payload=$(jq -c '{session_id, cwd, hook_event_name, notification_type, message, tool_name, transcript_path, model, error, error_details, last_assistant_message: (.last_assistant_message // null | if type == "string" then .[0:400] else . end)}' 2>/dev/null)
 else
   cat >/dev/null
 fi

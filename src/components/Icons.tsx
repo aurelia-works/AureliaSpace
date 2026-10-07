@@ -42,8 +42,8 @@ export const PanelIcon = (p: SVGProps<SVGSVGElement>) => (
 );
 export const GearIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
-    <circle cx="8" cy="8" r="2.2" />
-    <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+    <path d="M6.9 1.6h2.2l.35 1.75 1.1.46 1.5-1 1.55 1.55-1 1.5.46 1.1 1.75.35v2.2l-1.75.35-.46 1.1 1 1.5-1.55 1.55-1.5-1-1.1.46-.35 1.75H6.9l-.35-1.75-1.1-.46-1.5 1-1.55-1.55 1-1.5-.46-1.1L1.2 9.1V6.9l1.75-.35.46-1.1-1-1.5L3.96 2.4l1.5 1 1.1-.46z" />
+    <circle cx="8" cy="8" r="2.1" />
   </svg>
 );
 export const CopyIcon = (p: SVGProps<SVGSVGElement>) => (

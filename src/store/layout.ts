@@ -11,8 +11,15 @@ export interface PaneMeta {
   /** Claude account this pane was launched as (runs `claude` on start). */
   account?: string;
   cwd?: string;
+  /** Agent launcher variant this pane runs (e.g. "codex:oss"); informational. */
+  agent?: string;
+  /** Env for the agent CLI; secrets are referenced by Keychain id, never stored here. */
+  env?: Record<string, string>;
+  secretEnv?: Record<string, string>;
   /** Shows the start screen instead of a terminal until the user picks what to run. */
   launcher?: boolean;
+  /** A built-in browser pane (native child webview) instead of a terminal; url "" = blank. */
+  browser?: { url: string };
 }
 
 export interface Tab {
@@ -24,7 +31,12 @@ export interface Tab {
 export interface NewPaneOpts {
   account?: string;
   cwd?: string;
+  agent?: string;
+  env?: Record<string, string>;
+  secretEnv?: Record<string, string>;
   launcher?: boolean;
+  /** Opens a browser pane at this URL ("" = blank) instead of a terminal. */
+  browserUrl?: string;
 }
 
 interface LayoutState {
@@ -36,6 +48,8 @@ interface LayoutState {
   newTab(opts?: NewPaneOpts): string;
   /** Opens a tab with `rows` × `cols` evenly sized panes; returns their ids in reading order. */
   newGridTab(rows: number, cols: number, opts: NewPaneOpts[]): string[];
+  /** Opens a tab with exactly `opts.length` panes in a near-square grid (last row may be shorter). */
+  newPanesTab(opts: NewPaneOpts[]): string[];
   closeTab(tabId: string): void;
   activateTab(tabId: string): void;
   activateTabIndex(index: number): void;
@@ -88,7 +102,13 @@ export function onPanesClosed(fn: CloseListener) {
 const emitClosed = (ids: string[]) => ids.length && closeListeners.forEach((fn) => fn(ids));
 
 function makePane(opts?: NewPaneOpts): PaneMeta {
-  return { id: uid("pane"), account: opts?.account, cwd: opts?.cwd, launcher: opts?.launcher || undefined };
+  return {
+    id: uid("pane"),
+    account: opts?.account,
+    cwd: opts?.cwd,
+    launcher: opts?.launcher || undefined,
+    browser: opts?.browserUrl !== undefined ? { url: opts.browserUrl } : undefined,
+  };
 }
 
 /** Balanced binary splits whose ratios give every leaf the same share of space. */
@@ -130,6 +150,22 @@ export const useLayout = create<LayoutState>((set, get) => ({
         "row",
       ),
     );
+    const tab: Tab = { id: uid("tab"), root: evenSplit(rowNodes, "column"), focusedPaneId: created[0].id };
+    set((s) => ({
+      tabs: [...s.tabs, tab],
+      activeTabId: tab.id,
+      panes: { ...s.panes, ...Object.fromEntries(created.map((p) => [p.id, p])) },
+    }));
+    return created.map((p) => p.id);
+  },
+
+  newPanesTab(opts) {
+    const created = opts.map((o) => makePane(o));
+    const cols = Math.ceil(Math.sqrt(created.length));
+    const rowNodes: LayoutNode[] = [];
+    for (let i = 0; i < created.length; i += cols) {
+      rowNodes.push(evenSplit(created.slice(i, i + cols).map((p) => ({ type: "pane", id: p.id }) as LayoutNode), "row"));
+    }
     const tab: Tab = { id: uid("tab"), root: evenSplit(rowNodes, "column"), focusedPaneId: created[0].id };
     set((s) => ({
       tabs: [...s.tabs, tab],
