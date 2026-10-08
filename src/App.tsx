@@ -1,36 +1,46 @@
 import { useEffect } from "react";
 import { AccountPicker } from "./components/AccountPicker";
 import { AgentsBoard } from "./components/AgentsBoard";
-import { AgentPanel } from "./components/AgentPanel";
+import { CommandPalette } from "./components/CommandPalette";
 import { DiffReview } from "./components/DiffReview";
-import { FilesPanel } from "./components/FilesPanel";
 import { GridPicker } from "./components/GridPicker";
 import { LayoutView } from "./components/LayoutView";
+import { Navigator } from "./components/Navigator";
 import { NoticeStack } from "./components/Notices";
-import { ProjectsSidebar } from "./components/ProjectsSidebar";
+import { QueueRail } from "./components/QueueRail";
 import { SettingsPage } from "./components/settings/SettingsPage";
-import { TabBar } from "./components/TabBar";
+import { StatusBar } from "./components/StatusBar";
+import { TitleBar } from "./components/TitleBar";
 import { Toast } from "./components/Toast";
 import { fitAllTerminals, focusTerminal } from "./lib/terminals";
 import { activeTab, useLayout } from "./store/layout";
 import { useUi } from "./store/ui";
 
+/**
+ * Frame: title bar (where you are) / navigator · stage · queue rail / status bar (fleet + fuel).
+ * Review and Settings are full pages over the stage; launcher, grid and palette are dialogs.
+ */
 export function App() {
   const tabs = useLayout((s) => s.tabs);
   const activeTabId = useLayout((s) => s.activeTabId);
   const agentPanelOpen = useUi((s) => s.agentPanelOpen);
-  const filesOpen = useUi((s) => s.filesOpen);
-  const sidebarOpen = useUi((s) => s.sidebarOpen);
+  const nav = useUi((s) => s.nav);
   const mode = useUi((s) => s.mode);
   const focusKey = useLayout((s) => `${s.activeTabId}:${s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId}`);
-  const modalOpen = useUi((s) => s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen);
+  const modalOpen = useUi((s) => s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen || s.paletteOpen);
 
-  // Panes fit to 0 size while .tabs-area is display:none, so refit on the way back.
+  // Belt and braces: anything that resized while the board covered the stage refits on the way back.
   useEffect(() => {
     if (mode !== "terminals") return;
     const id = requestAnimationFrame(fitAllTerminals);
     return () => cancelAnimationFrame(id);
   }, [mode]);
+
+  // Opening or closing a side column changes every pane's width.
+  useEffect(() => {
+    const id = requestAnimationFrame(fitAllTerminals);
+    return () => cancelAnimationFrame(id);
+  }, [nav, agentPanelOpen]);
 
   // Keyboard focus follows the focused pane.
   useEffect(() => {
@@ -46,25 +56,28 @@ export function App() {
   }, [focusKey, modalOpen, mode]);
 
   return (
-    <div className="app">
-      <TabBar />
-      <div className="workspace">
-        {sidebarOpen && <ProjectsSidebar />}
-        {filesOpen && <FilesPanel />}
-        <main className={`tabs-area${mode === "agents" ? " mode-hidden" : ""}`}>
-          {tabs.map((tab) => (
-            <div key={tab.id} className={`tab-content${tab.id === activeTabId ? "" : " hidden"}`}>
-              <LayoutView node={tab.root} />
-            </div>
-          ))}
+    <div className={`app mode-${mode}`}>
+      <TitleBar />
+      <div className="frame">
+        {nav && <Navigator view={nav} />}
+        <main className="stage">
+          <div className={`tabs-area${mode === "agents" ? " mode-hidden" : ""}`}>
+            {tabs.map((tab) => (
+              <div key={tab.id} className={`tab-content${tab.id === activeTabId ? "" : " hidden"}`}>
+                <LayoutView node={tab.root} />
+              </div>
+            ))}
+          </div>
+          {mode === "agents" && <AgentsBoard />}
         </main>
-        {mode === "agents" && <AgentsBoard />}
-        {agentPanelOpen && mode !== "agents" && <AgentPanel />}
+        {agentPanelOpen && mode !== "agents" && <QueueRail />}
       </div>
-      <AccountPicker />
-      <GridPicker />
+      <StatusBar />
       <DiffReview />
       <SettingsPage />
+      <AccountPicker />
+      <GridPicker />
+      <CommandPalette />
       <NoticeStack />
       <Toast />
     </div>

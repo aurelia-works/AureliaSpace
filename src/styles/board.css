@@ -1,0 +1,339 @@
+/* Agents mode: the fleet board. Lanes by urgency; cards carry state, live tail and the unblocking actions. */
+
+.board {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.board:focus-visible {
+  outline: none;
+}
+.board-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  padding: var(--sp-4) var(--sp-5) var(--sp-3);
+}
+.board-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.board-title h1 {
+  margin: 0;
+  font-size: var(--fs-page);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.board-sub {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.board-stats {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.stat b {
+  color: var(--text);
+}
+.stat.needs_input {
+  background: var(--attn-soft);
+  border-color: var(--attn-line);
+  color: var(--attn);
+}
+.stat.needs_input b {
+  color: var(--attn);
+}
+.stat.cost {
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-faint);
+}
+.board-actions {
+  display: flex;
+  gap: 6px;
+}
+.board-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--sp-5) var(--sp-5);
+}
+.lane + .lane {
+  margin-top: var(--sp-5);
+}
+.lane-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 var(--sp-2);
+  padding: 6px 0;
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.lane-head::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.lane.needs .lane-head {
+  color: var(--attn);
+}
+.lane.done .lane-head {
+  color: var(--ok);
+}
+.lane.working .lane-head {
+  color: var(--work);
+}
+.lane-count {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  letter-spacing: 0;
+}
+.lane-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+.lane.needs .lane-grid {
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+}
+
+/* ---------- Card ---------- */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 11px 12px 10px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.card::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+}
+.card.needs_input {
+  border-color: var(--attn-line);
+  background: linear-gradient(170deg, var(--attn-soft), transparent 60%), var(--surface);
+}
+.card.needs_input::before {
+  background: var(--attn);
+}
+.card.working::before {
+  background: var(--work);
+}
+.card.done::before {
+  background: var(--ok);
+}
+.card.idle,
+.card.other {
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+}
+.card:hover {
+  border-color: var(--border-strong);
+}
+.card.needs_input:hover {
+  border-color: var(--attn);
+}
+.card.selected {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.card-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.card-meta {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.card-open {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-xs);
+  color: var(--text-faint);
+}
+.card-open:hover,
+.card.selected .card-open {
+  background: var(--hover);
+  color: var(--text);
+}
+.card-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-top: -3px;
+}
+.card-task {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.card-detail {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.card-detail-text {
+  min-width: 0;
+  color: var(--text);
+  font-size: 12.5px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.card.idle .card-detail-text,
+.card.other .card-detail-text {
+  color: var(--text-dim);
+}
+.card-tail {
+  margin: 0;
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-sm);
+  background: var(--pane-bg);
+  border: 1px solid var(--border);
+  font: 10.5px/1.5 var(--font-mono);
+  color: var(--text-dim);
+  overflow: hidden;
+}
+.card-tail span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+.card-tail span:last-child {
+  color: var(--text);
+}
+.card .reply-box {
+  height: 30px;
+}
+.card.working .reply-box,
+.card.idle .reply-box {
+  opacity: 0.75;
+}
+.card .reply-box:focus-within {
+  opacity: 1;
+}
+.card-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 2px;
+}
+.card-foot .cache-badge {
+  margin-left: auto;
+}
+
+.board-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.board-empty svg {
+  color: var(--text-faint);
+}
+.board-empty h2 {
+  margin: 4px 0 0;
+  font-size: 16px;
+  color: var(--text);
+}
+.board-empty p {
+  margin: 0 0 8px;
+  max-width: 380px;
+}
+
+.board-keys {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 7px var(--sp-5);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.board-keys span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}

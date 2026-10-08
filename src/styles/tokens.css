@@ -1,0 +1,135 @@
+/*
+ * Aurelia design tokens.
+ *
+ * The one colour rule: gold (--attn) means "you are needed". Working is the cool
+ * --work hue, finished is --ok, idle is ink. Interactive emphasis (primary buttons,
+ * selection) uses inverted ink, never gold, so a gold pixel always means a person
+ * is being waited on.
+ *
+ * Palettes (src/lib/palettes.ts) override the base colours on <html> inline; every
+ * derived token below is computed from them with color-mix, so palettes only need
+ * to supply the base set.
+ */
+
+:root,
+:root[data-theme="dark"] {
+  /* Abyss: blue-black ink, ivory text, Aurelia gold. */
+  --bg: #08090c;
+  --chrome: #0e1015;
+  --surface: #13151b;
+  --surface-2: #191c23;
+  --surface-3: #22262f;
+  --pane-bg: #0b0d11;
+  --border: #1c1f27;
+  --border-strong: #2a2e39;
+  --text: #ece8e1;
+  --text-dim: #a7aab2;
+  --text-faint: #7d818c;
+  --accent: #f2b544;
+  --accent-strong: #ffcb6b;
+  --accent-ink: #1a1205;
+  --ok: #79d29a;
+  --err: #ff7b72;
+  --warn: #f59e5b;
+  --attn: #f2b544;
+  --work: #62c6de;
+  --shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --tint: 12%;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  /* Parchment: warm paper, ink text, deep gold. */
+  --bg: #e6e2d8;
+  --chrome: #efece4;
+  --surface: #f8f6f1;
+  --surface-2: #f0ede5;
+  --surface-3: #e4dfd3;
+  --pane-bg: #fbfaf6;
+  --border: #dad4c6;
+  --border-strong: #c5bdab;
+  --text: #1d1b21;
+  --text-dim: #55515c;
+  --text-faint: #6a6570;
+  --accent: #94600a;
+  --accent-strong: #7a4e06;
+  --accent-ink: #fff9ee;
+  --ok: #2c7a44;
+  --err: #be3a30;
+  --warn: #a85a10;
+  --attn: #94600a;
+  --work: #0a7488;
+  --shadow: 0 24px 60px rgba(60, 45, 20, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 6px 16px rgba(60, 45, 20, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --tint: 10%;
+  color-scheme: light;
+}
+
+:root {
+  /* Derived tints (follow whichever palette is active). */
+  --attn-soft: color-mix(in srgb, var(--attn) var(--tint), transparent);
+  --attn-line: color-mix(in srgb, var(--attn) 55%, transparent);
+  --work-soft: color-mix(in srgb, var(--work) var(--tint), transparent);
+  --ok-soft: color-mix(in srgb, var(--ok) var(--tint), transparent);
+  --err-soft: color-mix(in srgb, var(--err) var(--tint), transparent);
+  --accent-soft: color-mix(in srgb, var(--accent) var(--tint), transparent);
+  --hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --press: color-mix(in srgb, var(--text) 10%, transparent);
+  --focus: color-mix(in srgb, var(--text) 70%, transparent);
+  --scrim: color-mix(in srgb, var(--bg) 62%, transparent);
+
+  /* Primary action = inverted ink. */
+  --primary: var(--text);
+  --primary-ink: var(--surface);
+
+  /* Status semantics. */
+  --s-needs: var(--attn);
+  --s-work: var(--work);
+  --s-done: var(--ok);
+  --s-idle: var(--text-faint);
+  --s-fail: var(--err);
+
+  /* Type. */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --fs-label: 10px; /* caps labels */
+  --fs-meta: 11px;
+  --fs-body: 12.5px;
+  --fs-title: 14px;
+  --fs-page: 20px;
+  --fs-hero: 28px;
+
+  /* Space: 4px grid. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Shape. */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  /* Frame. */
+  --titlebar-h: 40px;
+  --statusbar-h: 26px;
+  --nav-w: 240px;
+  --rail-w: 312px;
+  --pane-head-h: 28px;
+
+  /* Motion: short, ease-out, transform/opacity only. */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 110ms;
+  --t-med: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t-med: 0ms;
+  }
+}

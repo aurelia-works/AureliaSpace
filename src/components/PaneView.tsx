@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import { attachTerminal, ensureTerminal, fitTerminal } from "../lib/terminals";
 import { useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
+import { useAgents } from "../store/agents";
 import { BlockOverlay } from "./BlockOverlay";
 import { BrowserPane } from "./BrowserPane";
 import { PaneHeader } from "./PaneHeader";
@@ -16,6 +17,11 @@ export function PaneView({ paneId }: { paneId: string }) {
   const launcher = useLayout((s) => !!s.panes[paneId]?.launcher);
   const isBrowser = useLayout((s) => !!s.panes[paneId]?.browser);
   const suggestOpen = useUi((s) => s.suggestPaneId === paneId);
+  // Drives the pane's edge colour: gold when it needs you, the working hue while busy.
+  const state = useAgents((s) => {
+    const a = s.sessions[paneId];
+    return a ? (a.status === "idle" && a.attention ? "done" : a.status) : undefined;
+  });
 
   useLayoutEffect(() => {
     const el = bodyRef.current;
@@ -41,6 +47,7 @@ export function PaneView({ paneId }: { paneId: string }) {
     <div
       className={`pane${focused ? " focused" : ""}${focused && multi ? " focus-ring" : ""}`}
       data-pane-id={paneId}
+      data-state={state}
       onMouseDownCapture={() => useLayout.getState().focusPane(paneId)}
     >
       <PaneHeader paneId={paneId} />
@@ -51,8 +58,11 @@ export function PaneView({ paneId }: { paneId: string }) {
           <StartScreen paneId={paneId} />
         ) : (
           <>
-            <div className="term-container" ref={bodyRef} />
-            <BlockOverlay paneId={paneId} />
+            <div className="term-wrap">
+              <div className="term-container" ref={bodyRef} />
+              <BlockOverlay paneId={paneId} />
+            </div>
+            {/* Docked under the terminal (which refits), never floating over its text. */}
             {suggestOpen && <SuggestBar paneId={paneId} />}
           </>
         )}

@@ -3,7 +3,7 @@ import { activeTab, focusedPaneId, paneIds, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
 import { openInBrowserPane } from "./browser";
 import { toggleHud } from "./hudBridge";
-import { clearTerminal, focusTerminal, getEntry, jumpBlock } from "./terminals";
+import { clearTerminal, getEntry, jumpBlock, showPane } from "./terminals";
 import { toggleVoice } from "./voice";
 
 /** Focuses the agent that has waited longest for you (needs input first). */
@@ -11,8 +11,9 @@ export function jumpToWaiting() {
   const current = focusedPaneId();
   const next = waitingAgents(useAgents.getState().sessions).find((s) => s.paneId !== current);
   if (!next) return false;
-  useLayout.getState().focusPane(next.paneId);
-  requestAnimationFrame(() => focusTerminal(next.paneId));
+  // showPane also leaves the Agents board / Review page, so the jump lands on the terminal.
+  useUi.getState().set({ reviewOpen: false });
+  showPane(next.paneId);
   return true;
 }
 
@@ -52,6 +53,7 @@ export interface ShortcutHelp {
 }
 
 export const shortcutHelp: ShortcutHelp[] = [
+  { keys: "⌘P", label: "Command palette: jump to any pane, run any action" },
   { keys: "⌘T", label: "New tab (start screen)" },
   { keys: "⇧⌘1 / ⇧⌘2 / ⇧⌘3", label: "Agents / Terminals / Review mode" },
   { keys: "⌘D / ⇧⌘D", label: "Split right / down" },
@@ -62,12 +64,12 @@ export const shortcutHelp: ShortcutHelp[] = [
   { keys: "⌘G", label: "New grid tab (2–16 panes)" },
   { keys: "⌘J", label: "Jump to agent waiting on you" },
   { keys: "⇧⌘R", label: "Review changes, send comments to Claude" },
-  { keys: "⇧⌘F", label: "Toggle files sidebar" },
+  { keys: "⇧⌘F", label: "Navigator: files" },
   { keys: "⌘-click", label: "Open link or file:line in output" },
   { keys: "⌘I", label: "Suggest a command" },
-  { keys: "⌘B", label: "Toggle agent panel" },
+  { keys: "⌘B", label: "Toggle the Queue rail (agents, tasks, recents)" },
   { keys: "⇧⌘B", label: "Open browser pane (reuses one in the tab)" },
-  { keys: "⌘\\", label: "Toggle projects sidebar" },
+  { keys: "⌘\\", label: "Navigator: workspace (projects)" },
   { keys: "⇧⌘↑ / ⇧⌘↓", label: "Previous / next command block" },
   { keys: "⌘K", label: "Clear pane" },
   { keys: "⇧⌘H", label: "Toggle floating HUD (shows while you're in other apps)" },
@@ -126,6 +128,9 @@ export function installShortcuts(): () => void {
       case "KeyG":
         if (!shift && !alt) action = () => ui.set({ gridOpen: true });
         break;
+      case "KeyP":
+        if (!shift && !alt) action = () => ui.set({ paletteOpen: !ui.paletteOpen });
+        break;
       case "KeyJ":
         if (!shift && !alt) action = () => jumpToWaiting();
         break;
@@ -133,14 +138,14 @@ export function installShortcuts(): () => void {
         if (shift && !alt) action = () => ui.set({ reviewOpen: true });
         break;
       case "KeyF":
-        if (shift && !alt) action = () => ui.set({ filesOpen: !ui.filesOpen });
+        if (shift && !alt) action = () => ui.set({ nav: ui.nav === "files" ? null : "files" });
         break;
       case "KeyB":
         if (!shift && !alt) action = () => ui.set({ agentPanelOpen: !ui.agentPanelOpen });
         else if (shift && !alt) action = () => openInBrowserPane(pane, "");
         break;
       case "Backslash":
-        if (!shift && !alt) action = () => ui.set({ sidebarOpen: !ui.sidebarOpen });
+        if (!shift && !alt) action = () => ui.set({ nav: ui.nav === "projects" ? null : "projects" });
         break;
       case "KeyH":
         if (shift && !alt) action = () => toggleHud();
@@ -169,7 +174,7 @@ export function installShortcuts(): () => void {
       default:
         if (shift && !alt && /^Digit[1-3]$/.test(e.code)) {
           const n = Number(e.code.slice(5));
-          action = () => (n === 3 ? ui.set({ reviewOpen: true }) : ui.set({ mode: n === 1 ? "agents" : "terminals" }));
+          action = () => (n === 3 ? ui.set({ reviewOpen: true }) : ui.set({ mode: n === 1 ? "agents" : "terminals", reviewOpen: false }));
         } else if (/^Digit[1-9]$/.test(e.code) && !shift && !alt) {
           const n = Number(e.code.slice(5));
           action = () => layout.activateTabIndex(n === 9 ? -1 : n - 1);

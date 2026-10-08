@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
-import "../styles.css";
+import "../styles/tokens.css";
+import "../styles/base.css";
 import "./hud.css";
 import { Hud } from "./Hud";
 

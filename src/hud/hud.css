@@ -1,4 +1,4 @@
-/* Floating HUD: the window is transparent, the panel supplies the rounded look. */
+/* Floating HUD: the window is transparent, the panel supplies the shape. Same tokens and glyphs as the app. */
 html,
 body,
 #root {
@@ -9,27 +9,43 @@ body,
 }
 
 .hud-panel {
-  background: var(--chrome);
+  background: color-mix(in srgb, var(--chrome) 94%, transparent);
   border: 1px solid var(--border-strong);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   overflow: hidden;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 .hud-head {
   padding: 8px 10px 7px;
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   font-size: 10.5px;
   color: var(--text-dim);
   cursor: grab;
 }
 .hud-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 9.5px;
+  font-weight: 650;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-faint);
+}
+.hud-brand b {
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: var(--attn);
+  color: var(--accent-ink);
+  letter-spacing: 0;
+  text-align: center;
+}
+.hud-brand b:empty {
+  display: none;
 }
 .hud-usages {
   display: flex;
@@ -44,11 +60,11 @@ body,
   pointer-events: none;
 }
 .hud-acct {
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 650;
 }
 .hud-pct b {
-  font-weight: 600;
+  font-weight: 650;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -71,39 +87,20 @@ body,
 }
 .hud-row {
   display: flex;
-  gap: 8px;
+  gap: 9px;
   padding: 7px 8px;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   cursor: pointer;
 }
 .hud-row:hover {
-  background: var(--surface-2);
+  background: var(--hover);
 }
 .hud-row.needs_input {
-  background: var(--accent-soft);
+  background: var(--attn-soft);
+  box-shadow: inset 2px 0 0 var(--attn);
 }
-.hud-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  margin-top: 4px;
-  border-radius: 50%;
-  background: var(--text-faint);
-}
-.hud-dot.working {
-  background: var(--accent);
-}
-.hud-dot.done {
-  background: var(--ok);
-}
-.hud-dot.needs_input {
-  background: var(--warn);
-  animation: hud-pulse 1.3s ease-in-out infinite;
-}
-@keyframes hud-pulse {
-  50% {
-    opacity: 0.35;
-  }
+.hud-row .glyph {
+  margin-top: 3px;
 }
 .hud-main {
   min-width: 0;
@@ -121,11 +118,16 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 600;
+}
+.hud-title .hud-acct {
+  font-weight: 500;
+  color: var(--text-faint);
 }
 .hud-meta {
   flex: none;
   font-size: 10px;
-  color: var(--text-dim);
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 .hud-meta.hot {
@@ -138,22 +140,28 @@ body,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.hud-row.needs_input .hud-text {
+  color: var(--attn);
+}
 .hud-perm {
   display: flex;
   gap: 5px;
   margin-top: 6px;
 }
 .hud-perm button {
-  padding: 2px 9px;
-  border-radius: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
   font-size: 11px;
-  background: var(--surface-3);
+  font-weight: 600;
 }
 .hud-perm button:hover {
-  background: var(--border-strong);
+  background: var(--hover);
 }
 .hud-perm .primary {
-  background: var(--accent);
+  background: var(--attn);
+  border-color: transparent;
   color: var(--accent-ink);
 }
 .hud-perm .danger {

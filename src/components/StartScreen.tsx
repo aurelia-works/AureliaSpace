@@ -8,6 +8,8 @@ import { useConfig } from "../store/config";
 import { useLayout } from "../store/layout";
 import { useRecents } from "../store/recents";
 import { useUi } from "../store/ui";
+import { AgentLogo } from "./AgentLogos";
+import { CloseIcon, FolderIcon, SparkIcon, TerminalIcon } from "./Icons";
 
 /** Which optional CLIs are installed; resolved once per session. */
 let toolsCache: Promise<Record<string, boolean>> | undefined;
@@ -22,7 +24,8 @@ interface Choice {
   key: string;
   label: string;
   hint: string;
-  accent?: boolean;
+  /** AgentLogo key; "terminal" and "more" use built-in icons. */
+  logo: string;
   run(): void;
 }
 
@@ -60,16 +63,17 @@ export function StartScreen({ paneId }: { paneId: string }) {
       key: `acct-${a.name}`,
       label: `Claude · ${a.name}${a.name === preferred ? " (default)" : ""}`,
       hint: shortenPath(a.configDir),
-      accent: true,
+      logo: "claude",
       run: () => start({ account: a.name }),
     })),
-    { key: "terminal", label: "Terminal", hint: "plain shell", run: () => start({}) },
-    ...(tools.codex ? [{ key: "codex", label: "Codex", hint: "codex", run: () => start({}, "codex") }] : []),
-    ...(tools.gemini ? [{ key: "gemini", label: "Gemini CLI", hint: "gemini", run: () => start({}, "gemini") }] : []),
+    { key: "terminal", label: "Terminal", hint: "plain zsh with command blocks", logo: "terminal", run: () => start({}) },
+    ...(tools.codex ? [{ key: "codex", label: "Codex", hint: "codex", logo: "codex", run: () => start({}, "codex") }] : []),
+    ...(tools.gemini ? [{ key: "gemini", label: "Gemini CLI", hint: "gemini", logo: "gemini", run: () => start({}, "gemini") }] : []),
     {
       key: "more",
       label: "More agents…",
-      hint: "launch several CLIs at once",
+      hint: "several CLIs at once, worktrees, API keys",
+      logo: "more",
       run: () => useUi.getState().set({ accountPicker: { target: "tab" } }),
     },
   ];
@@ -107,19 +111,10 @@ export function StartScreen({ paneId }: { paneId: string }) {
   return (
     <div className="start-screen" tabIndex={-1} ref={rootRef} onKeyDown={onKey}>
       <div className="start-inner">
+        <div className="label">New tab</div>
         <h1 className="start-title">
           Start in <span className="start-folder">{basename(folder)}</span>
         </h1>
-        <p className="start-sub">Pick what to run here. Nothing starts until you choose.</p>
-        <div className="start-grid">
-          {choices.map((c, i) => (
-            <button key={c.key} className={`start-card${c.accent ? " claude" : ""}`} onClick={c.run}>
-              {i < 9 && <span className="start-key">{i + 1}</span>}
-              <span className="start-label">{c.label}</span>
-              <span className="start-hint">{c.hint}</span>
-            </button>
-          ))}
-        </div>
         <div className="start-folder-row">
           {editing ? (
             <input
@@ -131,14 +126,16 @@ export function StartScreen({ paneId }: { paneId: string }) {
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && applyFolder()}
               onBlur={() => setEditing(false)}
+              aria-label="Folder path"
             />
           ) : (
             <>
-              <span className="start-path" title={folder}>
+              <FolderIcon width={12} height={12} />
+              <span className="start-path mono" title={folder}>
                 {shortenPath(folder)}
               </span>
               <button
-                className="start-link"
+                className="link-btn"
                 onClick={() => {
                   setDraft(shortenPath(cwd || workspace || ""));
                   setEditing(true);
@@ -146,30 +143,42 @@ export function StartScreen({ paneId }: { paneId: string }) {
               >
                 Type path…
               </button>
-              <button className="start-link" onClick={browseFolder}>
+              <button className="link-btn" onClick={browseFolder}>
                 Choose folder…
               </button>
             </>
           )}
         </div>
+        <div className="start-list" role="list">
+          {choices.map((c, i) => (
+            <button key={c.key} role="listitem" className={`start-row ${c.logo}`} onClick={c.run}>
+              <span className="start-logo">
+                {c.logo === "terminal" ? <TerminalIcon width={16} height={16} /> : c.logo === "more" ? <SparkIcon width={16} height={16} /> : <AgentLogo logo={c.logo} size={16} />}
+              </span>
+              <span className="start-label">{c.label}</span>
+              <span className="start-hint">{c.hint}</span>
+              {i < 9 && <kbd>{i + 1}</kbd>}
+            </button>
+          ))}
+        </div>
         {quickOpen.length > 0 && (
           <div className="start-recents">
-            <h4>Recent folders</h4>
+            <div className="label">Recent folders</div>
             {quickOpen.map((r) => (
               <div key={r} className="recent-row">
                 <button className="recent-open" onClick={() => updatePane(paneId, { cwd: r })} title={`Start in ${r}`}>
                   <span className="recent-name">{basename(r)}</span>
                   <span className="recent-path">{shortenPath(r)}</span>
                 </button>
-                <button className="icon-btn recent-del" onClick={() => useRecents.getState().remove(r)} title="Remove from recents">
-                  ×
+                <button className="icon-btn sm recent-del" onClick={() => useRecents.getState().remove(r)} title="Remove from recents" aria-label="Remove from recents">
+                  <CloseIcon width={10} height={10} />
                 </button>
               </div>
             ))}
           </div>
         )}
         <div className="start-foot">
-          <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>↵</kbd> terminal
+          <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>↵</kbd> terminal · <kbd>⌘P</kbd> go anywhere
         </div>
       </div>
     </div>

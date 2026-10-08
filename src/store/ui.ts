@@ -10,13 +10,17 @@ export interface PickerTask {
 
 export type Mode = "agents" | "terminals";
 
+/** What the left navigator shows: the workspace tree (⌘\), the files tree (⇧⌘F), or nothing. */
+export type NavView = "projects" | "files" | null;
+
 interface UiState {
   /** Title-bar mode: agent board or the tab/pane view (Review is the diff modal). */
   mode: Mode;
   agentPanelOpen: boolean;
-  filesOpen: boolean;
-  sidebarOpen: boolean;
+  nav: NavView;
   settingsOpen: boolean;
+  /** ⌘P command palette. */
+  paletteOpen: boolean;
   gridOpen: boolean;
   reviewOpen: boolean;
   /** "split" | "tab" — where the account picker will open the new Claude pane. */
@@ -35,9 +39,9 @@ interface UiState {
 export const useUi = create<UiState>((set) => ({
   mode: "terminals",
   agentPanelOpen: true,
-  filesOpen: false,
-  sidebarOpen: true,
+  nav: "projects",
   settingsOpen: false,
+  paletteOpen: false,
   gridOpen: false,
   reviewOpen: false,
   accountPicker: null,
@@ -52,6 +56,8 @@ export const useUi = create<UiState>((set) => ({
 interface SavedUi {
   mode?: Mode;
   agentPanelOpen?: boolean;
+  nav?: NavView;
+  /** Pre-redesign flags, read once so an existing ui.json keeps its sidebar state. */
   filesOpen?: boolean;
   sidebarOpen?: boolean;
   useWorktree?: boolean;
@@ -64,8 +70,14 @@ export async function loadUiState() {
     useUi.setState({
       mode: saved.mode === "agents" ? "agents" : "terminals",
       agentPanelOpen: saved.agentPanelOpen ?? true,
-      filesOpen: saved.filesOpen ?? false,
-      sidebarOpen: saved.sidebarOpen ?? true,
+      nav:
+        saved.nav !== undefined
+          ? saved.nav
+          : saved.filesOpen
+            ? "files"
+            : saved.sidebarOpen === false
+              ? null
+              : "projects",
       useWorktree: saved.useWorktree ?? false,
       fontDelta: saved.fontDelta ?? 0,
     });
@@ -75,8 +87,7 @@ export async function loadUiState() {
     const next = JSON.stringify({
       mode: s.mode,
       agentPanelOpen: s.agentPanelOpen,
-      filesOpen: s.filesOpen,
-      sidebarOpen: s.sidebarOpen,
+      nav: s.nav,
       useWorktree: s.useWorktree,
       fontDelta: s.fontDelta,
     });

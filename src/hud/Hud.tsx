@@ -32,7 +32,7 @@ function Row({ r }: { r: HudRow }) {
   const meta = [r.contextPct !== undefined && `${Math.round(r.contextPct)}%`, r.costUsd !== undefined && formatCost(r.costUsd)].filter(Boolean);
   return (
     <div className={`hud-row ${dot}`} onClick={() => act({ type: "open", paneId: r.paneId })}>
-      <span className={`hud-dot ${dot}`} />
+      <span className={`glyph ${dot}`} aria-hidden />
       <div className="hud-main">
         <div className="hud-title">
           <span className="hud-acct">{r.account}</span>
@@ -91,7 +91,9 @@ export function Hud() {
   return (
     <div className="hud-panel" ref={panel}>
       <div className="hud-head" data-tauri-drag-region>
-        <span className="hud-brand" data-tauri-drag-region>Aurelia</span>
+        <span className="hud-brand" data-tauri-drag-region>
+          Aurelia <b data-tauri-drag-region>{snap.rows.filter((r) => r.status === "needs_input").length || ""}</b>
+        </span>
         <div className="hud-usages" data-tauri-drag-region>
           {snap.usage.map((u) => (
             <UsageLine key={u.account} u={u} />

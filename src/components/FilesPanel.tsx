@@ -37,14 +37,17 @@ function Node({
       <div
         className={`file-row${entry.dir ? " dir" : ""}${entry.name.startsWith(".") ? " hidden-file" : ""}`}
         style={{ paddingLeft: 8 + depth * 12 }}
+        role="treeitem"
+        aria-expanded={entry.dir ? isOpen : undefined}
         onClick={() => (entry.dir ? toggle(entry.path) : insertPath(entry.path))}
         title={entry.dir ? entry.path : `${entry.path}\nClick to insert the path at the prompt`}
       >
-        <span className="chev">{entry.dir ? (isOpen ? "▾" : "▸") : ""}</span>
+        <span className={`chev${isOpen ? " open" : ""}`} aria-hidden>{entry.dir ? "›" : ""}</span>
         <span className="file-name">{entry.name}</span>
         <button
-          className="icon-btn"
+          className="icon-btn sm"
           title={entry.dir ? "Insert path" : "Open in editor"}
+          aria-label={entry.dir ? "Insert path" : "Open in editor"}
           onClick={(e) => {
             e.stopPropagation();
             if (entry.dir) insertPath(entry.path);
@@ -63,7 +66,7 @@ function Node({
   );
 }
 
-/** Project file tree for the focused pane (⇧⌘F). */
+/** Project file tree for the focused pane: the Navigator's Files view (⇧⌘F). */
 export function FilesPanel() {
   const focused = useLayout((s) => s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId);
   const shellCwd = useLayout((s) => (focused ? s.panes[focused]?.cwd : undefined));
@@ -106,21 +109,21 @@ export function FilesPanel() {
   };
 
   return (
-    <aside className="files-panel">
-      <h3 title={root}>
-        Files <span className="project">{basename(root)}</span>
-        <button className="icon-btn" onClick={refresh} title="Refresh">
+    <div className="nav-files">
+      <div className="nav-subhead" title={root}>
+        <span className="nav-subhead-name">{basename(root) || "No folder"}</span>
+        <button className="icon-btn sm" onClick={refresh} title="Refresh" aria-label="Refresh files">
           <RerunIcon width={12} height={12} />
         </button>
-      </h3>
-      <div className="file-tree">
+      </div>
+      <div className="file-tree" role="tree" aria-label="Files">
         {!root && <p className="empty">Focus a pane to browse its project.</p>}
         {root &&
           (children[root] ?? []).map((e) => (
             <Node key={e.path} entry={e} depth={0} expanded={expanded} children={children} toggle={toggle} />
           ))}
       </div>
-      <p className="files-foot">Click a file to insert its path · ⌘-click paths in output to open them</p>
-    </aside>
+      <p className="nav-foot">Click a file to insert its path · ⌘-click paths in output to open them</p>
+    </div>
   );
 }

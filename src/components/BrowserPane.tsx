@@ -4,7 +4,6 @@ import { ipc } from "../lib/ipc";
 import { normalizeUrl } from "../lib/browser";
 import { onPanesClosed, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
-import "../browser.css";
 
 // The native webview outlives React remounts (splitting re-parents panes); it's destroyed only when the pane closes.
 onPanesClosed((ids) => ids.forEach((id) => ipc.browserClose(id).catch(() => {})));

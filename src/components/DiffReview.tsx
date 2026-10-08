@@ -34,12 +34,14 @@ function composeMessage(comments: Comment[], note: string) {
 
 function FileView({
   file,
+  anchor,
   comments,
   editing,
   setEditing,
   saveComment,
 }: {
   file: DiffFile;
+  anchor: string;
   comments: Record<string, Comment>;
   editing: string | null;
   setEditing: (k: string | null) => void;
@@ -53,9 +55,9 @@ function FileView({
   };
 
   return (
-    <section className="diff-file">
+    <section className="diff-file" id={anchor}>
       <header onClick={() => setOpen(!open)}>
-        <span className="chev">{open ? "▾" : "▸"}</span>
+        <span className={`chev${open ? " open" : ""}`} aria-hidden>›</span>
         <span className={`diff-status ${file.status}`}>{file.status[0].toUpperCase()}</span>
         <span className="diff-path">{file.path}</span>
         <span className="diff-counts">
@@ -149,7 +151,7 @@ function FileView({
   );
 }
 
-/** Uncommitted changes with per-line comments that are sent to a Claude pane (⇧⌘R). */
+/** Review mode (⇧⌘R / ⇧⌘3): uncommitted changes as a page, line comments sent to a Claude pane. */
 export function DiffReview() {
   const open = useUi((s) => s.reviewOpen);
   const sessions = useAgents((s) => s.sessions);
@@ -215,25 +217,55 @@ export function DiffReview() {
     return `${a?.account ?? "claude"} · ${basename(a?.cwd) || "—"}`;
   };
 
+  const files = state && "files" in state ? state.files : [];
+  const adds = files.reduce((n, f) => n + f.adds, 0);
+  const dels = files.reduce((n, f) => n + f.dels, 0);
+  const commentsIn = (path: string) => list.filter((c) => c.path === path).length;
+
   return (
-    <div className="modal-backdrop" onMouseDown={close}>
-      <div
-        className="modal review"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.key === "Escape" && !editing && close()}
-        tabIndex={-1}
-        ref={(el) => {
-          if (el && !el.contains(document.activeElement)) el.focus();
-        }}
-      >
-        <div className="modal-head">
-          <h2>
-            Review changes {root && <span className="hint inline">{basename(root)}</span>}
-          </h2>
-          <button className="link-btn" onClick={load}>
-            reload
-          </button>
+    <div
+      className="page review-page"
+      role="dialog"
+      aria-label="Review changes"
+      onKeyDown={(e) => e.key === "Escape" && !editing && close()}
+      tabIndex={-1}
+      ref={(el) => {
+        if (el && !el.contains(document.activeElement)) el.focus();
+      }}
+    >
+      <header className="page-head">
+        <div className="page-title">
+          <h1>Review</h1>
+          {root && <span className="page-sub mono">{basename(root)}</span>}
+          {files.length > 0 && (
+            <span className="page-sub num">
+              {files.length} file{files.length === 1 ? "" : "s"} · <span className="add">+{adds}</span> <span className="del">−{dels}</span>
+            </span>
+          )}
         </div>
+        <button className="btn" onClick={load}>
+          Reload
+        </button>
+        <button className="btn" onClick={close}>
+          Close <kbd>esc</kbd>
+        </button>
+      </header>
+      <div className="review-layout">
+        {files.length > 0 && (
+          <nav className="review-index" aria-label="Changed files">
+            <div className="label">Files</div>
+            {files.map((f, i) => (
+              <button key={f.path} className="review-index-row" onClick={() => document.getElementById(`diff-${i}`)?.scrollIntoView({ block: "start" })} title={f.path}>
+                <span className={`diff-status ${f.status}`}>{f.status[0].toUpperCase()}</span>
+                <span className="review-index-name">{basename(f.path)}</span>
+                {commentsIn(f.path) > 0 && <span className="review-index-c num" title="Comments">{commentsIn(f.path)}</span>}
+                <span className="diff-counts num">
+                  <span className="add">+{f.adds}</span> <span className="del">−{f.dels}</span>
+                </span>
+              </button>
+            ))}
+          </nav>
+        )}
         <div className="review-body">
           {!state && <p className="empty">Loading diff…</p>}
           {state && "error" in state && <p className="empty">{state.error}</p>}
@@ -241,10 +273,11 @@ export function DiffReview() {
           {state && "files" in state && (
             <>
               {state.truncated && <p className="hint">Diff is large and was truncated.</p>}
-              {state.files.map((f) => (
+              {state.files.map((f, i) => (
                 <FileView
                   key={f.path}
                   file={f}
+                  anchor={`diff-${i}`}
                   comments={comments}
                   editing={editing}
                   setEditing={setEditing}
@@ -261,13 +294,16 @@ export function DiffReview() {
             </>
           )}
         </div>
-        <div className="review-foot">
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Overall note (optional)" rows={2} />
-          <div className="review-send">
-            <span className="msg">
-              {list.length} comment{list.length === 1 ? "" : "s"} · click a line to comment
-            </span>
-            {agents.length ? (
+      </div>
+      <footer className="review-foot">
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Overall note for Claude (optional)" rows={2} />
+        <div className="review-send">
+          <span className="msg">
+            <b className="num">{list.length}</b> comment{list.length === 1 ? "" : "s"} · click any line to comment
+          </span>
+          {agents.length ? (
+            <label className="review-target">
+              <span>Send to</span>
               <select value={target} onChange={(e) => setTarget(e.target.value)}>
                 {agents.map((a) => (
                   <option key={a.paneId} value={a.paneId}>
@@ -275,16 +311,15 @@ export function DiffReview() {
                   </option>
                 ))}
               </select>
-            ) : (
-              <span className="hint inline">No Claude panes running</span>
-            )}
-            <button onClick={close}>Close</button>
-            <button className="primary" onClick={send} disabled={!target || (!list.length && !note.trim())}>
-              Send to Claude
-            </button>
-          </div>
+            </label>
+          ) : (
+            <span className="hint inline">No Claude panes running</span>
+          )}
+          <button className="primary" onClick={send} disabled={!target || (!list.length && !note.trim())}>
+            Send to Claude
+          </button>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

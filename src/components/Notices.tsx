@@ -3,10 +3,12 @@ import { formatDuration } from "../lib/format";
 import { showPane, submitToPane } from "../lib/terminals";
 import { useLayout } from "../store/layout";
 import { useNotices, type Notice } from "../store/notifications";
-import { toast } from "../store/ui";
+import { toast, useUi } from "../store/ui";
 import { BellIcon, CloseIcon } from "./Icons";
 
-const MAX_CARDS = 4;
+const MAX_CARDS = 3;
+/** Agent-state cards that the Queue rail / Agents board already show; they go to the bell instead. */
+const QUEUED: Notice["kind"][] = ["finished", "needs_input", "permission"];
 
 function ago(at: number) {
   const ms = Date.now() - at;
@@ -87,7 +89,9 @@ function Card({ n }: { n: Notice }) {
 /** Live cards, newest on top, bottom-right of the window. */
 export function NoticeStack() {
   const notices = useNotices((s) => s.notices);
-  const live = notices.filter((n) => n.live);
+  // One place for "who needs me": when the queue is on screen, don't repeat it as cards.
+  const queueVisible = useUi((s) => s.mode === "agents" || s.agentPanelOpen);
+  const live = notices.filter((n) => n.live && !(queueVisible && QUEUED.includes(n.kind)));
   // Re-render for the "ago" labels.
   const [, tick] = useState(0);
   useEffect(() => {

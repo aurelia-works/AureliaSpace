@@ -82,6 +82,22 @@ export const PlayIcon = (p: SVGProps<SVGSVGElement>) => (
 export const SidebarIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M6 2.5v11" /></svg>
 );
+export const SearchIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5l3 3" /></svg>
+);
+export const GlobeIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="8" cy="8" r="5.8" /><path d="M2.2 8h11.6M8 2.2c1.7 1.7 2.4 3.6 2.4 5.8S9.7 12.1 8 13.8C6.3 12.1 5.6 10.2 5.6 8S6.3 3.9 8 2.2z" /></svg>
+);
+export const MoreIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="3.5" cy="8" r=".6" /><circle cx="8" cy="8" r=".6" /><circle cx="12.5" cy="8" r=".6" /></svg>
+);
+export const ReplyIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M6.5 4L3 7.5 6.5 11" /><path d="M3 7.5h6.5a3.5 3.5 0 013.5 3.5v1" /></svg>
+);
+export const ArrowIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M3 8h10M9 4l4 4-4 4" /></svg>
+);
+
 /** The Aurelia jellyfish from assets/logo.svg, simplified for 16-20px. */
 export const AureliaMark = (p: SVGProps<SVGSVGElement>) => (
   <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden {...p}>

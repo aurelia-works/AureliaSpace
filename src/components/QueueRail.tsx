@@ -1,82 +1,112 @@
 import { useEffect, useMemo, useState } from "react";
 import { basename, shortenPath } from "../lib/format";
 import { ipc } from "../lib/ipc";
-import { focusTerminal } from "../lib/terminals";
-import { useAgents, type AgentSession, type AgentStatus } from "../store/agents";
+import { focusTerminal, showPane } from "../lib/terminals";
+import { useAgents, type AgentSession } from "../store/agents";
 import { useGit } from "../store/git";
 import { paneIds, useLayout } from "../store/layout";
 import { useRecents } from "../store/recents";
 import { useTasks, type Task, type TaskStatus } from "../store/tasks";
 import { useUi } from "../store/ui";
+import { CacheBadge } from "./CacheBadge";
 import { BranchIcon, CloseIcon, PinIcon, PlayIcon } from "./Icons";
-import { statusLabel } from "./PaneHeader";
-import { MetricsLine, PermissionButtons } from "./SessionExtras";
-
-const urgency: Record<AgentStatus, number> = { needs_input: 0, working: 1, starting: 2, idle: 3 };
+import { MetricsLine, PermissionButtons, ReplyBox, since } from "./SessionExtras";
+import { StatusGlyph, stateLabel, urgency, visualOf, type Visual } from "./StatusGlyph";
 
 function goToPane(paneId: string) {
   useLayout.getState().focusPane(paneId);
   requestAnimationFrame(() => focusTerminal(paneId));
 }
 
-function AgentRow({ s, tabIndex }: { s: AgentSession; tabIndex: number }) {
-  const ago = Math.max(0, Math.round((Date.now() - s.updatedAt) / 1000));
-  const when = ago < 60 ? `${ago}s` : ago < 3600 ? `${Math.round(ago / 60)}m` : `${Math.round(ago / 3600)}h`;
+function AgentRow({ s, tabIndex, now }: { s: AgentSession; tabIndex: number; now: number }) {
+  const v = visualOf(s);
   const git = useGit((g) => (s.cwd ? g.info[s.cwd] : undefined));
+  const detail =
+    v === "needs_input" ? s.message || "Waiting for you" : v === "working" ? (s.tool ? `Running ${s.tool}` : "Thinking…") : v === "done" ? "Finished. Your turn." : "";
   return (
-    <button className={`agent-row ${s.status}${s.attention ? " attention" : ""}`} onClick={() => goToPane(s.paneId)} title={shortenPath(s.cwd)}>
-      <span className={`status-dot ${s.status}`} />
-      <span className="agent-main">
-        <span className="agent-line">
-          <span className="account-chip">{s.account ?? "claude"}</span>
-          <span className="agent-cwd">{basename(s.cwd) || "—"}</span>
-          <span className="agent-tab">tab {tabIndex + 1}</span>
-        </span>
-        <span className="agent-sub">
-          <span className={`agent-status ${s.status}`}>{statusLabel[s.status]}</span>
-          {s.status === "working" && s.tool && <span className="agent-detail">· {s.tool}</span>}
-          {s.status === "needs_input" && s.message && <span className="agent-detail">· {s.message}</span>}
-          {s.status === "idle" && s.attention && <span className="agent-detail done">· finished</span>}
-          {git && (
-            <span className={`agent-branch${git.worktree ? " worktree" : ""}`}>
-              <BranchIcon width={10} height={10} />
-              {git.branch}
+    <div className={`q-row ${v}`}>
+      <button className="q-open" onClick={() => showPane(s.paneId)} title={`${shortenPath(s.cwd)} · open pane`}>
+        <StatusGlyph state={v} />
+        <span className="q-main">
+          <span className="q-line">
+            <span className="q-folder">{basename(s.cwd) || "—"}</span>
+            <span className="account-chip">{s.account ?? "claude"}</span>
+            <span className="q-ago num" title="Since last change">
+              {since(now - s.updatedAt)}
             </span>
-          )}
-          <span className="agent-ago">{when}</span>
+          </span>
+          <span className="q-sub">
+            <span className={`state-text ${v}`}>{stateLabel[v]}</span>
+            {git && (
+              <span className={`git-chip${git.worktree ? " worktree" : ""}`}>
+                <BranchIcon width={10} height={10} />
+                {git.branch}
+              </span>
+            )}
+            <span className="q-tab num">tab {tabIndex + 1}</span>
+          </span>
+          {detail && <span className="q-detail">{detail}</span>}
         </span>
-        {s.status === "needs_input" && <PermissionButtons paneId={s.paneId} />}
+      </button>
+      {v === "needs_input" && <PermissionButtons paneId={s.paneId} />}
+      {(v === "needs_input" || v === "done") && <ReplyBox paneId={s.paneId} />}
+      <span className="q-foot">
         <MetricsLine paneId={s.paneId} />
+        <CacheBadge session={s} />
       </span>
-    </button>
+    </div>
   );
 }
 
 function useNow(ms: number) {
-  const [, set] = useState(0);
+  const [now, set] = useState(Date.now());
   useEffect(() => {
-    const id = setInterval(() => set((n) => n + 1), ms);
+    const id = setInterval(() => set(Date.now()), ms);
     return () => clearInterval(id);
   }, [ms]);
+  return now;
 }
 
-function Agents() {
+const GROUPS: { id: Visual[]; label: string }[] = [
+  { id: ["needs_input"], label: "Needs you" },
+  { id: ["done"], label: "Finished" },
+  { id: ["working", "starting"], label: "Working" },
+  { id: ["idle"], label: "Idle" },
+];
+
+/** Agents by urgency: whoever needs you is always the first thing in the rail. */
+function Queue() {
   const sessions = useAgents((s) => s.sessions);
   const tabs = useLayout((s) => s.tabs);
-  useNow(10_000);
-  const list = Object.values(sessions).sort((a, b) => urgency[a.status] - urgency[b.status] || b.updatedAt - a.updatedAt);
+  const now = useNow(10_000);
+  const list = Object.values(sessions).sort((a, b) => urgency[visualOf(a)] - urgency[visualOf(b)] || a.updatedAt - b.updatedAt);
   const tabIndex = (paneId: string) => tabs.findIndex((t) => paneIds(t.root).includes(paneId));
   return (
-    <section className="panel-section">
-      <h3>
-        Agents <span className="count">{list.length}</span>
+    <section className="rail-section" aria-label="Agent queue">
+      <h3 className="rail-head">
+        <span className="label">Queue</span>
+        <span className="rail-count num">{list.length}</span>
       </h3>
       {list.length === 0 ? (
         <p className="empty">
-          No Claude sessions. Press <kbd>⌘E</kbd> to open one as an account, or run <code>claude</code> in any pane.
+          No Claude sessions. <kbd>⌘E</kbd> opens one as an account, or run <code>claude</code> in any pane.
         </p>
       ) : (
-        list.map((s) => <AgentRow key={s.paneId} s={s} tabIndex={tabIndex(s.paneId)} />)
+        GROUPS.map((g) => {
+          const rows = list.filter((s) => g.id.includes(visualOf(s)));
+          if (!rows.length) return null;
+          return (
+            <div key={g.label} className={`q-group ${g.id[0]}`}>
+              <div className="q-group-head">
+                <span>{g.label}</span>
+                <span className="num">{rows.length}</span>
+              </div>
+              {rows.map((s) => (
+                <AgentRow key={s.paneId} s={s} tabIndex={tabIndex(s.paneId)} now={now} />
+              ))}
+            </div>
+          );
+        })
       )}
     </section>
   );
@@ -84,6 +114,7 @@ function Agents() {
 
 const statusOrder: TaskStatus[] = ["doing", "todo", "done"];
 const statusGlyph: Record<TaskStatus, string> = { todo: "○", doing: "◐", done: "●" };
+const statusName: Record<TaskStatus, string> = { todo: "To do", doing: "Doing", done: "Done" };
 
 function TaskRow({ project, task, focusedPane }: { project: string; task: Task; focusedPane?: string }) {
   const { cycle, remove, attach } = useTasks.getState();
@@ -91,7 +122,7 @@ function TaskRow({ project, task, focusedPane }: { project: string; task: Task; 
   const attachedElsewhere = !!task.paneId && !attachedHere;
   return (
     <div className={`task-row ${task.status}`}>
-      <button className="task-status" onClick={() => cycle(project, task.id)} title={`${task.status} — click to advance`}>
+      <button className="task-status" onClick={() => cycle(project, task.id)} title={`${statusName[task.status]}: click to advance`} aria-label={`${statusName[task.status]}, advance status`}>
         {statusGlyph[task.status]}
       </button>
       <span className="task-title" onDoubleClick={() => task.paneId && goToPane(task.paneId)}>
@@ -151,17 +182,20 @@ function Tasks() {
 
   if (!project) {
     return (
-      <section className="panel-section">
-        <h3>Tasks</h3>
+      <section className="rail-section">
+        <h3 className="rail-head">
+          <span className="label">Tasks</span>
+        </h3>
         <p className="empty">Tasks follow the focused pane's project.</p>
       </section>
     );
   }
 
   return (
-    <section className="panel-section tasks">
-      <h3 title={project}>
-        Tasks <span className="project">{basename(project)}</span>
+    <section className="rail-section tasks">
+      <h3 className="rail-head" title={project}>
+        <span className="label">Tasks</span>
+        <span className="rail-project">{basename(project)}</span>
       </h3>
       <form
         className="task-add"
@@ -178,7 +212,7 @@ function Tasks() {
           list.length > 0 && (
             <div key={st}>
               <button className="task-group-toggle" onClick={() => setShowDone(!showDone)}>
-                {showDone ? "▾" : "▸"} done ({list.length})
+                <span className={`chev${showDone ? " open" : ""}`} aria-hidden>›</span> Done <span className="num">{list.length}</span>
               </button>
               {showDone && list.map((t) => <TaskRow key={t.id} project={project} task={t} focusedPane={focusedPane} />)}
             </div>
@@ -195,9 +229,10 @@ function Tasks() {
 function Recents() {
   const folders = useRecents((s) => s.folders);
   return (
-    <section className="panel-section">
-      <h3>
-        Recent folders <span className="count">{folders.length}</span>
+    <section className="rail-section">
+      <h3 className="rail-head">
+        <span className="label">Recent folders</span>
+        <span className="rail-count num">{folders.length}</span>
       </h3>
       {folders.length === 0 ? (
         <p className="empty">Folders you work in show up here.</p>
@@ -218,10 +253,11 @@ function Recents() {
   );
 }
 
-export function AgentPanel() {
+/** Right rail (⌘B): the agent queue, tasks for the focused project, and recent folders. */
+export function QueueRail() {
   return (
-    <aside className="agent-panel">
-      <Agents />
+    <aside className="rail" aria-label="Queue">
+      <Queue />
       <Tasks />
       <Recents />
     </aside>

@@ -24,15 +24,14 @@ import { loadTasks } from "./store/tasks";
 import { loadUiState, useUi } from "./store/ui";
 import { startMetrics } from "./store/metrics";
 import { startUsagePolling } from "./store/usage";
-import "./styles.css";
-import "./launcher.css";
-import "./sidebar.css";
-import "./settings.css";
-import "./cache.css";
-import "./voice.css";
-import "./notices.css";
-import "./forecast.css";
-import "./metrics.css";
+import "./styles/tokens.css";
+import "./styles/base.css";
+import "./styles/chrome.css";
+import "./styles/panes.css";
+import "./styles/board.css";
+import "./styles/overlays.css";
+import "./styles/notices.css";
+import "./styles/settings.css";
 
 function applyTheme() {
   const cfg = useConfig.getState().config;

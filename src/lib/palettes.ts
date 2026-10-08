@@ -138,7 +138,7 @@ export function getPalette(id: string | undefined): Palette {
 /** Colors for the settings swatch: pane background, accent, text. */
 export function swatchColors(p: Palette, dark: boolean): [string, string, string] {
   const v = dark ? p.dark : p.light;
-  if (!v) return dark ? ["#121117", "#e9b04b", "#e6e1d6"] : ["#faf8f3", "#b5791f", "#26233a"];
+  if (!v) return dark ? ["#0b0d11", "#f2b544", "#ece8e1"] : ["#fbfaf6", "#94600a", "#1d1b21"];
   return [v.pane, v.accent, v.text];
 }
 
@@ -168,10 +168,10 @@ export function terminalThemeFor(id: string | undefined, dark: boolean): ITheme 
 const VAR_NAMES = [
   "--bg", "--chrome", "--surface", "--surface-2", "--surface-3", "--pane-bg", "--border", "--border-strong",
   "--text", "--text-dim", "--text-faint", "--accent", "--accent-strong", "--accent-soft", "--accent-ink",
-  "--ok", "--err", "--warn", "--err-tint", "--shadow",
+  "--ok", "--err", "--warn", "--err-tint", "--shadow", "--attn", "--work",
 ];
 
-/** Sets the palette's CSS variables on <html>; Aurelia clears them to fall back to styles.css. */
+/** Sets the palette's CSS variables on <html>; Aurelia clears them to fall back to styles/tokens.css. */
 export function applyPaletteVars(id: string | undefined, dark: boolean) {
   const root = document.documentElement;
   const palette = getPalette(id);
@@ -188,6 +188,9 @@ export function applyPaletteVars(id: string | undefined, dark: boolean) {
     "--accent": v.accent, "--accent-strong": v.strong, "--accent-soft": rgba(v.accent, dark ? 0.14 : 0.13),
     "--accent-ink": v.ink, "--ok": v.ok, "--err": v.err, "--warn": v.warn,
     "--err-tint": rgba(v.err, dark ? 0.07 : 0.06),
+    // Status hues: "needs you" is the palette's warm warning colour, "working" its ANSI cyan.
+    "--attn": v.warn,
+    "--work": v.ansi[6],
     "--shadow": dark
       ? "0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04)"
       : "0 18px 50px rgba(30, 30, 50, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.05)",
