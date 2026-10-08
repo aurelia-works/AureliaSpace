@@ -57,6 +57,7 @@ export const shortcutHelp: ShortcutHelp[] = [
   { keys: "⌘T", label: "New tab (start screen)" },
   { keys: "⇧⌘1 / ⇧⌘2 / ⇧⌘3", label: "Agents / Terminals / Review mode" },
   { keys: "⌘D / ⇧⌘D", label: "Split right / down" },
+  { keys: "Drag header", label: "Move a pane: drop on an edge to dock it there, in the middle to swap (Esc cancels)" },
   { keys: "⌘W / ⇧⌘W", label: "Close pane / tab" },
   { keys: "⌥⌘ ←↑↓→", label: "Focus pane in direction" },
   { keys: "⌘1…9, ⇧⌘[ ]", label: "Switch tab" },

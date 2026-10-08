@@ -7,6 +7,7 @@ import { GridPicker } from "./components/GridPicker";
 import { LayoutView } from "./components/LayoutView";
 import { Navigator } from "./components/Navigator";
 import { NoticeStack } from "./components/Notices";
+import { PaneDragGhost } from "./components/PaneDrag";
 import { QueueRail } from "./components/QueueRail";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { StatusBar } from "./components/StatusBar";
@@ -80,6 +81,7 @@ export function App() {
       <CommandPalette />
       <NoticeStack />
       <Toast />
+      <PaneDragGhost />
     </div>
   );
 }

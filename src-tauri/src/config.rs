@@ -271,7 +271,7 @@ fn write_json(path: &Path, value: &Value) -> Result<(), String> {
 /// Only these state files may be read/written from the frontend.
 fn state_path(name: &str) -> Result<PathBuf, String> {
     match name {
-        "layout" | "tasks" | "ui" | "recents" => Ok(app_dir().join(format!("{name}.json"))),
+        "layout" | "tasks" | "ui" | "recents" | "agents" => Ok(app_dir().join(format!("{name}.json"))),
         _ => Err(format!("unknown state file: {name}")),
     }
 }

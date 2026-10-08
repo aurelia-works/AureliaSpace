@@ -2,6 +2,9 @@ import { create } from "zustand";
 
 export type SplitDir = "row" | "column"; // row = side by side, column = stacked
 
+/** Where a dragged pane lands on another: beside it on one edge, or swapped into its place. */
+export type DropZone = "left" | "right" | "top" | "bottom" | "center";
+
 export type LayoutNode =
   | { type: "pane"; id: string }
   | { type: "split"; id: string; dir: SplitDir; ratio: number; a: LayoutNode; b: LayoutNode };
@@ -16,6 +19,8 @@ export interface PaneMeta {
   /** Env for the agent CLI; secrets are referenced by Keychain id, never stored here. */
   env?: Record<string, string>;
   secretEnv?: Record<string, string>;
+  /** Saved custom agent (store/customAgents) this pane was launched as: its name and colour label the pane. */
+  customAgent?: string;
   /** Shows the start screen instead of a terminal until the user picks what to run. */
   launcher?: boolean;
   /** A built-in browser pane (native child webview) instead of a terminal; url "" = blank. */
@@ -34,6 +39,7 @@ export interface NewPaneOpts {
   agent?: string;
   env?: Record<string, string>;
   secretEnv?: Record<string, string>;
+  customAgent?: string;
   launcher?: boolean;
   /** Opens a browser pane at this URL ("" = blank) instead of a terminal. */
   browserUrl?: string;
@@ -56,6 +62,8 @@ interface LayoutState {
   cycleTab(delta: number): void;
   splitPane(paneId: string, dir: SplitDir, opts?: NewPaneOpts): string;
   closePane(paneId: string): void;
+  /** Moves a pane next to another in the same tab ("center" swaps the two). */
+  movePane(paneId: string, targetId: string, zone: DropZone): void;
   focusPane(paneId: string): void;
   setRatio(splitId: string, ratio: number): void;
   updatePane(paneId: string, patch: Partial<PaneMeta>): void;
@@ -106,6 +114,10 @@ function makePane(opts?: NewPaneOpts): PaneMeta {
     id: uid("pane"),
     account: opts?.account,
     cwd: opts?.cwd,
+    agent: opts?.agent,
+    env: opts?.env,
+    secretEnv: opts?.secretEnv,
+    customAgent: opts?.customAgent,
     launcher: opts?.launcher || undefined,
     browser: opts?.browserUrl !== undefined ? { url: opts.browserUrl } : undefined,
   };
@@ -247,6 +259,38 @@ export const useLayout = create<LayoutState>((set, get) => ({
     delete panes[paneId];
     set({ tabs: s.tabs.map((t) => (t.id === tab.id ? { ...t, root, focusedPaneId: focused } : t)), panes });
     emitClosed([paneId]);
+  },
+
+  movePane(paneId, targetId, zone) {
+    const s = get();
+    const tab = tabOfPane(s.tabs, paneId);
+    if (!tab || paneId === targetId || tabOfPane(s.tabs, targetId) !== tab) return;
+    let root: LayoutNode;
+    if (zone === "center") {
+      const swap = (n: LayoutNode): LayoutNode =>
+        n.type === "split"
+          ? { ...n, a: swap(n.a), b: swap(n.b) }
+          : n.id === paneId
+            ? { type: "pane", id: targetId }
+            : n.id === targetId
+              ? { type: "pane", id: paneId }
+              : n;
+      root = swap(tab.root);
+    } else {
+      // Lift the pane out (its sibling takes the parent's place), then split the target.
+      const lifted = replaceNode(tab.root, paneId, () => null)!;
+      const moved: LayoutNode = { type: "pane", id: paneId };
+      const first = zone === "left" || zone === "top";
+      root = replaceNode(lifted, targetId, (n) => ({
+        type: "split",
+        id: uid("split"),
+        dir: zone === "left" || zone === "right" ? "row" : "column",
+        ratio: 0.5,
+        a: first ? moved : n,
+        b: first ? n : moved,
+      }))!;
+    }
+    set({ tabs: s.tabs.map((t) => (t.id === tab.id ? { ...t, root, focusedPaneId: paneId } : t)) });
   },
 
   focusPane(paneId) {

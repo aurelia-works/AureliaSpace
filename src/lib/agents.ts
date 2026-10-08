@@ -1,6 +1,9 @@
+import { useConfig } from "../store/config";
+import type { CustomAgent } from "../store/customAgents";
 import { useLayout, focusedPaneId, type NewPaneOpts } from "../store/layout";
 import { useRecents } from "../store/recents";
 import { toast } from "../store/ui";
+import { expandPath } from "./format";
 import type { Account } from "./ipc";
 import { shellQuote, startDir } from "./launch";
 import { queueInit } from "./terminals";
@@ -183,4 +186,52 @@ export async function launchAgents(plan: LaunchPlanItem[], where: "split" | "tab
   if (base) useRecents.getState().record(base);
   if (worktree && jobs[0]?.opts.cwd !== base) toast(`${total} worktree${total > 1 ? "s" : ""} created next to the repo`);
   return ids;
+}
+
+/** The launcher variant a custom agent runs, or undefined if it's gone (e.g. its account was removed). */
+export function variantOf(agent: CustomAgent): AgentVariant | undefined {
+  if (agent.variant === "custom") return customVariant(agent.command ?? "");
+  return agentVariants(useConfig.getState().config?.accounts ?? []).find((v) => v.id === agent.variant);
+}
+
+/**
+ * Pane options and start command for a custom agent starting from `base`. Makes its worktree
+ * when asked. Undefined (after a toast) if the agent's CLI or account no longer exists.
+ */
+export async function prepareCustomAgent(agent: CustomAgent, base: string | undefined): Promise<{ opts: NewPaneOpts; command?: string } | undefined> {
+  const variant = variantOf(agent);
+  if (!variant || (variant.custom && !agent.command?.trim())) {
+    toast(`${agent.name}: its CLI or account no longer exists. Edit it in Settings → My agents.`, true);
+    return undefined;
+  }
+  const from = agent.folder ? expandPath(agent.folder) : base;
+  const cwd = await startDir(from, !!agent.worktree, agent.name.replace(/\W+/g, "-").toLowerCase());
+  if (agent.worktree && cwd !== from) toast(`New worktree: ${cwd}`);
+  if (from) useRecents.getState().record(from);
+  const opts: NewPaneOpts = {
+    account: variant.account,
+    cwd,
+    agent: variant.id,
+    customAgent: agent.id,
+    env: Object.keys(variant.env).length ? variant.env : undefined,
+    secretEnv: variant.secrets.length ? Object.fromEntries(variant.secrets.map((x) => [x.env, x.key.id])) : undefined,
+  };
+  // Account panes run plain `claude` by default; only override when there are instructions.
+  if (variant.account) {
+    const instructions = agent.instructions?.trim();
+    return { opts, command: instructions ? `claude --append-system-prompt ${shellQuote(instructions)}` : undefined };
+  }
+  const extra = variant.custom ? "" : (agent.args ?? "").trim();
+  return { opts, command: [commandLine(variant, agent.command ?? ""), extra].filter(Boolean).join(" ") };
+}
+
+/** Opens one pane running a saved custom agent, labelled with its name and colour. */
+export async function launchCustomAgent(agent: CustomAgent, where: "split" | "tab") {
+  const from = focusedPaneId();
+  const plan = await prepareCustomAgent(agent, from ? useLayout.getState().panes[from]?.cwd : undefined);
+  if (!plan) return;
+  const lay = useLayout.getState();
+  const id = where === "split" && from && lay.panes[from] ? lay.splitPane(from, "row", plan.opts) : lay.newTab(plan.opts);
+  if (plan.command) queueInit(id, plan.command);
+  return id;
 }

@@ -5,6 +5,7 @@ import { useAgents } from "../store/agents";
 import { paneDir, useGit } from "../store/git";
 import { paneIds, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
+import { usePaneAgent } from "./AgentChip";
 import { StatusGlyph, stateLabel, urgency, visualOf, type Visual } from "./StatusGlyph";
 
 interface Project {
@@ -18,10 +19,11 @@ function PaneRow({ paneId, tab, focused }: { paneId: string; tab: number; focuse
   const pane = useLayout((s) => s.panes[paneId]);
   const agent = useAgents((s) => s.sessions[paneId]);
   const running = useRuntime((s) => s.panes[paneId]?.running);
+  const custom = usePaneAgent(paneId);
   const account = pane?.account ?? agent?.account;
   const isClaude = !!agent || !!account;
   const v: Visual | undefined = agent ? visualOf(agent) : isClaude ? "starting" : undefined;
-  const label = pane?.browser ? "Browser" : pane?.launcher ? "New tab" : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
+  const label = pane?.browser ? "Browser" : pane?.launcher ? "New tab" : custom ? custom.name : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
   const sub = agent
     ? agent.status === "working" && agent.tool
       ? agent.tool

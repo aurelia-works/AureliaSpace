@@ -6,6 +6,7 @@ import { AppearanceSection } from "./AppearanceSection";
 import { GeneralSection } from "./GeneralSection";
 import { HudSection } from "./HudSection";
 import { IntegrationsSection } from "./IntegrationsSection";
+import { MyAgentsSection } from "./MyAgentsSection";
 import { ShortcutsSection } from "./ShortcutsSection";
 import { SuggestionsSection } from "./SuggestionsSection";
 import { VoiceSection } from "./VoiceSection";
@@ -29,7 +30,8 @@ export const SECTIONS: SettingsSection[] = [
   { id: "general", label: "General", Component: GeneralSection },
   { id: "appearance", label: "Appearance", Component: AppearanceSection },
   { id: "accounts", label: "Accounts", Component: AccountsSection },
-  { id: "agents", label: "Agents", Component: AgentsSection },
+  { id: "my-agents", label: "My agents", Component: MyAgentsSection },
+  { id: "agents", label: "Agent keys", Component: AgentsSection },
   { id: "suggestions", label: "Suggestions", Component: SuggestionsSection },
   { id: "voice", label: "Voice", Component: VoiceSection },
   { id: "hud", label: "HUD", Component: HudSection },

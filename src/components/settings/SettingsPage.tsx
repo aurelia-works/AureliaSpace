@@ -19,6 +19,11 @@ export function SettingsPage() {
     if (open && config) {
       setDraft(structuredClone(config));
       setMsg("");
+      const want = useUi.getState().settingsSection;
+      if (want) {
+        setSectionId(want);
+        useUi.getState().set({ settingsSection: null });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);

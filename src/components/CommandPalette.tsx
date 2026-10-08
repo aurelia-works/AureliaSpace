@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { launchCustomAgent, variantOf } from "../lib/agents";
 import { openInBrowserPane } from "../lib/browser";
 import { basename, shortenPath } from "../lib/format";
 import { handOff } from "../lib/handoff";
@@ -8,6 +9,7 @@ import { clearTerminal, showPane } from "../lib/terminals";
 import { toggleVoice, useVoice } from "../lib/voice";
 import { useAgents } from "../store/agents";
 import { useConfig } from "../store/config";
+import { useCustomAgents } from "../store/customAgents";
 import { activeTab, focusedPaneId, paneIds, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { useUi } from "../store/ui";
@@ -52,7 +54,8 @@ function paneItems(): Item[] {
       const p = panes[id];
       const s = sessions[id];
       const dir = s?.cwd ?? p?.cwd;
-      const what = p?.browser ? "browser" : s ? (s.account ?? "claude") : (p?.agent ?? runtime[id]?.running?.split(/\s+/)[0] ?? "shell");
+      const custom = p?.customAgent ? useCustomAgents.getState().agents.find((a) => a.id === p.customAgent)?.name : undefined;
+      const what = custom ?? (p?.browser ? "browser" : s ? (s.account ?? "claude") : (p?.agent ?? runtime[id]?.running?.split(/\s+/)[0] ?? "shell"));
       const v = s ? visualOf(s) : undefined;
       out.push({
         id: `pane:${id}`,
@@ -104,6 +107,14 @@ function actionItems(): Item[] {
     { id: "theme-light", group: "Actions", label: "Theme: light", run: () => setTheme("light") },
     { id: "theme-system", group: "Actions", label: "Theme: follow system", run: () => setTheme("system") },
     { id: "settings", group: "Actions", label: "Settings", keys: "⌘,", run: () => ui.set({ settingsOpen: true }) },
+    ...useCustomAgents.getState().agents.map((a) => ({
+      id: `agent:${a.id}`,
+      group: "Actions" as const,
+      label: `Launch ${a.name}`,
+      hint: variantOf(a)?.label,
+      run: () => void launchCustomAgent(a, "tab"),
+    })),
+    { id: "new-agent", group: "Actions", label: "New custom agent…", run: () => ui.set({ settingsOpen: true, settingsSection: "my-agents" }) },
   ];
   return items.filter((x): x is Item => !!x);
 }

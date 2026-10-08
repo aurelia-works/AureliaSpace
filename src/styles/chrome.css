@@ -288,16 +288,6 @@
   width: 7px;
   height: 7px;
 }
-.sb-summary {
-  display: inline-flex;
-  gap: var(--sp-2);
-}
-.sb-summary .state-text {
-  font-size: 11px;
-}
-.sb-dim {
-  color: var(--text-faint);
-}
 .sb-focus {
   flex: 1;
   min-width: 0;
@@ -305,24 +295,6 @@
   align-items: center;
   gap: var(--sp-3);
   overflow: hidden;
-}
-.sb-path {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-dim);
-  font-size: 10.5px;
-}
-.sb-run {
-  color: var(--work);
-  font-size: 10.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 30ch;
-}
-.sb-exit {
-  color: var(--err);
-  font-weight: 600;
 }
 .sb-font {
   padding: 0 5px;

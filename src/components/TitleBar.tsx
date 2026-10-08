@@ -1,6 +1,7 @@
 import { basename } from "../lib/format";
 import { jumpToWaiting } from "../lib/shortcuts";
 import { waitingAgents, worstStatus, useAgents } from "../store/agents";
+import { useCustomAgents } from "../store/customAgents";
 import { paneIds, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { useUi, type Mode } from "../store/ui";
@@ -50,6 +51,7 @@ function Tabs() {
   const panes = useLayout((s) => s.panes);
   const runtime = useRuntime((s) => s.panes);
   const sessions = useAgents((s) => s.sessions);
+  const customAgents = useCustomAgents((s) => s.agents);
   const mode = useUi((s) => s.mode);
   const { activateTab, closeTab } = useLayout.getState();
 
@@ -63,7 +65,8 @@ function Tabs() {
         const title = agent ? basename(agent.cwd ?? focused?.cwd) || "~" : paneTitle(focused?.cwd, runtime[tab.focusedPaneId]?.running);
         const status = worstStatus(sessions, ids);
         const done = ids.some((id) => sessions[id]?.attention);
-        const account = focused?.account ?? sessions[tab.focusedPaneId]?.account;
+        const account =
+          customAgents.find((a) => a.id === focused?.customAgent)?.name ?? focused?.account ?? sessions[tab.focusedPaneId]?.account;
         const active = tab.id === activeTabId && mode === "terminals";
         const needs = status === "needs_input";
         const select = () => {

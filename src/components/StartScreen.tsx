@@ -3,11 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { basename, expandPath, shortenPath } from "../lib/format";
 import { ipc } from "../lib/ipc";
+import { prepareCustomAgent, variantOf } from "../lib/agents";
 import { queueInit } from "../lib/terminals";
 import { useConfig } from "../store/config";
+import { useCustomAgents, type CustomAgent } from "../store/customAgents";
 import { useLayout } from "../store/layout";
 import { useRecents } from "../store/recents";
 import { useUi } from "../store/ui";
+import { AgentAvatar } from "./AgentChip";
 import { AgentLogo } from "./AgentLogos";
 import { CloseIcon, FolderIcon, SparkIcon, TerminalIcon } from "./Icons";
 
@@ -24,8 +27,9 @@ interface Choice {
   key: string;
   label: string;
   hint: string;
-  /** AgentLogo key; "terminal" and "more" use built-in icons. */
+  /** AgentLogo key; "terminal" and "more" use built-in icons, "agent" the saved agent's avatar. */
   logo: string;
+  agent?: CustomAgent;
   run(): void;
 }
 
@@ -35,6 +39,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
   const cwd = useLayout((s) => s.panes[paneId]?.cwd);
   const accounts = useConfig((s) => s.config?.accounts ?? []);
   const recents = useRecents((s) => s.folders);
+  const customAgents = useCustomAgents((s) => s.agents);
   const workspace = useConfig((s) => s.config?.defaultWorkspace);
   const [tools, setTools] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState(false);
@@ -57,7 +62,23 @@ export function StartScreen({ paneId }: { paneId: string }) {
     updatePane(paneId, { ...patch, launcher: undefined });
   };
 
+  const startCustom = async (agent: CustomAgent) => {
+    const plan = await prepareCustomAgent(agent, cwd || workspace);
+    if (!plan) return;
+    if (plan.command) queueInit(paneId, plan.command);
+    updatePane(paneId, { ...plan.opts, launcher: undefined });
+  };
+
   const choices: Choice[] = [
+    // Saved agents first: they're the ones you set up on purpose.
+    ...customAgents.map((a) => ({
+      key: `agent-${a.id}`,
+      label: a.name,
+      hint: variantOf(a)?.label ?? "missing CLI",
+      logo: "agent",
+      agent: a,
+      run: () => void startCustom(a),
+    })),
     // The folder's preferred account (workspace override, else the default) comes first.
     ...[...accounts].sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred)).map((a) => ({
       key: `acct-${a.name}`,
@@ -153,7 +174,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
           {choices.map((c, i) => (
             <button key={c.key} role="listitem" className={`start-row ${c.logo}`} onClick={c.run}>
               <span className="start-logo">
-                {c.logo === "terminal" ? <TerminalIcon width={16} height={16} /> : c.logo === "more" ? <SparkIcon width={16} height={16} /> : <AgentLogo logo={c.logo} size={16} />}
+                {c.agent ? <AgentAvatar agent={c.agent} size={14} /> : c.logo === "terminal" ? <TerminalIcon width={16} height={16} /> : c.logo === "more" ? <SparkIcon width={16} height={16} /> : <AgentLogo logo={c.logo} size={16} />}
               </span>
               <span className="start-label">{c.label}</span>
               <span className="start-hint">{c.hint}</span>

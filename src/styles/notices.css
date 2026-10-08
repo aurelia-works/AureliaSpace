@@ -264,3 +264,11 @@
 .app:has(.settings-page) .toast {
   bottom: calc(var(--statusbar-h) + 70px);
 }
+/* Review's footer is taller (note box + send row). */
+.app:has(.review-foot) .notice-stack {
+  bottom: calc(var(--statusbar-h) + 140px);
+}
+/* Keep cards over the stage, not on top of the Queue rail they'd duplicate. */
+.app:has(.rail):not(:has(.page)):not(:has(.settings-page)) .notice-stack {
+  right: calc(var(--rail-w) + 12px);
+}

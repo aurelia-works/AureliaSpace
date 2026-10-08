@@ -5,6 +5,7 @@ import { useUi } from "../store/ui";
 import { useAgents } from "../store/agents";
 import { BlockOverlay } from "./BlockOverlay";
 import { BrowserPane } from "./BrowserPane";
+import { DropIndicator, usePaneDrag } from "./PaneDrag";
 import { PaneHeader } from "./PaneHeader";
 import { StartScreen } from "./StartScreen";
 import { SuggestBar } from "./SuggestBar";
@@ -17,6 +18,7 @@ export function PaneView({ paneId }: { paneId: string }) {
   const launcher = useLayout((s) => !!s.panes[paneId]?.launcher);
   const isBrowser = useLayout((s) => !!s.panes[paneId]?.browser);
   const suggestOpen = useUi((s) => s.suggestPaneId === paneId);
+  const dragging = usePaneDrag((s) => s.paneId === paneId);
   // Drives the pane's edge colour: gold when it needs you, the working hue while busy.
   const state = useAgents((s) => {
     const a = s.sessions[paneId];
@@ -45,12 +47,13 @@ export function PaneView({ paneId }: { paneId: string }) {
 
   return (
     <div
-      className={`pane${focused ? " focused" : ""}${focused && multi ? " focus-ring" : ""}`}
+      className={`pane${focused ? " focused" : ""}${focused && multi ? " focus-ring" : ""}${dragging ? " drag-source" : ""}`}
       data-pane-id={paneId}
       data-state={state}
       onMouseDownCapture={() => useLayout.getState().focusPane(paneId)}
     >
       <PaneHeader paneId={paneId} />
+      <DropIndicator paneId={paneId} />
       <div className="pane-body">
         {isBrowser ? (
           <BrowserPane paneId={paneId} />

@@ -3,13 +3,12 @@ import { basename, shortenPath } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { focusTerminal, showPane } from "../lib/terminals";
 import { useAgents, type AgentSession } from "../store/agents";
-import { useGit } from "../store/git";
 import { paneIds, useLayout } from "../store/layout";
 import { useRecents } from "../store/recents";
 import { useTasks, type Task, type TaskStatus } from "../store/tasks";
 import { useUi } from "../store/ui";
-import { CacheBadge } from "./CacheBadge";
-import { BranchIcon, CloseIcon, PinIcon, PlayIcon } from "./Icons";
+import { AgentChip, usePaneAgent } from "./AgentChip";
+import { CloseIcon, PinIcon, PlayIcon } from "./Icons";
 import { MetricsLine, PermissionButtons, ReplyBox, since } from "./SessionExtras";
 import { StatusGlyph, stateLabel, urgency, visualOf, type Visual } from "./StatusGlyph";
 
@@ -20,7 +19,7 @@ function goToPane(paneId: string) {
 
 function AgentRow({ s, tabIndex, now }: { s: AgentSession; tabIndex: number; now: number }) {
   const v = visualOf(s);
-  const git = useGit((g) => (s.cwd ? g.info[s.cwd] : undefined));
+  const custom = usePaneAgent(s.paneId);
   const detail =
     v === "needs_input" ? s.message || "Waiting for you" : v === "working" ? (s.tool ? `Running ${s.tool}` : "Thinking…") : v === "done" ? "Finished. Your turn." : "";
   return (
@@ -30,19 +29,13 @@ function AgentRow({ s, tabIndex, now }: { s: AgentSession; tabIndex: number; now
         <span className="q-main">
           <span className="q-line">
             <span className="q-folder">{basename(s.cwd) || "—"}</span>
-            <span className="account-chip">{s.account ?? "claude"}</span>
+            {custom ? <AgentChip agent={custom} /> : <span className="account-chip">{s.account ?? "claude"}</span>}
             <span className="q-ago num" title="Since last change">
               {since(now - s.updatedAt)}
             </span>
           </span>
           <span className="q-sub">
             <span className={`state-text ${v}`}>{stateLabel[v]}</span>
-            {git && (
-              <span className={`git-chip${git.worktree ? " worktree" : ""}`}>
-                <BranchIcon width={10} height={10} />
-                {git.branch}
-              </span>
-            )}
             <span className="q-tab num">tab {tabIndex + 1}</span>
           </span>
           {detail && <span className="q-detail">{detail}</span>}
@@ -52,7 +45,6 @@ function AgentRow({ s, tabIndex, now }: { s: AgentSession; tabIndex: number; now
       {(v === "needs_input" || v === "done") && <ReplyBox paneId={s.paneId} />}
       <span className="q-foot">
         <MetricsLine paneId={s.paneId} />
-        <CacheBadge session={s} />
       </span>
     </div>
   );

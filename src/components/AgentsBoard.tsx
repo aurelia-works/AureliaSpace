@@ -11,6 +11,7 @@ import { useRuntime } from "../store/runtime";
 import { tasksForPane, useTasks } from "../store/tasks";
 import { useUi } from "../store/ui";
 import { CacheBadge } from "./CacheBadge";
+import { AgentChip, usePaneAgent } from "./AgentChip";
 import { ArrowIcon, BranchIcon, GridIcon, SparkIcon } from "./Icons";
 import { paneTail } from "./paneTail";
 import { MetricsLine, PermissionButtons, ReplyBox, since } from "./SessionExtras";
@@ -62,6 +63,7 @@ function Card({ it, selected, onSelect, replyRef }: { it: Item; selected: boolea
     return (attached.find((x) => x.status === "doing") ?? attached[0])?.title;
   });
   const now = useNow();
+  const custom = usePaneAgent(it.paneId);
   const v = s ? visualOf(s) : undefined;
   const ref = useRef<HTMLElement>(null);
 
@@ -103,7 +105,7 @@ function Card({ it, selected, onSelect, replyRef }: { it: Item; selected: boolea
         <span className="card-title" title={shortenPath(dir)}>
           {title}
         </span>
-        <span className="account-chip">{who}</span>
+        {custom ? <AgentChip agent={custom} title={`${custom.name} · ${who}`} /> : <span className="account-chip">{who}</span>}
         <span className="card-meta num">
           <span title="Tab">T{it.tab + 1}</span>
           {s && <span title="Since the last status change">{since(now - s.updatedAt)}</span>}
@@ -130,7 +132,7 @@ function Card({ it, selected, onSelect, replyRef }: { it: Item; selected: boolea
       </p>
       <Tail paneId={it.paneId} />
       {v === "needs_input" && <PermissionButtons paneId={it.paneId} keys={selected} />}
-      {v && v !== "starting" && <ReplyBox paneId={it.paneId} placeholder={REPLY_HINT[v]} inputRef={selected ? replyRef : undefined} />}
+      {selected && v && v !== "starting" && <ReplyBox paneId={it.paneId} placeholder={REPLY_HINT[v]} inputRef={selected ? replyRef : undefined} />}
       {s && (
         <footer className="card-foot">
           <MetricsLine paneId={it.paneId} />
@@ -141,10 +143,9 @@ function Card({ it, selected, onSelect, replyRef }: { it: Item; selected: boolea
   );
 }
 
-function Stats({ items }: { items: Item[] }) {
+/** Fleet-wide spend, the one number the lanes don't already show. */
+function Spend({ items }: { items: Item[] }) {
   const metrics = useMetrics((m) => m.byPane);
-  const counts: Record<string, number> = {};
-  items.forEach((it) => (counts[laneOf(it)] = (counts[laneOf(it)] ?? 0) + 1));
   let cost = 0;
   let tokens = 0;
   items.forEach((it) => {
@@ -154,31 +155,11 @@ function Stats({ items }: { items: Item[] }) {
       tokens += m.totalTokens;
     }
   });
-  const stat = (v: Visual, n: number | undefined) =>
-    n ? (
-      <span className={`stat ${v}`} key={v}>
-        <StatusGlyph state={v} />
-        <b className="num">{n}</b> {stateLabel[v]}
-      </span>
-    ) : null;
+  if (tokens === 0) return null;
   return (
-    <div className="board-stats">
-      {stat("needs_input", counts.needs_input)}
-      {stat("done", counts.done)}
-      {stat("working", (counts.working ?? 0) + (counts.starting ?? 0))}
-      {stat("idle", counts.idle)}
-      {counts.other ? (
-        <span className="stat">
-          <StatusGlyph state="shell" />
-          <b className="num">{counts.other}</b> other
-        </span>
-      ) : null}
-      {tokens > 0 && (
-        <span className="stat cost num" title="All sessions, input + output incl. cache; cost estimated at API prices">
-          {formatTokens(tokens)} tok · {formatCost(cost)}
-        </span>
-      )}
-    </div>
+    <span className="board-sub num" title="All sessions, input + output incl. cache; cost estimated at API prices">
+      · {formatTokens(tokens)} tok · {formatCost(cost)}
+    </span>
   );
 }
 
@@ -235,8 +216,8 @@ export function AgentsBoard() {
           <span className="board-sub">
             {items.length} pane{items.length === 1 ? "" : "s"} across {tabs.length} tab{tabs.length === 1 ? "" : "s"}
           </span>
+          <Spend items={items} />
         </div>
-        <Stats items={items} />
         <div className="board-actions">
           <button className="btn" onClick={() => useUi.getState().set({ gridOpen: true })} title="New grid tab (⌘G)">
             <GridIcon width={12} height={12} /> Grid
@@ -275,12 +256,8 @@ export function AgentsBoard() {
       <footer className="board-keys" aria-hidden>
         <span><kbd>↑</kbd><kbd>↓</kbd> select</span>
         <span><kbd>↵</kbd> open</span>
-        <span><kbd>Y</kbd> allow</span>
-        <span><kbd>A</kbd> always</span>
-        <span><kbd>N</kbd> deny</span>
+        <span><kbd>Y</kbd><kbd>A</kbd><kbd>N</kbd> answer</span>
         <span><kbd>R</kbd> reply</span>
-        <span><kbd>⌘J</kbd> next waiting</span>
-        <span><kbd>⇧⌘2</kbd> terminals</span>
       </footer>
     </div>
   );

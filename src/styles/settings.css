@@ -245,3 +245,35 @@
   margin: 0;
   color: var(--text-dim);
 }
+
+/* ---------- My agents ---------- */
+
+.my-agent-name {
+  font-weight: 650;
+}
+.swatches {
+  display: flex;
+  gap: 6px;
+}
+/* `.field .swatch` outranks the generic `.field button` look. */
+.field .swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--hue);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+}
+.field .swatch:hover:not(:disabled) {
+  background: var(--hue);
+}
+.field .swatch.on {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--hue);
+}
+.field textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  resize: vertical;
+}

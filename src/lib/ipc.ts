@@ -121,8 +121,8 @@ export const ipc = {
 
   getConfig: () => invoke<Config>("get_config"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
-  loadState: <T>(name: "layout" | "tasks" | "ui" | "recents") => invoke<T | null>("load_state", { name }),
-  saveState: (name: "layout" | "tasks" | "ui" | "recents", value: unknown) => invoke<void>("save_state", { name, value }),
+  loadState: <T>(name: "layout" | "tasks" | "ui" | "recents" | "agents") => invoke<T | null>("load_state", { name }),
+  saveState: (name: "layout" | "tasks" | "ui" | "recents" | "agents", value: unknown) => invoke<void>("save_state", { name, value }),
   pickFolder: (start?: string) => invoke<string | null>("pick_folder", { start: start ?? null }),
   revealConfig: (file: boolean) => invoke<void>("reveal_config", { file }),
   browserOpen: (pane: string, url: string, r: { x: number; y: number; w: number; h: number }) =>

@@ -1,8 +1,9 @@
 # AureliaSpace: redesign
 
 A redesign of the AureliaSpace frontend for one job: **watching and steering many coding
-agents at once without losing the terminal.** The backend, `src/lib/ipc.ts` and every IPC
-contract are unchanged. No dependencies were added.
+agents at once without losing the terminal.** No dependencies were added. The only backend
+change is one line that lets the app save `agents.json` (custom agents, section 11); every
+other IPC contract is unchanged.
 
 Screenshots are in [`design/screenshots/`](design/screenshots/). See
 [How the screenshots were made](#how-the-screenshots-were-made) for exactly what they are.
@@ -18,14 +19,13 @@ Screenshots are in [`design/screenshots/`](design/screenshots/). See
    When you see gold, someone is waiting on you.
 2. **State is visible in every mode, not only on the board.** A three-tier frame does this:
    - the **title bar** says where you are (mode, tabs, and a gold beacon with the waiting count);
-   - the **status bar** shows the whole fleet as pips, plus the focused pane's location and
-     each account's 5h/7d usage;
+   - the **status bar** shows the whole fleet as pips and each account's 5h/7d usage;
    - **every pane** shows its state on a 2px top edge and in its header.
 
    You can tell who needs you from any screen, including a 16-pane grid.
 3. **Triage, then act where you are.** The Agents board is sorted into lanes by urgency. Each
    card holds what you need to unblock that agent: the question, the last lines of its output,
-   Allow/Always/Deny, and a reply box. Most interruptions can be handled without opening the pane.
+   Allow/Always/Deny, and (on the selected card) a reply box. Most interruptions can be handled without opening the pane.
 4. **Keyboard first, mouse welcome.** ⌘P reaches every pane and action. The board has its own
    single-key model (`↑↓ ↵ Y A N R`). Every README shortcut works as before.
 5. **Never cover the terminal.** Status, permission buttons and the ⌘I bar sit above or below
@@ -44,7 +44,7 @@ BEFORE                                               AFTER
 │  + usage strip footer  │       │  agents/tasks/    │   Workspace | Files     │ panes or    │  Needs you / Finished /
 ├ Files panel (⇧⌘F) as a 2nd column                  │   (one column)          │ Agents board│  Working / Idle, Tasks,
 │                                                    │                         │             │  Recent folders
-│ Review = centred modal; Settings = page            ├ Status bar: fleet pips · counts · cwd/branch/exit · account fuel
+│ Review = centred modal; Settings = page            ├ Status bar: fleet pips · account fuel
 └ (no status bar)                                    └ Review & Settings = pages between the bars; ⌘P palette (new)
 ```
 
@@ -56,13 +56,13 @@ BEFORE                                               AFTER
 | Tabs | Title bar | Each tab shows its index (⌘N), a glyph for its most urgent state, a gold underline if anyone in it needs you, an account and a pane count. Clicking a tab from the board goes to Terminals. |
 | "N need you" beacon | Title bar, right | The one global call to action. Clicking it is the same as ⌘J. |
 | Fleet pips | Status bar, left | One pip per agent in tab order. Glyph shape plus colour. Click to jump. Always visible. |
-| Usage (5h/7d + forecast) | Status bar, right; pane header | Moved from the sidebar footer, so it stays visible when the navigator is closed. |
+| Usage (5h/7d + forecast) | Status bar, right | Moved from the sidebar footer, so it stays visible when the navigator is closed. |
 | Workspace tree + Files | **Navigator** (one left column, two views) | Both answered "where is my stuff". Two side columns cost about 470px; now it's 240px. ⌘\ and ⇧⌘F choose the view or toggle it. |
 | Agents, Tasks, Recents | **Queue rail** (⌘B), right | Agents are grouped by urgency (Needs you → Finished → Working → Idle), each with inline Allow/Deny/Reply. Tasks and recents are unchanged. |
 | Agents board | Agents mode | Full-width triage across all tabs, including non-Claude panes (Codex/Gemini/shells) in an "Other terminals" lane. |
 | Review | Page (was a modal) | It's a mode in the switcher, so it behaves like one. It adds a file index with comment counts. |
 | Settings | Page (unchanged position, restyled) | Sections are cards. Palettes show a live swatch for the current light/dark mode. |
-| Notices | Bottom-right stack | Finished, needs-input and permission cards are left out of the stack **while the queue is on screen** (rail open or board visible). They still go to the bell history and to macOS notifications. Limit, burn, cache and info cards still appear. Before, a burst could stack 4 cards on top of the rail showing the same agents. |
+| Notices | Bottom-right of the stage, left of the rail | Needs-input and permission cards only stay out of the stack while you can **see that agent's pane** (its tab is active in Terminals mode, no page on top). Finished cards also defer to the queue whenever it's visible. Everything still goes to the bell history and macOS notifications. The stack sits left of the rail and above the Review footer instead of covering them. |
 | Command palette | ⌘P overlay | New. Lists panes (ranked by urgency, then fuzzy-matched) and every action, with key hints. |
 
 ## 3. Design tokens
@@ -154,21 +154,22 @@ already handled this).
 - **Tab bar, split panes, grid tabs:** tabs as described above. Dividers are 5px hit areas with
   a hairline on hover (double-click to even out). ⌘G grid picker restyled; 2–16 panes.
 - **Pane header** (`PaneHeader.tsx`), one 28px line:
-  - Left: glyph, account chip (click to move the session to another account), folder, path, branch/worktree.
-  - Middle: running command or agent state, **inline Allow/Always/Deny while a permission dialog is on screen**, cache timer, attached task.
-  - Right: usage, mic, browser/split/close.
+  - Left: glyph, custom-agent name chip (if launched as one), account chip (click to move the session to another account), folder (full path in the tooltip), branch/worktree.
+  - Middle: running command or agent state, **inline Allow/Always/Deny while a permission dialog is on screen**, attached task.
+  - Right: mic, browser/split/close, shown on hover (the mic stays while dictating).
 
-  The header uses CSS container queries. Under 520px it drops the path, task, usage and split
-  buttons. Under 360px it also drops the branch and cache timer. When a narrow pane is asking
+  Usage lives in the status bar and the cache timer on the board and rail, so the header
+  doesn't repeat them. Drag the header to move the pane (section 11). The header uses CSS
+  container queries. Under 520px it drops the task and split buttons; under 360px the branch. When a narrow pane is asking
   for permission, the answer buttons take precedence over the folder name.
 - **Command blocks** (`BlockOverlay.tsx`, logic untouched): gutter coloured ok/failed/running,
   failed-command tint, and a small hover toolbar on the block's first line.
 - **Modes:**
-  - **Agents board** (`AgentsBoard.tsx`): header with counts, total tokens and cost. Lanes:
+  - **Agents board** (`AgentsBoard.tsx`): header with pane count, total tokens and cost (each lane shows its own count). Lanes:
     Needs you, Finished (unseen), Working, Idle, Other terminals. Each card shows: glyph,
     project, account, tab, age, branch, attached task, status line, live 3-line tail of the
-    pane's screen (Claude's TUI frame lines are filtered out), permission buttons, reply box
-    (placeholder changes: Answer / Follow up / Steer / New prompt), context bar, tokens, cost,
+    pane's screen (Claude's TUI frame lines are filtered out), permission buttons, reply box on
+    the selected card (placeholder changes: Answer / Follow up / Steer / New prompt), context bar, tokens, cost,
     hand-off, cache.
   - **Terminals.**
   - **Review** (`DiffReview.tsx`): a page with a file index, sticky file headers, click a line
@@ -240,17 +241,23 @@ already handled this).
 ## 7. Engineering notes
 
 - **Dependencies:** none added. Plain CSS (8 files in `src/styles/`), no CSS-in-JS.
-- **Files touched in `src/lib/`.** None of them is an IPC wrapper.
+- **Files touched in `src/lib/`.** Apart from one type, none of them is an IPC wrapper.
+  - `ipc.ts`: `loadState`/`saveState` accept `"agents"` (matches the backend line above).
+  - `agents.ts`: `prepareCustomAgent` / `launchCustomAgent`.
   - `shortcuts.ts`: ⌘P; Navigator view toggles; ⌘J via `showPane`; help text.
   - `palettes.ts`: emits `--attn` and `--work`.
   - `theme.ts`: Aurelia xterm colours retuned to the new backgrounds.
 - **Store changes:**
   - `ui.ts`: `sidebarOpen` and `filesOpen` became `nav: "projects" | "files" | null`. An
     existing `ui.json` is migrated on load.
-  - `ui.ts`: added `paletteOpen`.
-  - No other store changed.
+  - `ui.ts`: added `paletteOpen` and `settingsSection` (open Settings at a given section).
+  - `layout.ts`: `movePane` (drag to dock or swap); `PaneMeta.customAgent`. `makePane` now
+    keeps `agent`, `env` and `secretEnv`. It used to drop them, so launcher variants that need
+    an API key started without it.
+  - `customAgents.ts` (new): saved agents, persisted to `agents.json`.
 - **New components:** `TitleBar`, `StatusBar`, `Navigator`, `QueueRail` (renamed from
-  `AgentPanel`), `CommandPalette`, `StatusGlyph`, and `paneTail.ts`. `TabBar.tsx` was removed.
+  `AgentPanel`), `CommandPalette`, `StatusGlyph`, `PaneDrag`, `AgentChip`,
+  `settings/MyAgentsSection`, and `paneTail.ts`. `TabBar.tsx` was removed.
 - **Checks:** `npm run build` passes (`tsc --noEmit` + vite).
 
 ## 8. How the screenshots were made
@@ -293,11 +300,10 @@ Run it with `npx vite --port 5291`, then open
   - the HUD window.
 - **Projects and Files can no longer be open at the same time.** That's the cost of the
   single Navigator column.
-- **Notice cards for finished, needs-input and permission are left out of the stack while the
-  queue is visible.** They're still in the bell history and still sent as macOS notifications
-  (the `alertUser` logic is unchanged). If you rely on the cards with the rail open, this is a
-  behaviour change.
-- **Narrow panes** (under 520px) hide the split and browser buttons and the usage meter. The
+- **Finished cards defer to the queue while it's visible**; needs-input and permission cards
+  are only held back while that agent's pane is on screen. Both still reach the bell history and
+  macOS notifications.
+- **Narrow panes** (under 520px) hide the split and browser buttons. The
   shortcuts and the palette still reach those actions.
 - **The Review page's toolbar diff icon was removed from the title bar.** The Review mode tab,
   ⇧⌘R, ⇧⌘3 and the palette remain.
@@ -351,9 +357,9 @@ in the harness.
 | Split panes | ✅ |
 | Grid tabs | ✅ |
 | Pane header: account switch | ✅ |
-| Pane header: 5h/7d usage | ✅ |
+| 5h/7d usage | ✅ status bar (moved out of the pane header) |
 | Pane header: branch / worktree | ✅ |
-| Pane header: cache timer | ✅ |
+| Cache timer | ✅ board cards (moved out of the pane header and rail) |
 | Pane header: task | ✅ |
 | Pane header: mic | ✅ |
 | Pane header: browser / split / close | ✅ |
@@ -388,3 +394,26 @@ in the harness.
 | Browser pane | ✅ (styles moved into `panes.css`) |
 | Full Disk Access notice | ✅ |
 | Load-in splash | ✅ (`index.html` untouched) |
+
+## 11. Added after the redesign
+
+- **Drag panes.** Drag a pane by its header onto another pane in the same tab. Dropping on
+  the outer quarter of an edge docks it on that side; dropping in the middle swaps the two.
+  The target shows the landing area and a label follows the pointer. Esc cancels. Terminals
+  keep their session (the xterm host is re-attached, as on split). Pointer events are used
+  instead of HTML5 drag-and-drop, because Tauri's native file-drop handler swallows HTML5 drag
+  events on macOS. Moving panes between tabs and popping a pane into its own window are not
+  supported yet.
+- **My agents (custom agents).** Settings → My agents. Each agent has a name, the CLI it
+  runs (any launcher variant: a Claude account, Codex, Gemini, Grok, OpenCode, Cursor,
+  Copilot, DeepSeek, or a custom command), a colour, and an optional starting folder and own
+  worktree. Claude agents also take instructions, passed as `--append-system-prompt`; other
+  CLIs take extra arguments. Agents launch from the start screen (listed first, number keys),
+  ⌘P ("Launch Reviewer"), or the Settings list. The agent's name, in its colour, replaces the
+  account label on its pane header, board card, queue row, project tree and tab. Agents are
+  saved in `agents.json` next to `tasks.json`. This needed one backend line: `state_path`
+  in `src-tauri/src/config.rs` now allows the name `agents`.
+- **Logos** are still the official marks from Simple Icons (CC0). OpenAI and xAI keep a
+  lettermark because neither is in Simple Icons. Anthropic's trademark guidelines don't allow
+  altered marks or implied endorsement, so I did not redraw any of them.
+

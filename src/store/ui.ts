@@ -19,6 +19,8 @@ interface UiState {
   agentPanelOpen: boolean;
   nav: NavView;
   settingsOpen: boolean;
+  /** Section to show when Settings next opens (then cleared). */
+  settingsSection: string | null;
   /** ⌘P command palette. */
   paletteOpen: boolean;
   gridOpen: boolean;
@@ -41,6 +43,7 @@ export const useUi = create<UiState>((set) => ({
   agentPanelOpen: true,
   nav: "projects",
   settingsOpen: false,
+  settingsSection: null,
   paletteOpen: false,
   gridOpen: false,
   reviewOpen: false,

@@ -19,6 +19,7 @@ import { trackNoticeFocus, useNotices } from "./store/notifications";
 import { useConfig } from "./store/config";
 import { startGitPolling } from "./store/git";
 import { serializeLayout, useLayout, type SavedLayout } from "./store/layout";
+import { loadCustomAgents } from "./store/customAgents";
 import { loadRecents } from "./store/recents";
 import { loadTasks } from "./store/tasks";
 import { loadUiState, useUi } from "./store/ui";
@@ -55,7 +56,7 @@ function persistLayout() {
 async function boot() {
   await useConfig.getState().load();
   setHome(await homeDir().catch(() => ""));
-  await Promise.all([loadUiState(), loadTasks(), loadRecents()]);
+  await Promise.all([loadUiState(), loadTasks(), loadRecents(), loadCustomAgents()]);
   const saved = await ipc.loadState<SavedLayout>("layout").catch(() => null);
   useLayout.getState().hydrate(saved);
   persistLayout();

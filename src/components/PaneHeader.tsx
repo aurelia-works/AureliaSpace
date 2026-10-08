@@ -1,4 +1,4 @@
-import { basename, shortenPath } from "../lib/format";
+import { basename } from "../lib/format";
 import { openInBrowserPane } from "../lib/browser";
 import { toggleVoice, useVoice } from "../lib/voice";
 import { useAgents } from "../store/agents";
@@ -6,13 +6,12 @@ import { useGit } from "../store/git";
 import { focusedPaneId, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { tasksForPane, useTasks } from "../store/tasks";
-import { useUsage } from "../store/usage";
 import { AccountSwitch } from "./AccountSwitch";
-import { CacheBadge } from "./CacheBadge";
+import { AgentChip, usePaneAgent } from "./AgentChip";
 import { BranchIcon, CloseIcon, GlobeIcon, MicIcon, SplitDownIcon, SplitRightIcon } from "./Icons";
+import { startPaneDrag } from "./PaneDrag";
 import { PermissionButtons } from "./SessionExtras";
 import { StatusGlyph, stateLabel, visualOf } from "./StatusGlyph";
-import { UsageMeter } from "./UsageMeter";
 
 function PaneActions({ paneId, browser }: { paneId: string; browser?: boolean }) {
   const { splitPane, closePane } = useLayout.getState();
@@ -38,16 +37,17 @@ function PaneActions({ paneId, browser }: { paneId: string; browser?: boolean })
 
 /**
  * One line, 28px: identity on the left (state, account, folder, branch), live signals in
- * the middle (permission answers, cache, task), tools on the right. Sits above the
+ * the middle (state, permission answers, task), tools on hover. Usage lives in the status
+ * bar and the cache timer on the board and rail, so the header stays quiet. Sits above the
  * terminal, never over it; narrow panes shed the least important parts (container queries).
  */
 export function PaneHeader({ paneId }: { paneId: string }) {
   const pane = useLayout((s) => s.panes[paneId]);
   const runtime = useRuntime((s) => s.panes[paneId]);
   const agent = useAgents((s) => s.sessions[paneId]);
+  const custom = usePaneAgent(paneId);
   const projects = useTasks((s) => s.projects);
   const account = pane?.account ?? agent?.account;
-  const usage = useUsage((s) => (account ? s.usage[account] : undefined));
   const dir = agent?.cwd ?? pane?.cwd;
   const git = useGit((s) => (dir ? s.info[dir] : undefined));
   const voiceInstalled = useVoice((s) => s.installed);
@@ -56,7 +56,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
 
   if (pane.browser) {
     return (
-      <div className="pane-header">
+      <div className="pane-header" onPointerDown={(e) => startPaneDrag(e, paneId)}>
         <div className="pane-id">
           <GlobeIcon width={12} height={12} className="pane-kind" />
           <span className="pane-name">{pane.browser.url ? hostOf(pane.browser.url) : "Browser"}</span>
@@ -72,18 +72,14 @@ export function PaneHeader({ paneId }: { paneId: string }) {
   const v = agent ? visualOf(agent) : undefined;
 
   return (
-    <div className="pane-header">
+    <div className="pane-header" onPointerDown={(e) => startPaneDrag(e, paneId)}>
       <div className="pane-id">
         {v ? <StatusGlyph state={v} /> : <StatusGlyph state="shell" busy={!!running} />}
+        {custom && <AgentChip agent={custom} />}
         {account && (agent || pane.account ? <AccountSwitch paneId={paneId} account={account} /> : <span className="account-chip">{account}</span>)}
         <span className="pane-name" title={dir}>
           {pane.launcher ? "New tab" : basename(dir) || "~"}
         </span>
-        {!pane.launcher && dir && shortenPath(dir) !== basename(dir) && (
-          <span className="pane-path hide-narrow" title={dir}>
-            {shortenPath(dir)}
-          </span>
-        )}
         {git && (
           <span
             className={`git-chip hide-tight${git.worktree ? " worktree" : ""}`}
@@ -107,7 +103,6 @@ export function PaneHeader({ paneId }: { paneId: string }) {
           </span>
         )}
         {v === "needs_input" && <PermissionButtons paneId={paneId} />}
-        {agent && <span className="hide-tight"><CacheBadge session={agent} /></span>}
         {task && (
           <span className={`pane-task hide-narrow ${task.status}`} title={`Attached task (${task.status}): ${task.title}`}>
             ◆ {task.title}
@@ -116,11 +111,6 @@ export function PaneHeader({ paneId }: { paneId: string }) {
       </div>
       <div className="pane-end">
         {voiceState !== "idle" && <span className={`voice-dot ${voiceState}`} title={`Dictation: ${voiceState}`} />}
-        {account && (
-          <span className="hide-narrow">
-            <UsageMeter usage={usage} compact />
-          </span>
-        )}
         {voiceInstalled && !pane.launcher && (
           <button className={`icon-btn sm mic${voiceState !== "idle" ? " live" : ""}`} title="Dictate (⌥⌘V)" aria-label="Dictate" onClick={() => toggleVoice(paneId)}>
             <MicIcon />
