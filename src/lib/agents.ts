@@ -1,5 +1,5 @@
 import { useConfig } from "../store/config";
-import type { CustomAgent } from "../store/customAgents";
+import { customAgentById, type AgentTeam, type CustomAgent } from "../store/customAgents";
 import { useLayout, focusedPaneId, type NewPaneOpts } from "../store/layout";
 import { useRecents } from "../store/recents";
 import { toast } from "../store/ui";
@@ -234,4 +234,25 @@ export async function launchCustomAgent(agent: CustomAgent, where: "split" | "ta
   const id = where === "split" && from && lay.panes[from] ? lay.splitPane(from, "row", plan.opts) : lay.newTab(plan.opts);
   if (plan.command) queueInit(id, plan.command);
   return id;
+}
+
+/** Opens a team in a new tab: one pane per member, laid out as a near-square grid. */
+export async function launchTeam(team: AgentTeam) {
+  const members = team.agentIds.map(customAgentById).filter((a): a is CustomAgent => !!a);
+  if (!members.length) {
+    toast(`${team.name} has no agents. Add some in Settings → My agents.`, true);
+    return;
+  }
+  const from = focusedPaneId();
+  const base = from ? useLayout.getState().panes[from]?.cwd : undefined;
+  // One at a time: concurrent `git worktree add` calls fight over the repo lock.
+  const plans: { opts: NewPaneOpts; command?: string }[] = [];
+  for (const a of members) {
+    const plan = await prepareCustomAgent(a, base);
+    if (plan) plans.push(plan);
+  }
+  if (!plans.length) return;
+  const ids = useLayout.getState().newPanesTab(plans.map((p) => p.opts));
+  ids.forEach((id, i) => plans[i].command && queueInit(id, plans[i].command!));
+  return ids;
 }

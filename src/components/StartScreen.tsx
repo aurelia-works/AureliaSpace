@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { basename, expandPath, shortenPath } from "../lib/format";
 import { ipc } from "../lib/ipc";
-import { prepareCustomAgent, variantOf } from "../lib/agents";
+import { launchTeam, prepareCustomAgent, variantOf } from "../lib/agents";
 import { queueInit } from "../lib/terminals";
 import { useConfig } from "../store/config";
 import { useCustomAgents, type CustomAgent } from "../store/customAgents";
@@ -40,6 +40,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
   const accounts = useConfig((s) => s.config?.accounts ?? []);
   const recents = useRecents((s) => s.folders);
   const customAgents = useCustomAgents((s) => s.agents);
+  const teams = useCustomAgents((s) => s.teams);
   const workspace = useConfig((s) => s.config?.defaultWorkspace);
   const [tools, setTools] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState(false);
@@ -78,6 +79,13 @@ export function StartScreen({ paneId }: { paneId: string }) {
       logo: "agent",
       agent: a,
       run: () => void startCustom(a),
+    })),
+    ...teams.map((t) => ({
+      key: `team-${t.id}`,
+      label: t.name,
+      hint: `team · ${t.agentIds.length} panes in a new tab`,
+      logo: "more",
+      run: () => void launchTeam(t),
     })),
     // The folder's preferred account (workspace override, else the default) comes first.
     ...[...accounts].sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred)).map((a) => ({

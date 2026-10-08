@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { launchCustomAgent, variantOf } from "../lib/agents";
+import { launchCustomAgent, launchTeam, variantOf } from "../lib/agents";
 import { openInBrowserPane } from "../lib/browser";
 import { basename, shortenPath } from "../lib/format";
 import { handOff } from "../lib/handoff";
@@ -113,6 +113,13 @@ function actionItems(): Item[] {
       label: `Launch ${a.name}`,
       hint: variantOf(a)?.label,
       run: () => void launchCustomAgent(a, "tab"),
+    })),
+    ...useCustomAgents.getState().teams.map((t) => ({
+      id: `team:${t.id}`,
+      group: "Actions" as const,
+      label: `Launch team ${t.name}`,
+      hint: `${t.agentIds.length} panes in a new tab`,
+      run: () => void launchTeam(t),
     })),
     { id: "new-agent", group: "Actions", label: "New custom agent…", run: () => ui.set({ settingsOpen: true, settingsSection: "my-agents" }) },
   ];

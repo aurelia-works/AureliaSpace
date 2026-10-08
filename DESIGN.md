@@ -413,6 +413,10 @@ in the harness.
   account label on its pane header, board card, queue row, project tree and tab. Agents are
   saved in `agents.json` next to `tasks.json`. This needed one backend line: `state_path`
   in `src-tauri/src/config.rs` now allows the name `agents`.
+- **Teams.** Settings → My agents → Teams. A team is a named lineup of saved agents (each
+  0–4 times, up to 16 panes). Launching one opens every member side by side in a new tab, from
+  Settings, ⌘P ("Launch team Ship it") or the start screen. Teams are saved in `agents.json`;
+  deleting an agent removes it from its teams.
 - **Logos** are still the official marks from Simple Icons (CC0). OpenAI and xAI keep a
   lettermark because neither is in Simple Icons. Anthropic's trademark guidelines don't allow
   altered marks or implied endorsement, so I did not redraw any of them.

@@ -277,3 +277,30 @@
   padding: 7px 9px;
   resize: vertical;
 }
+.team-members {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.field > .team-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.field .stepper button {
+  width: 28px;
+  padding: 0;
+}
+.stepper .num {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 650;
+}

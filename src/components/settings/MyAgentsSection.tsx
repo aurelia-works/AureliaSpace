@@ -1,15 +1,24 @@
 import { useState } from "react";
-import { agentVariants, launchCustomAgent, PROVIDERS, variantOf } from "../../lib/agents";
+import { agentVariants, launchCustomAgent, launchTeam, PROVIDERS, variantOf } from "../../lib/agents";
 import { shortenPath } from "../../lib/format";
 import { ipc } from "../../lib/ipc";
-import { AGENT_COLORS, useCustomAgents, type CustomAgent } from "../../store/customAgents";
+import { AGENT_COLORS, useCustomAgents, type AgentTeam, type CustomAgent } from "../../store/customAgents";
 import { useUi } from "../../store/ui";
-import { AgentAvatar } from "../AgentChip";
+import { AgentAvatar, AgentChip } from "../AgentChip";
 import type { SectionProps } from "./registry";
 
 type Draft = Omit<CustomAgent, "id"> & { id?: string };
 
-const blank = (variant: string): Draft => ({ name: "", variant, color: "gold", instructions: "", args: "", command: "", folder: "", worktree: false });
+const blank = (variant: string): Draft => ({
+  name: "",
+  variant,
+  color: "gold",
+  instructions: "",
+  args: "",
+  command: "",
+  folder: "",
+  worktree: false,
+});
 
 /** Saved, named agents: pick a CLI, give it a name, colour and instructions, launch it in one click. */
 export function MyAgentsSection({ draft: config, notify }: SectionProps) {
@@ -33,24 +42,115 @@ export function MyAgentsSection({ draft: config, notify }: SectionProps) {
   };
 
   return (
+    <>
+      <section className="set-group">
+        <h3>My agents</h3>
+        <p className="hint">
+          Named agents you launch in one click from the start screen, ⌘P, or here. Each one remembers its CLI, colour, instructions and
+          starting folder; its name labels its pane, board card and queue row. Saved immediately.
+        </p>
+        {agents.length > 0 && (
+          <ul className="acct-list">
+            {agents.map((a) => (
+              <li key={a.id}>
+                <div className="acct-row">
+                  <AgentAvatar agent={a} />
+                  <span className="my-agent-name">{a.name}</span>
+                  <code>{variantOf(a)?.label ?? "missing CLI or account"}</code>
+                  {removing === a.id ? (
+                    <span className="acct-confirm">
+                      Delete {a.name}?
+                      <button className="link-btn danger" onClick={() => (useCustomAgents.getState().remove(a.id), setRemoving(null))}>
+                        Delete
+                      </button>
+                      <button className="link-btn" onClick={() => setRemoving(null)}>
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="acct-actions">
+                      <button className="link-btn" onClick={() => launch(a)}>
+                        Launch
+                      </button>
+                      <button className="link-btn" onClick={() => setEdit({ ...blank(a.variant), ...a })}>
+                        Edit
+                      </button>
+                      <button className="link-btn danger" onClick={() => setRemoving(a.id)}>
+                        Delete
+                      </button>
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {edit ? (
+          <AgentForm edit={edit} setEdit={setEdit} variants={variants} onSave={save} />
+        ) : (
+          <button className="acct-add" onClick={() => setEdit(blank(variants[0]?.id ?? "custom"))}>
+            + New agent
+          </button>
+        )}
+      </section>
+      {agents.length > 0 && <TeamsGroup agents={agents} notify={notify} />}
+    </>
+  );
+}
+
+const MAX_TEAM = 16;
+
+/** Saved lineups: several agents that open together as a grid in a new tab. */
+function TeamsGroup({ agents, notify }: { agents: CustomAgent[]; notify(msg: string): void }) {
+  const teams = useCustomAgents((s) => s.teams);
+  const [edit, setEdit] = useState<(Omit<AgentTeam, "id"> & { id?: string }) | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const byId = (id: string) => agents.find((a) => a.id === id);
+  const count = (id: string) => edit?.agentIds.filter((x) => x === id).length ?? 0;
+  const setCount = (id: string, n: number) => {
+    if (!edit) return;
+    const others = edit.agentIds.filter((x) => x !== id);
+    const room = MAX_TEAM - others.length;
+    setEdit({
+      ...edit,
+      agentIds: [...others, ...Array(Math.max(0, Math.min(n, room))).fill(id)],
+    });
+  };
+  const save = () => {
+    if (!edit) return;
+    if (!edit.name.trim()) return notify("Give the team a name.");
+    if (!edit.agentIds.length) return notify("Add at least one agent to the team.");
+    // Keep members grouped in the order the agents are listed.
+    const ordered = agents.flatMap((a) => edit.agentIds.filter((x) => x === a.id));
+    useCustomAgents.getState().saveTeam({ ...edit, agentIds: ordered });
+    notify(`${edit.name.trim()} saved.`);
+    setEdit(null);
+  };
+  const launch = (t: AgentTeam) => {
+    useUi.getState().set({ settingsOpen: false });
+    void launchTeam(t);
+  };
+
+  return (
     <section className="set-group">
-      <h3>My agents</h3>
-      <p className="hint">
-        Named agents you launch in one click from the start screen, ⌘P, or here. Each one remembers its CLI, colour, instructions and
-        starting folder; its name labels its pane, board card and queue row. Saved immediately.
-      </p>
-      {agents.length > 0 && (
+      <h3>Teams</h3>
+      <p className="hint">A team opens all of its agents at once, side by side in a new tab. Up to {MAX_TEAM} panes.</p>
+      {teams.length > 0 && (
         <ul className="acct-list">
-          {agents.map((a) => (
-            <li key={a.id}>
+          {teams.map((t) => (
+            <li key={t.id}>
               <div className="acct-row">
-                <AgentAvatar agent={a} />
-                <span className="my-agent-name">{a.name}</span>
-                <code>{variantOf(a)?.label ?? "missing CLI or account"}</code>
-                {removing === a.id ? (
+                <span className="my-agent-name">{t.name}</span>
+                <span className="team-members">
+                  {t.agentIds.map((id, i) => {
+                    const a = byId(id);
+                    return a ? <AgentChip key={i} agent={a} /> : null;
+                  })}
+                </span>
+                {removing === t.id ? (
                   <span className="acct-confirm">
-                    Delete {a.name}?
-                    <button className="link-btn danger" onClick={() => (useCustomAgents.getState().remove(a.id), setRemoving(null))}>
+                    Delete {t.name}?
+                    <button className="link-btn danger" onClick={() => (useCustomAgents.getState().removeTeam(t.id), setRemoving(null))}>
                       Delete
                     </button>
                     <button className="link-btn" onClick={() => setRemoving(null)}>
@@ -59,13 +159,13 @@ export function MyAgentsSection({ draft: config, notify }: SectionProps) {
                   </span>
                 ) : (
                   <span className="acct-actions">
-                    <button className="link-btn" onClick={() => launch(a)}>
+                    <button className="link-btn" onClick={() => launch(t)}>
                       Launch
                     </button>
-                    <button className="link-btn" onClick={() => setEdit({ ...blank(a.variant), ...a })}>
+                    <button className="link-btn" onClick={() => setEdit({ ...t })}>
                       Edit
                     </button>
-                    <button className="link-btn danger" onClick={() => setRemoving(a.id)}>
+                    <button className="link-btn danger" onClick={() => setRemoving(t.id)}>
                       Delete
                     </button>
                   </span>
@@ -76,10 +176,53 @@ export function MyAgentsSection({ draft: config, notify }: SectionProps) {
         </ul>
       )}
       {edit ? (
-        <AgentForm edit={edit} setEdit={setEdit} variants={variants} onSave={save} />
+        <div className="acct-form">
+          <label className="field">
+            <span>Name</span>
+            <input
+              value={edit.name}
+              placeholder="e.g. Ship it: builder + reviewer + tests"
+              onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+              autoFocus
+            />
+          </label>
+          {agents.map((a) => (
+            <div key={a.id} className="field">
+              <span className="team-pick">
+                <AgentAvatar agent={a} size={12} />
+                {a.name}
+              </span>
+              <div className="stepper" role="group" aria-label={`${a.name} count`}>
+                <button
+                  type="button"
+                  aria-label={`Fewer ${a.name}`}
+                  disabled={count(a.id) === 0}
+                  onClick={() => setCount(a.id, count(a.id) - 1)}
+                >
+                  −
+                </button>
+                <span className="num">{count(a.id)}</span>
+                <button
+                  type="button"
+                  aria-label={`More ${a.name}`}
+                  disabled={count(a.id) >= 4 || edit.agentIds.length >= MAX_TEAM}
+                  onClick={() => setCount(a.id, count(a.id) + 1)}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="acct-form-actions">
+            <button onClick={() => setEdit(null)}>Cancel</button>
+            <button className="primary" onClick={save}>
+              {edit.id ? "Save" : "Create team"}
+            </button>
+          </div>
+        </div>
       ) : (
-        <button className="acct-add" onClick={() => setEdit(blank(variants[0]?.id ?? "custom"))}>
-          + New agent
+        <button className="acct-add" onClick={() => setEdit({ name: "", agentIds: [] })}>
+          + New team
         </button>
       )}
     </section>
@@ -129,7 +272,12 @@ function AgentForm({
       {isCustom && (
         <label className="field">
           <span>Command</span>
-          <input value={edit.command ?? ""} placeholder="e.g. aider --model sonnet" spellCheck={false} onChange={(e) => set({ command: e.target.value })} />
+          <input
+            value={edit.command ?? ""}
+            placeholder="e.g. aider --model sonnet"
+            spellCheck={false}
+            onChange={(e) => set({ command: e.target.value })}
+          />
         </label>
       )}
       {isClaude && (
@@ -146,7 +294,12 @@ function AgentForm({
       {!isClaude && !isCustom && (
         <label className="field">
           <span>Extra arguments</span>
-          <input value={edit.args ?? ""} placeholder="optional, added after the command" spellCheck={false} onChange={(e) => set({ args: e.target.value })} />
+          <input
+            value={edit.args ?? ""}
+            placeholder="optional, added after the command"
+            spellCheck={false}
+            onChange={(e) => set({ args: e.target.value })}
+          />
         </label>
       )}
       {isClaude && <p className="hint">Added to Claude Code's system prompt for every session this agent starts.</p>}
@@ -169,7 +322,12 @@ function AgentForm({
       <label className="field">
         <span>Starting folder</span>
         <div className="field-row">
-          <input value={edit.folder ?? ""} placeholder="the focused pane's folder" spellCheck={false} onChange={(e) => set({ folder: e.target.value })} />
+          <input
+            value={edit.folder ?? ""}
+            placeholder="the focused pane's folder"
+            spellCheck={false}
+            onChange={(e) => set({ folder: e.target.value })}
+          />
           <button
             type="button"
             onClick={async () => {
