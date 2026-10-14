@@ -31,6 +31,8 @@ export interface Config {
   defaultWorkspace: string;
   /** Claude panes restored at launch reopen the conversation they last ran. */
   resumeOnLaunch: boolean;
+  /** ⌘-clicked paths and the Files view open in an editor pane; off = the external `editor`. */
+  openFilesInApp: boolean;
   /** `deepseek_agent` tool for Claude panes: tasks handed to OpenCode (src-tauri/src/subagents.rs). */
   subagents: { enabled: boolean; model: string; timeoutMinutes: number };
   /** Composer prompts pick their own effort: rules, then a Haiku 5.5 judge (src-tauri/src/effort.rs). */
@@ -121,6 +123,32 @@ export interface Diff {
   truncated: boolean;
 }
 
+/** IDE mode (src-tauri/src/ide.rs). */
+export interface SearchMatch {
+  path: string;
+  line: number;
+  /** 1-based character column of the first match, and its length. */
+  col: number;
+  len: number;
+  text: string;
+}
+
+export interface Problem {
+  path: string;
+  line: number;
+  col: number;
+  severity: "error" | "warning";
+  message: string;
+  source: "tsc" | "cargo";
+}
+
+export interface ThreadItem {
+  role: "user" | "assistant" | "tool";
+  text: string;
+  tool?: string;
+  error?: boolean;
+}
+
 export interface SuggestRequest {
   prompt: string;
   cwd?: string;
@@ -171,6 +199,15 @@ export const ipc = {
   resolvePaths: (cwd: string, candidates: string[]) => invoke<(string | null)[]>("resolve_paths", { cwd, candidates }),
   openPath: (path: string, line?: number, col?: number) => invoke<void>("open_path", { path, line, col }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  readTextFile: (path: string) => invoke<{ text: string; mtimeMs: number }>("read_text_file", { path }),
+  /** Returns the new mtime; rejects with "CHANGED_ON_DISK" when `expectedMtimeMs` is stale (null = overwrite). */
+  writeTextFile: (path: string, text: string, expectedMtimeMs: number | null) =>
+    invoke<number>("write_text_file", { path, text, expectedMtimeMs }),
+  fileMtime: (path: string) => invoke<number>("file_mtime", { path }),
+  searchProject: (root: string, query: string, regex: boolean, caseSensitive: boolean) =>
+    invoke<SearchMatch[]>("search_project", { root, query, regex, caseSensitive }),
+  checkProject: (root: string) => invoke<{ problems: Problem[]; ran: string[] }>("check_project", { root }),
+  transcriptThread: (path: string, maxItems: number) => invoke<ThreadItem[]>("transcript_thread", { path, maxItems }),
   hasFullDiskAccess: () => invoke<boolean>("has_full_disk_access"),
   openFullDiskAccessSettings: () => invoke<void>("open_full_disk_access_settings"),
 

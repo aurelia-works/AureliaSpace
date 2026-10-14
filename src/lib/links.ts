@@ -4,6 +4,7 @@ import { useAgents } from "../store/agents";
 import { useLayout } from "../store/layout";
 import { isLocalUrl, openInBrowserPane } from "./browser";
 import { ipc } from "./ipc";
+import { openFile } from "./openFile";
 
 /**
  * ⌘-click opens links, like iTerm: URLs in the browser, file references such as
@@ -93,7 +94,8 @@ export function installLinks(term: Terminal, paneId: string) {
             range: { start: { x: cols[m.start] + 1, y }, end: { x: cols[m.start + m.text.length - 1] + 1, y } },
             decorations: { underline: true, pointerCursor: true },
             activate(event) {
-              if (event.metaKey) ipc.openPath(path, m.line, m.col).catch(() => {});
+              // ⌥⌘-click sends it to the external editor instead.
+              if (event.metaKey) void openFile(path, m.line, m.col, { fromPane: paneId, external: event.altKey });
             },
           });
         });

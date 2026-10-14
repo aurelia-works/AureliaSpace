@@ -144,7 +144,7 @@ export function TitleBar() {
       </div>
       <button
         className={`icon-btn${nav ? " on" : ""}`}
-        title="Navigator (⌘\ workspace · ⇧⌘F files)"
+        title="Navigator (⌘\ workspace · ⇧⌘F files · ⌥⌘F search · ⌥⌘T thread)"
         aria-pressed={!!nav}
         onClick={() => ui.set({ nav: nav ? null : "projects" })}
       >

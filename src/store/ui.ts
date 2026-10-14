@@ -10,8 +10,12 @@ export interface PickerTask {
 
 export type Mode = "agents" | "terminals";
 
-/** What the left navigator shows: the workspace tree (⌘\), the files tree (⇧⌘F), or nothing. */
-export type NavView = "projects" | "files" | null;
+/**
+ * What the left navigator shows: the workspace tree (⌘\), the project's files (⇧⌘F),
+ * search in them (⌥⌘F), their type errors (⇧⌘M), the focused Claude pane's conversation
+ * as a readable thread (⌥⌘T), or nothing.
+ */
+export type NavView = "projects" | "files" | "search" | "problems" | "thread" | null;
 
 interface UiState {
   /** Title-bar mode: agent board or the tab/pane view (Review is the diff modal). */

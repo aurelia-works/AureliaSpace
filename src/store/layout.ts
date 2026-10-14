@@ -27,6 +27,14 @@ export interface PaneMeta {
   browser?: { url: string };
   /** The Claude conversation this pane last ran, reopened when the app restores the layout. */
   claudeSession?: string;
+  /** A file editor pane (components/EditorPane.tsx) instead of a terminal; line:col is where it opened. */
+  editor?: EditorTarget;
+}
+
+export interface EditorTarget {
+  path: string;
+  line?: number;
+  col?: number;
 }
 
 export interface Tab {
@@ -45,6 +53,8 @@ export interface NewPaneOpts {
   launcher?: boolean;
   /** Opens a browser pane at this URL ("" = blank) instead of a terminal. */
   browserUrl?: string;
+  /** Opens a file in an editor pane instead of a terminal. */
+  editor?: EditorTarget;
 }
 
 interface LayoutState {
@@ -122,6 +132,7 @@ function makePane(opts?: NewPaneOpts): PaneMeta {
     customAgent: opts?.customAgent,
     launcher: opts?.launcher || undefined,
     browser: opts?.browserUrl !== undefined ? { url: opts.browserUrl } : undefined,
+    editor: opts?.editor,
   };
 }
 

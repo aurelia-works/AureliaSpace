@@ -35,8 +35,16 @@ export function GeneralSection({ draft, update }: SectionProps) {
 
       <section className="set-group">
         <h3>Editor</h3>
+        <label className="field check">
+          <input type="checkbox" checked={draft.openFilesInApp !== false} onChange={(e) => update((c) => (c.openFilesInApp = e.target.checked))} />
+          <span>Open files in AureliaSpace</span>
+        </label>
+        <p className="hint">
+          ⌘-clicked paths, search hits and problems open in an editor pane beside the terminal (⌘S saves; a file an agent
+          changed reloads when you come back to it). ⌥⌘-click, folders and binary files use the command below.
+        </p>
         <label className="field">
-          <span>Command</span>
+          <span>External editor</span>
           <input
             value={draft.editor ?? ""}
             placeholder="auto: Cursor, then VS Code, then default app"
@@ -45,7 +53,7 @@ export function GeneralSection({ draft, update }: SectionProps) {
           />
         </label>
         <p className="hint">
-          Used for ⌘-clicked paths and the files sidebar. Receives <code>path:line:col</code>, e.g. <code>zed</code> or{" "}
+          Receives <code>path:line:col</code>, e.g. <code>zed</code> or{" "}
           <code>code -g</code>.
         </p>
       </section>

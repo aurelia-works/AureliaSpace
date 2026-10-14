@@ -4,6 +4,7 @@ import { openInBrowserPane } from "../lib/browser";
 import { basename, shortenPath } from "../lib/format";
 import { handOff } from "../lib/handoff";
 import { toggleHud } from "../lib/hudBridge";
+import { closePaneSafely } from "../lib/openFile";
 import { jumpToWaiting } from "../lib/shortcuts";
 import { clearTerminal, showPane } from "../lib/terminals";
 import { toggleVoice, useVoice } from "../lib/voice";
@@ -55,7 +56,7 @@ function paneItems(): Item[] {
       const s = sessions[id];
       const dir = s?.cwd ?? p?.cwd;
       const custom = p?.customAgent ? useCustomAgents.getState().agents.find((a) => a.id === p.customAgent)?.name : undefined;
-      const what = custom ?? (p?.browser ? "browser" : s ? (s.account ?? "claude") : (p?.agent ?? runtime[id]?.running?.split(/\s+/)[0] ?? "shell"));
+      const what = custom ?? (p?.browser ? "browser" : p?.editor ? p.editor.path.split("/").pop() :  s ? (s.account ?? "claude") : (p?.agent ?? runtime[id]?.running?.split(/\s+/)[0] ?? "shell"));
       const v = s ? visualOf(s) : undefined;
       out.push({
         id: `pane:${id}`,
@@ -89,7 +90,7 @@ function actionItems(): Item[] {
     { id: "grid", group: "Actions", label: "New grid tab (2–16 panes)", keys: "⌘G", run: () => ui.set({ gridOpen: true }) },
     !!pane && { id: "split-r", group: "Actions", label: "Split right", keys: "⌘D", run: () => layout.splitPane(pane, "row") },
     !!pane && { id: "split-d", group: "Actions", label: "Split down", keys: "⇧⌘D", run: () => layout.splitPane(pane, "column") },
-    !!pane && { id: "close-pane", group: "Actions", label: "Close pane", keys: "⌘W", run: () => layout.closePane(pane) },
+    !!pane && { id: "close-pane", group: "Actions", label: "Close pane", keys: "⌘W", run: () => closePaneSafely(pane) },
     !!tab && { id: "close-tab", group: "Actions", label: "Close tab", keys: "⇧⌘W", run: () => layout.closeTab(tab.id) },
     !!pane && { id: "suggest", group: "Actions", label: "Suggest a shell command", keys: "⌘I", run: () => (ui.set({ mode: "terminals", suggestPaneId: pane }), showPane(pane)) },
     !!pane && { id: "compose", group: "Actions", label: "Compose a prompt (auto effort)", keys: "⌘L", run: () => (ui.set({ mode: "terminals", composerPaneId: pane }), showPane(pane)) },
@@ -98,6 +99,9 @@ function actionItems(): Item[] {
     !!pane && !!useAgents.getState().sessions[pane]?.transcriptPath && { id: "handoff", group: "Actions", label: "Hand off this session to a fresh pane", run: () => void handOff(pane) },
     { id: "nav-ws", group: "Actions", label: "Navigator: workspace", keys: "⌘\\", run: () => ui.set({ nav: ui.nav === "projects" ? null : "projects" }) },
     { id: "nav-files", group: "Actions", label: "Navigator: files", keys: "⇧⌘F", run: () => ui.set({ nav: ui.nav === "files" ? null : "files" }) },
+    { id: "nav-search", group: "Actions", label: "Search the project", keys: "⌥⌘F", run: () => ui.set({ nav: "search" }) },
+    { id: "nav-problems", group: "Actions", label: "Problems (tsc, cargo check)", keys: "⇧⌘M", run: () => ui.set({ nav: "problems" }) },
+    { id: "nav-thread", group: "Actions", label: "Thread: read this Claude conversation", keys: "⌥⌘T", run: () => ui.set({ nav: "thread" }) },
     { id: "rail", group: "Actions", label: "Toggle Queue rail", keys: "⌘B", run: () => ui.set({ agentPanelOpen: !ui.agentPanelOpen }) },
     { id: "hud", group: "Actions", label: "Toggle floating HUD", keys: "⇧⌘H", run: toggleHud },
     useVoice.getState().installed && !!pane && { id: "voice", group: "Actions", label: "Dictate into the focused pane", keys: "⌥⌘V", run: () => toggleVoice(pane) },

@@ -23,7 +23,7 @@ function PaneRow({ paneId, tab, focused }: { paneId: string; tab: number; focuse
   const account = pane?.account ?? agent?.account;
   const isClaude = !!agent || !!account;
   const v: Visual | undefined = agent ? visualOf(agent) : isClaude ? "starting" : undefined;
-  const label = pane?.browser ? "Browser" : pane?.launcher ? "New tab" : custom ? custom.name : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
+  const label = pane?.browser ? "Browser" : pane?.editor ? (pane.editor.path.split("/").pop() ?? "Editor") : pane?.launcher ? "New tab" : custom ? custom.name : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
   const sub = agent
     ? agent.status === "working" && agent.tool
       ? agent.tool

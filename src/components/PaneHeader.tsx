@@ -1,5 +1,6 @@
 import { basename } from "../lib/format";
 import { openInBrowserPane } from "../lib/browser";
+import { closePaneSafely, openFile, useEditors } from "../lib/openFile";
 import { toggleVoice, useVoice } from "../lib/voice";
 import { useAgents } from "../store/agents";
 import { useGit } from "../store/git";
@@ -8,16 +9,21 @@ import { useRuntime } from "../store/runtime";
 import { tasksForPane, useTasks } from "../store/tasks";
 import { AccountSwitch } from "./AccountSwitch";
 import { AgentChip, usePaneAgent } from "./AgentChip";
-import { BranchIcon, CloseIcon, GlobeIcon, MicIcon, SplitDownIcon, SplitRightIcon } from "./Icons";
+import { BranchIcon, CloseIcon, GlobeIcon, MicIcon, OpenIcon, SplitDownIcon, SplitRightIcon } from "./Icons";
 import { startPaneDrag } from "./PaneDrag";
 import { PermissionButtons } from "./SessionExtras";
 import { StatusGlyph, stateLabel, visualOf } from "./StatusGlyph";
 
-function PaneActions({ paneId, browser }: { paneId: string; browser?: boolean }) {
-  const { splitPane, closePane } = useLayout.getState();
+function PaneActions({ paneId, browser, editor }: { paneId: string; browser?: boolean; editor?: string }) {
+  const { splitPane } = useLayout.getState();
   return (
     <span className="pane-tools">
-      {!browser && (
+      {editor && (
+        <button className="icon-btn sm hide-narrow" title="Open in external editor" aria-label="Open in external editor" onClick={() => void openFile(editor, undefined, undefined, { external: true })}>
+          <OpenIcon width={12} height={12} />
+        </button>
+      )}
+      {!browser && !editor && (
         <button className="icon-btn sm hide-narrow" title="Open browser pane (⇧⌘B)" aria-label="Open browser pane" onClick={() => openInBrowserPane(paneId, "")}>
           <GlobeIcon />
         </button>
@@ -28,7 +34,7 @@ function PaneActions({ paneId, browser }: { paneId: string; browser?: boolean })
       <button className="icon-btn sm hide-narrow" title="Split down (⇧⌘D)" aria-label="Split down" onClick={() => splitPane(paneId, "column")}>
         <SplitDownIcon />
       </button>
-      <button className="icon-btn sm" title="Close pane (⌘W)" aria-label="Close pane" onClick={() => closePane(paneId)}>
+      <button className="icon-btn sm" title="Close pane (⌘W)" aria-label="Close pane" onClick={() => closePaneSafely(paneId)}>
         <CloseIcon width={11} height={11} />
       </button>
     </span>
@@ -52,7 +58,26 @@ export function PaneHeader({ paneId }: { paneId: string }) {
   const git = useGit((s) => (dir ? s.info[dir] : undefined));
   const voiceInstalled = useVoice((s) => s.installed);
   const voiceState = useVoice((s) => (focusedPaneId() === paneId ? s.state : "idle"));
+  const dirty = useEditors((s) => !!s.dirty[paneId]);
   if (!pane) return null;
+
+  if (pane.editor) {
+    const file = pane.editor.path;
+    const root = git?.root ?? dir;
+    const rel = root && file.startsWith(root + "/") ? file.slice(root.length + 1) : file;
+    const folder = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "";
+    return (
+      <div className="pane-header" onPointerDown={(e) => startPaneDrag(e, paneId)}>
+        <div className="pane-id" title={file}>
+          <span className={`edit-dot${dirty ? " dirty" : ""}`} aria-label={dirty ? "Unsaved changes" : undefined} />
+          <span className="pane-name">{basename(file)}</span>
+          {/* LRM keeps a leading "/" in place under the rtl ellipsis trick. */}
+          {folder && <span className="pane-folder hide-tight">{"\u200e" + folder}</span>}
+        </div>
+        <PaneActions paneId={paneId} editor={file} />
+      </div>
+    );
+  }
 
   if (pane.browser) {
     return (

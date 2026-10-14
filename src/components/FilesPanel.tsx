@@ -2,17 +2,34 @@ import { useCallback, useEffect, useState } from "react";
 import { shellEscape } from "../lib/filedrop";
 import { basename } from "../lib/format";
 import { ipc, type DirEntry } from "../lib/ipc";
+import { openFile } from "../lib/openFile";
 import { insertAtPrompt } from "../lib/terminals";
 import { useAgents } from "../store/agents";
 import { paneDir, useGit } from "../store/git";
-import { useLayout } from "../store/layout";
-import { toast } from "../store/ui";
+import { focusedPaneId, useLayout } from "../store/layout";
 import { OpenIcon, RerunIcon } from "./Icons";
 
-/** Inserts a path at the focused pane's prompt, relative when it's below the pane's cwd. */
-function insertPath(path: string) {
+/** The focused pane's project: its repo root, else its folder. */
+export function useFocusedProject() {
+  const focused = useLayout((s) => s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId);
+  const shellCwd = useLayout((s) => (focused ? s.panes[focused]?.cwd : undefined));
+  const agentCwd = useAgents((s) => (focused ? s.sessions[focused]?.cwd : undefined));
+  const cwd = agentCwd ?? shellCwd;
+  const repoRoot = useGit((s) => (cwd ? s.info[cwd]?.root : undefined));
+  return { root: repoRoot ?? cwd, focused };
+}
+
+/**
+ * A file row's click: inserts the path at the focused pane's prompt (relative when it's
+ * below the pane's cwd), or opens it when the focused pane is an editor.
+ */
+function insertPath(path: string, dir = false) {
   const pane = useLayout.getState().tabs.find((t) => t.id === useLayout.getState().activeTabId)?.focusedPaneId;
   if (!pane) return;
+  if (useLayout.getState().panes[pane]?.editor) {
+    if (!dir) void openFile(path, undefined, undefined, { fromPane: pane });
+    return;
+  }
   const cwd = paneDir(pane);
   const rel = cwd && path.startsWith(cwd + "/") ? path.slice(cwd.length + 1) : path;
   insertAtPrompt(pane, shellEscape(rel) + " ");
@@ -50,8 +67,8 @@ function Node({
           aria-label={entry.dir ? "Insert path" : "Open in editor"}
           onClick={(e) => {
             e.stopPropagation();
-            if (entry.dir) insertPath(entry.path);
-            else ipc.openPath(entry.path).catch((err) => toast(String(err), true));
+            if (entry.dir) insertPath(entry.path, true);
+            else void openFile(entry.path, undefined, undefined, { fromPane: focusedPaneId() });
           }}
         >
           <OpenIcon width={12} height={12} />
@@ -68,12 +85,7 @@ function Node({
 
 /** Project file tree for the focused pane: the Navigator's Files view (⇧⌘F). */
 export function FilesPanel() {
-  const focused = useLayout((s) => s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId);
-  const shellCwd = useLayout((s) => (focused ? s.panes[focused]?.cwd : undefined));
-  const agentCwd = useAgents((s) => (focused ? s.sessions[focused]?.cwd : undefined));
-  const cwd = agentCwd ?? shellCwd;
-  const repoRoot = useGit((s) => (cwd ? s.info[cwd]?.root : undefined));
-  const root = repoRoot ?? cwd;
+  const { root } = useFocusedProject();
   const [children, setChildren] = useState<Record<string, DirEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -123,7 +135,7 @@ export function FilesPanel() {
             <Node key={e.path} entry={e} depth={0} expanded={expanded} children={children} toggle={toggle} />
           ))}
       </div>
-      <p className="nav-foot">Click a file to insert its path · ⌘-click paths in output to open them</p>
+      <p className="nav-foot">Click a file to insert its path (or open it, from an editor pane) · ⌘-click paths in output to open them</p>
     </div>
   );
 }

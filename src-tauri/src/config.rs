@@ -227,6 +227,8 @@ pub struct Config {
     pub workspace_accounts: std::collections::HashMap<String, String>,
     /// Claude panes restored at launch reopen the conversation they last ran.
     pub resume_on_launch: bool,
+    /// ⌘-clicked paths and the Files view open in an editor pane; off = `editor` above.
+    pub open_files_in_app: bool,
     pub subagents: SubagentsConfig,
     pub effort: EffortConfig,
 }
@@ -251,6 +253,7 @@ impl Default for Config {
             default_account: String::new(),
             workspace_accounts: Default::default(),
             resume_on_launch: true,
+            open_files_in_app: true,
             subagents: SubagentsConfig::default(),
             effort: EffortConfig::default(),
         }

@@ -6,6 +6,7 @@ import { useAgents } from "../store/agents";
 import { BlockOverlay } from "./BlockOverlay";
 import { BrowserPane } from "./BrowserPane";
 import { Composer } from "./Composer";
+import { EditorPane } from "./EditorPane";
 import { DropIndicator, usePaneDrag } from "./PaneDrag";
 import { PaneHeader } from "./PaneHeader";
 import { StartScreen } from "./StartScreen";
@@ -18,6 +19,7 @@ export function PaneView({ paneId }: { paneId: string }) {
   const multi = useLayout((s) => s.tabs.some((t) => t.focusedPaneId === paneId && t.root.type === "split"));
   const launcher = useLayout((s) => !!s.panes[paneId]?.launcher);
   const isBrowser = useLayout((s) => !!s.panes[paneId]?.browser);
+  const isEditor = useLayout((s) => !!s.panes[paneId]?.editor);
   const suggestOpen = useUi((s) => s.suggestPaneId === paneId);
   const composerOpen = useUi((s) => s.composerPaneId === paneId);
   const dragging = usePaneDrag((s) => s.paneId === paneId);
@@ -30,7 +32,7 @@ export function PaneView({ paneId }: { paneId: string }) {
   useLayoutEffect(() => {
     const el = bodyRef.current;
     const pane = useLayout.getState().panes[paneId];
-    if (!el || !pane || pane.launcher || pane.browser) return;
+    if (!el || !pane || pane.launcher || pane.browser || pane.editor) return;
     ensureTerminal(pane);
     attachTerminal(paneId, el);
     let frame = 0;
@@ -59,6 +61,8 @@ export function PaneView({ paneId }: { paneId: string }) {
       <div className="pane-body">
         {isBrowser ? (
           <BrowserPane paneId={paneId} />
+        ) : isEditor ? (
+          <EditorPane paneId={paneId} />
         ) : launcher ? (
           <StartScreen paneId={paneId} />
         ) : (

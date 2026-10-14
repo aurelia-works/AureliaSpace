@@ -16,7 +16,7 @@ const SESSION_ID = /^[A-Za-z0-9-]+$/;
  */
 export async function planResume(saved: SavedLayout | null) {
   if (!saved || useConfig.getState().config?.resumeOnLaunch === false) return;
-  const panes = Object.values(saved.panes).filter((p) => p.account && !p.launcher && !p.browser);
+  const panes = Object.values(saved.panes).filter((p) => p.account && !p.launcher && !p.browser && !p.editor);
   const claimed = new Set<string>();
   const plans = await Promise.all(
     panes.map(async (p) => {

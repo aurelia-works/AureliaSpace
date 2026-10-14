@@ -7,6 +7,7 @@ mod files;
 mod git;
 mod handoff;
 mod hud;
+mod ide;
 mod integration;
 mod privacy;
 mod pty;
@@ -153,6 +154,12 @@ pub fn run() {
             effort::choose_effort,
             effort::choose_model,
             review::review_changes,
+            ide::read_text_file,
+            ide::write_text_file,
+            ide::file_mtime,
+            ide::search_project,
+            ide::check_project,
+            ide::transcript_thread,
             suggest::suggest_command,
             suggest::set_api_key,
             suggest::has_api_key,

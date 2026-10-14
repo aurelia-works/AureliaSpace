@@ -834,3 +834,69 @@ body.pane-dragging .block-overlay {
     display: none;
   }
 }
+
+/* ---------- Editor pane (components/EditorPane.tsx) ---------- */
+
+.editor-pane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--pane-bg);
+}
+.editor-pane > .empty {
+  padding: var(--sp-3);
+}
+.editor-host {
+  flex: 1;
+  min-height: 0;
+}
+.editor-host .cm-editor {
+  height: 100%;
+  outline: none;
+}
+.editor-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+}
+.editor-bar.warn span {
+  flex: 1;
+  color: var(--warn);
+}
+.editor-bar button {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  font-size: 11.5px;
+}
+.editor-bar button:hover {
+  background: var(--hover);
+}
+.edit-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-faint);
+}
+.edit-dot.dirty {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+.pane-folder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-size: 11px;
+  direction: rtl;
+  text-align: left;
+}

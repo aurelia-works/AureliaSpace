@@ -1,7 +1,8 @@
 import { useAgents, waitingAgents } from "../store/agents";
 import { activeTab, focusedPaneId, paneIds, useLayout } from "../store/layout";
-import { useUi } from "../store/ui";
+import { useUi, type NavView } from "../store/ui";
 import { openInBrowserPane } from "./browser";
+import { closePaneSafely, closeTabSafely } from "./openFile";
 import { toggleHud } from "./hudBridge";
 import { clearTerminal, getEntry, jumpBlock, showPane } from "./terminals";
 import { toggleVoice } from "./voice";
@@ -66,7 +67,11 @@ export const shortcutHelp: ShortcutHelp[] = [
   { keys: "⌘J", label: "Jump to agent waiting on you" },
   { keys: "⇧⌘R", label: "Review changes, send comments to Claude" },
   { keys: "⇧⌘F", label: "Navigator: files" },
-  { keys: "⌘-click", label: "Open link or file:line in output" },
+  { keys: "⌥⌘F", label: "Search the project (ripgrep)" },
+  { keys: "⇧⌘M", label: "Problems: the project's type errors (tsc, cargo check)" },
+  { keys: "⌥⌘T", label: "Thread: the focused Claude pane's conversation, readable" },
+  { keys: "⌘S", label: "Save (editor pane)" },
+  { keys: "⌘-click", label: "Open link, or file:line in an editor pane (⌥⌘-click: external editor)" },
   { keys: "⌘I", label: "Suggest a command" },
   { keys: "⌘B", label: "Toggle the Queue rail (agents, tasks, recents)" },
   { keys: "⇧⌘B", label: "Open browser pane (reuses one in the tab)" },
@@ -78,6 +83,12 @@ export const shortcutHelp: ShortcutHelp[] = [
   { keys: "⌘+ / ⌘- / ⌘0", label: "Font size" },
   { keys: "⌘,", label: "Settings" },
 ];
+
+/** Shows a navigator view, or hides the navigator if it's already showing (`stay`: keep it). */
+function toggleNav(view: NonNullable<NavView>, stay = false) {
+  const ui = useUi.getState();
+  ui.set({ nav: ui.nav === view && !stay ? null : view });
+}
 
 function isTextField(el: Element | null) {
   if (!el) return false;
@@ -96,16 +107,24 @@ export function installShortcuts(): () => void {
     const alt = e.altKey;
     const cwd = pane ? layout.panes[pane]?.cwd : undefined;
 
+    // In an editor pane its own bindings win (⌘D next match, ⌘G find next, ⌘L select line,
+    // ⌘I select syntax, ⌘K…); the app's versions of these are a click away in its header.
+    if (document.activeElement?.closest(".cm-editor") && !shift && !alt && ["KeyD", "KeyG", "KeyL", "KeyI", "KeyK"].includes(e.code)) return;
+
     let action: (() => void) | undefined;
     switch (e.code) {
       case "KeyT":
         if (!shift && !alt) action = () => layout.newTab({ cwd, launcher: true });
+        else if (alt && !shift) action = () => toggleNav("thread");
+        break;
+      case "KeyM":
+        if (shift && !alt) action = () => toggleNav("problems");
         break;
       case "KeyD":
         if (pane && !alt) action = () => layout.splitPane(pane, shift ? "column" : "row");
         break;
       case "KeyW":
-        if (!alt) action = () => (shift ? tab && layout.closeTab(tab.id) : pane && layout.closePane(pane));
+        if (!alt) action = () => (shift ? tab && closeTabSafely(tab.id) : pane && closePaneSafely(pane));
         break;
       case "ArrowLeft":
       case "ArrowRight":
@@ -142,7 +161,8 @@ export function installShortcuts(): () => void {
         if (shift && !alt) action = () => ui.set({ reviewOpen: true });
         break;
       case "KeyF":
-        if (shift && !alt) action = () => ui.set({ nav: ui.nav === "files" ? null : "files" });
+        if (shift && !alt) action = () => toggleNav("files");
+        else if (alt && !shift) action = () => toggleNav("search", true);
         break;
       case "KeyB":
         if (!shift && !alt) action = () => ui.set({ agentPanelOpen: !ui.agentPanelOpen });

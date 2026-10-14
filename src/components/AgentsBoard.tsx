@@ -181,7 +181,7 @@ export function AgentsBoard() {
 
   const items: Item[] = tabs.flatMap((t, tab) =>
     paneIds(t.root)
-      .filter((id) => panes[id] && !panes[id].launcher && !panes[id].browser)
+      .filter((id) => panes[id] && !panes[id].launcher && !panes[id].browser && !panes[id].editor)
       .map((paneId) => ({ paneId, tab, session: sessions[paneId] })),
   );
   const lanes = LANES.map((l) => ({
