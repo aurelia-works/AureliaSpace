@@ -9,6 +9,7 @@ mod hud;
 mod integration;
 mod privacy;
 mod pty;
+mod subagents;
 mod suggest;
 mod transcript;
 mod usage;
@@ -82,6 +83,11 @@ fn no_webview_context_menu<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R>
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// `aurelia-space mcp`: the MCP server Claude panes start (DeepSeek subagents), no UI.
+pub fn serve_mcp() {
+    subagents::serve()
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())

@@ -145,6 +145,7 @@ fn build_command(
     cmd.env("AURELIA_PANE_ID", pane_id);
     cmd.env("AURELIA_EVENTS_FILE", &paths.events_file);
     cmd.env("AURELIA_CLAUDE_SETTINGS", &paths.claude_settings);
+    cmd.env("AURELIA_CLAUDE_MCP", &paths.claude_mcp);
 
     // Shell integration via ZDOTDIR (zsh only; other shells run without blocks).
     if Path::new(&shell).file_name().is_some_and(|n| n == "zsh") {

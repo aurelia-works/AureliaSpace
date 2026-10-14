@@ -31,6 +31,8 @@ export interface Config {
   defaultWorkspace: string;
   /** Claude panes restored at launch reopen the conversation they last ran. */
   resumeOnLaunch: boolean;
+  /** `deepseek_agent` tool for Claude panes: tasks handed to OpenCode (src-tauri/src/subagents.rs). */
+  subagents: { enabled: boolean; model: string; timeoutMinutes: number };
   terminal: {
     fontFamily: string;
     fontSize: number;

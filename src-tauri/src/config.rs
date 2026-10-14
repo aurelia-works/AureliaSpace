@@ -146,6 +146,23 @@ pub struct HudConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct SubagentsConfig {
+    /// Claude panes get a `deepseek_agent` tool that hands tasks to OpenCode (subagents.rs).
+    pub enabled: bool,
+    /// OpenCode model the agents run on: `provider/model[#variant]`.
+    pub model: String,
+    /// An agent still running after this long is stopped.
+    pub timeout_minutes: u64,
+}
+
+impl Default for SubagentsConfig {
+    fn default() -> Self {
+        Self { enabled: true, model: "opencode-go/deepseek-v4.1-flash".into(), timeout_minutes: 15 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct DiscordConfig {
     /// Discord Rich Presence; on by default, like a game's.
     pub enabled: bool,
@@ -189,6 +206,7 @@ pub struct Config {
     pub workspace_accounts: std::collections::HashMap<String, String>,
     /// Claude panes restored at launch reopen the conversation they last ran.
     pub resume_on_launch: bool,
+    pub subagents: SubagentsConfig,
 }
 
 impl Default for Config {
@@ -211,6 +229,7 @@ impl Default for Config {
             default_account: String::new(),
             workspace_accounts: Default::default(),
             resume_on_launch: true,
+            subagents: SubagentsConfig::default(),
         }
     }
 }

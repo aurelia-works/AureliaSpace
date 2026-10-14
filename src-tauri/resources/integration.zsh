@@ -38,7 +38,15 @@ typeset -ga precmd_functions preexec_functions
 precmd_functions+=(_aurelia_install)
 
 # Route every `claude` started in this pane through the AureliaSpace hook settings,
-# so the agent panel can track its status.
+# so the agent panel can track its status, and give it the app's MCP server
+# (DeepSeek subagents). `--mcp-config=` keeps the variadic flag from swallowing
+# the arguments after it.
 if [[ -n "$AURELIA_CLAUDE_SETTINGS" ]]; then
-  claude() { command claude --settings "$AURELIA_CLAUDE_SETTINGS" "$@" }
+  claude() {
+    if [[ -r "$AURELIA_CLAUDE_MCP" ]]; then
+      command claude --settings "$AURELIA_CLAUDE_SETTINGS" --mcp-config="$AURELIA_CLAUDE_MCP" "$@"
+    else
+      command claude --settings "$AURELIA_CLAUDE_SETTINGS" "$@"
+    fi
+  }
 fi

@@ -124,6 +124,9 @@ kbd {
   margin: 0;
   display: inline;
 }
+.hint.warn {
+  color: var(--warn);
+}
 .hint code {
   color: var(--text-dim);
 }

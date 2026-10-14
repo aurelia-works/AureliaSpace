@@ -18,6 +18,7 @@ pub struct Paths {
     pub zdotdir: PathBuf,
     pub zsh_integration: PathBuf,
     pub claude_settings: PathBuf,
+    pub claude_mcp: PathBuf,
     pub events_file: PathBuf,
 }
 
@@ -27,6 +28,7 @@ pub fn paths() -> Paths {
         zdotdir: dir.join("shell/zsh"),
         zsh_integration: dir.join("shell/aurelia-integration.zsh"),
         claude_settings: dir.join("hooks/claude-settings.json"),
+        claude_mcp: dir.join("hooks/claude-mcp.json"),
         events_file: dir.join("run/agent-events.jsonl"),
     }
 }
@@ -80,6 +82,13 @@ pub fn install() -> Result<(), String> {
     let settings = claude_settings(&hook_path.to_string_lossy(), &statusline_path.to_string_lossy());
     fs::write(&p.claude_settings, serde_json::to_string_pretty(&settings).unwrap())
         .map_err(|e| e.to_string())?;
+    // This binary is also the MCP server (`mcp` argument); it lists no tools while
+    // subagents are off in Settings, so the file can stay put either way. The server
+    // enforces the configured time limit itself; Claude's own timeout sits just above
+    // the longest one Settings allows (120 min) so it never cuts a report short.
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let mcp = json!({ "mcpServers": { "aurelia": { "type": "stdio", "command": exe, "args": ["mcp"], "timeout": 121 * 60 * 1000 } } });
+    fs::write(&p.claude_mcp, serde_json::to_string_pretty(&mcp).unwrap()).map_err(|e| e.to_string())?;
     // Events from a previous run refer to panes that no longer exist.
     fs::write(&p.events_file, "").map_err(|e| e.to_string())?;
     Ok(())
