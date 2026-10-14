@@ -3,8 +3,11 @@
 
 fn main() {
     // Claude panes start this same binary as their MCP server (see subagents.rs).
-    if std::env::args().nth(1).as_deref() == Some("mcp") {
-        return aurelia_space_lib::serve_mcp();
+    match std::env::args().nth(1).as_deref() {
+        Some("mcp") => return aurelia_space_lib::serve_mcp(),
+        // The terminal host the app starts in the background (see ptyhost.rs).
+        Some("pty-host") => return aurelia_space_lib::serve_pty_host(),
+        _ => {}
     }
     aurelia_space_lib::run()
 }

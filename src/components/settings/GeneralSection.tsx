@@ -65,6 +65,19 @@ export function GeneralSection({ draft, update }: SectionProps) {
           <span>Reopen each Claude pane's conversation when AureliaSpace starts</span>
         </label>
         <p className="hint">Restored panes run <code>claude --resume</code> on the conversation they last had, instead of starting blank.</p>
+        <label className="field check">
+          <input
+            type="checkbox"
+            checked={draft.terminal.keepAlive !== false}
+            onChange={(e) => update((c) => (c.terminal.keepAlive = e.target.checked))}
+          />
+          <span>Keep terminals running while AureliaSpace quits, restarts or updates</span>
+        </label>
+        <p className="hint">
+          Shells and agents live in a small background process and pick up where they were when the app comes back, with
+          their recent output. Closing a pane ends its shell; one left without the app for 3 days is ended too. Applies to
+          panes opened after the change.
+        </p>
       </section>
 
       <section className="set-group">

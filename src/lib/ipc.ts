@@ -45,6 +45,8 @@ export interface Config {
     optionAsMeta: boolean;
     webglPaneLimit: number;
     shell: string;
+    /** Shells keep running in the terminal host while the app quits or restarts. */
+    keepAlive: boolean;
   };
   suggestions: {
     provider: ProviderName;
@@ -167,9 +169,11 @@ export const ipc = {
     secretEnv?: Record<string, string>;
     cols: number;
     rows: number;
+    /** Start a new shell even if the terminal host still runs one for this pane. */
+    fresh?: boolean;
     onData: Channel<ArrayBuffer>;
   }) {
-    return invoke<void>("pty_spawn", args);
+    return invoke<{ attached: boolean }>("pty_spawn", args);
   },
   ptyWrite: (paneId: string, data: string) => invoke<void>("pty_write", { paneId, data }),
   ptyWriteBinary: (paneId: string, data: number[]) => invoke<void>("pty_write_binary", { paneId, data }),
@@ -177,6 +181,12 @@ export const ipc = {
   /** xterm has parsed `bytes` more of the pane's output (PTY flow control, see pty.rs). */
   ptyAck: (paneId: string, bytes: number) => invoke<void>("pty_ack", { paneId, bytes }),
   ptyKill: (paneId: string) => invoke<void>("pty_kill", { paneId }),
+  /** Panes still running in the terminal host (src-tauri/src/ptyhost.rs), e.g. from before a restart. */
+  ptyAlive: () => invoke<string[]>("pty_alive"),
+  ptyPrune: (keep: string[]) => invoke<number>("pty_prune", { keep }),
+  ptyStopBackground: () => invoke<number>("pty_stop_background"),
+  /** The frontend listens for agent events now: start (re)playing them. */
+  agentEventsReady: () => invoke<void>("agent_events_ready"),
 
   getConfig: () => invoke<Config>("get_config"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),

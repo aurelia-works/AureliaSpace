@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
@@ -89,15 +90,45 @@ pub fn install() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let mcp = json!({ "mcpServers": { "aurelia": { "type": "stdio", "command": exe, "args": ["mcp"], "timeout": 121 * 60 * 1000 } } });
     fs::write(&p.claude_mcp, serde_json::to_string_pretty(&mcp).unwrap()).map_err(|e| e.to_string())?;
-    // Events from a previous run refer to panes that no longer exist.
-    fs::write(&p.events_file, "").map_err(|e| e.to_string())?;
+    // Events from a previous run matter only for panes still running in the terminal host.
+    let alive = crate::ptyhost::list(&crate::ptyhost::socket_path());
+    let kept = fs::read_to_string(&p.events_file).map(|s| events_of(&s, &alive)).unwrap_or_default();
+    fs::write(&p.events_file, kept).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// The last MAX_KEPT_EVENTS lines whose pane is in `alive`.
+fn events_of(log: &str, alive: &[String]) -> String {
+    const MAX_KEPT_EVENTS: usize = 4000;
+    if alive.is_empty() {
+        return String::new();
+    }
+    let lines: Vec<&str> = log
+        .lines()
+        .filter(|l| serde_json::from_str::<Value>(l).ok().and_then(|v| v["pane"].as_str().map(|p| alive.iter().any(|a| a == p))).unwrap_or(false))
+        .collect();
+    let skip = lines.len().saturating_sub(MAX_KEPT_EVENTS);
+    lines[skip..].iter().map(|l| format!("{l}\n")).collect()
+}
+
+static FRONTEND_READY: AtomicBool = AtomicBool::new(false);
+
+/// The frontend is listening for `agent-event`; the watcher starts emitting.
+#[tauri::command]
+pub fn agent_events_ready() {
+    FRONTEND_READY.store(true, Ordering::SeqCst);
 }
 
 /// Polls the events file for appended lines and emits each as `agent-event`.
 pub fn watch_events(app: AppHandle) {
     let path = paths().events_file;
     std::thread::spawn(move || {
+        // Lines already there came from before this launch (see install): replayed once
+        // the frontend listens, marked so they restore state without alerting anyone.
+        let replay_end = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        while !FRONTEND_READY.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(50));
+        }
         let mut offset: u64 = 0;
         let mut partial = String::new();
         loop {
@@ -119,14 +150,32 @@ pub fn watch_events(app: AppHandle) {
             if file.read_to_string(&mut buf).is_err() {
                 continue;
             }
+            let start = offset - partial.len() as u64;
             offset += buf.len() as u64;
             partial.push_str(&buf);
+            let mut consumed = start;
             while let Some(nl) = partial.find('\n') {
                 let line: String = partial.drain(..=nl).collect();
-                if let Ok(value) = serde_json::from_str::<Value>(line.trim()) {
+                consumed += line.len() as u64;
+                if let Ok(mut value) = serde_json::from_str::<Value>(line.trim()) {
+                    if consumed <= replay_end {
+                        value["replay"] = Value::Bool(true);
+                    }
                     let _ = app.emit("agent-event", value);
                 }
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_only_events_of_panes_that_survived() {
+        let log = "{\"pane\":\"a\",\"event\":\"Stop\"}\n{\"pane\":\"b\",\"event\":\"Stop\"}\nnot json\n{\"pane\":\"a\",\"event\":\"UserPromptSubmit\"}\n";
+        assert_eq!(events_of(log, &["a".into()]), "{\"pane\":\"a\",\"event\":\"Stop\"}\n{\"pane\":\"a\",\"event\":\"UserPromptSubmit\"}\n");
+        assert_eq!(events_of(log, &[]), "");
+    }
 }

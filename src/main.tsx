@@ -71,6 +71,9 @@ async function boot() {
 
   await listen<{ paneId: string; code: number | null }>("pty-exit", (e) => useLayout.getState().closePane(e.payload.paneId));
   await listen<AgentEvent>("agent-event", (e) => useAgents.getState().handle(e.payload));
+  ipc.agentEventsReady().catch(() => {});
+  // Shells the terminal host kept for panes that are no longer in the layout.
+  if (saved && useConfig.getState().config?.terminal.keepAlive !== false) ipc.ptyPrune(Object.keys(useLayout.getState().panes)).catch(() => {});
   await listen("menu-settings", () => useUi.getState().set({ settingsOpen: true }));
 
   window.addEventListener("focus", () => useUi.getState().set({ windowFocused: true }));

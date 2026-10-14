@@ -35,6 +35,8 @@ export interface AgentEvent {
   event: string;
   configDir: string;
   ts: number;
+  /** From before this launch (a pane that kept running in the terminal host): restores state, alerts nobody. */
+  replay?: boolean;
   payload: {
     session_id?: string;
     cwd?: string;
@@ -125,6 +127,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     if (ev.event === "SessionEnd") return get().remove(ev.pane);
     const status = statusFor(ev, prev?.status);
     if (!status) return;
+    const at = ev.replay && ev.ts ? ev.ts * 1000 : Date.now();
     const next: AgentSession = {
       paneId: ev.pane,
       sessionId: ev.payload.session_id ?? prev?.sessionId,
@@ -138,8 +141,8 @@ export const useAgents = create<AgentsState>((set, get) => ({
       toolInput: ev.event === "PreToolUse" ? ev.payload.tool_input : status === "working" || status === "needs_input" ? prev?.toolInput : undefined,
       attention: status === "working" ? false : prev?.attention,
       // Each prompt and each tool result triggers a new API request that refreshes the cache.
-      lastRequestAt: ev.event === "UserPromptSubmit" || ev.event === "PostToolUse" ? Date.now() : prev?.lastRequestAt,
-      updatedAt: Date.now(),
+      lastRequestAt: ev.event === "UserPromptSubmit" || ev.event === "PostToolUse" ? at : prev?.lastRequestAt,
+      updatedAt: at,
     };
     // Remembered with the layout, so a restart reopens this conversation (lib/resume.ts).
     if (next.sessionId && useLayout.getState().panes[ev.pane]?.claudeSession !== next.sessionId) {
@@ -150,6 +153,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     const background = isBackground(ev.pane);
     if ((finished || asking) && background) next.attention = true;
     set((s) => ({ sessions: { ...s.sessions, [ev.pane]: next } }));
+    if (ev.replay) return;
 
     if (ev.event === "StopFailure") onStopFailure(ev.pane, ev.payload);
 
@@ -219,7 +223,7 @@ function onStatusLine(ev: AgentEvent, prev: AgentSession | undefined) {
   if (!account || (!live.fiveHour && !live.sevenDay)) return;
   // Before its first request a session reports the limits it last saw, which can be hours old:
   // those only fill an empty meter. Once it has talked to the API they are the freshest reading.
-  const fresh = (live.cache?.requests ?? 0) > 0 || (live.costUsd ?? 0) > 0;
+  const fresh = !ev.replay && ((live.cache?.requests ?? 0) > 0 || (live.costUsd ?? 0) > 0);
   useUsage.getState().applyLive(account, { fiveHour: live.fiveHour, sevenDay: live.sevenDay }, fresh);
 }
 

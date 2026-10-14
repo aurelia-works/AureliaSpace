@@ -8,15 +8,17 @@ import { queueInit } from "./terminals";
 const SESSION_ID = /^[A-Za-z0-9-]+$/;
 
 /**
- * Claude panes restored at launch reopen the conversation they last ran instead of
- * starting a blank one: the pane's own session when its transcript is still there,
+ * Claude panes restored at launch, whose shell didn't survive in the terminal host,
+ * reopen the conversation they last ran instead of starting a blank one: the pane's own session when its transcript is still there,
  * else the newest conversation that account had in the pane's folder. Two panes on the
  * same account and folder can't tell their fallbacks apart, so only one of them gets it.
  * Runs before the first render, while no terminal has spawned yet.
  */
 export async function planResume(saved: SavedLayout | null) {
   if (!saved || useConfig.getState().config?.resumeOnLaunch === false) return;
-  const panes = Object.values(saved.panes).filter((p) => p.account && !p.launcher && !p.browser && !p.editor);
+  // Panes whose shell kept running in the terminal host still have their Claude: nothing to reopen.
+  const alive = new Set(await ipc.ptyAlive().catch(() => []));
+  const panes = Object.values(saved.panes).filter((p) => p.account && !p.launcher && !p.browser && !p.editor && !alive.has(p.id));
   const claimed = new Set<string>();
   const plans = await Promise.all(
     panes.map(async (p) => {

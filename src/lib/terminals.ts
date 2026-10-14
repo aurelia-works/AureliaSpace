@@ -29,12 +29,17 @@ export interface TermEntry {
   webgl?: WebglAddon;
   opened: boolean;
   spawned: boolean;
+  /** The spawn call has answered: a fresh shell (startup command may go) or a reattached one. */
+  ready?: boolean;
   /** Typed into the shell once its first prompt appears (e.g. `claude`). */
   pendingInit?: string;
+  /** Start a new shell rather than reattach (account switch). */
+  fresh?: boolean;
   sentSize?: { cols: number; rows: number };
   /** Output parsed by xterm and not yet acknowledged to the PTY (flow control). */
   unacked: number;
   ackTimer?: ReturnType<typeof setTimeout>;
+  promptSeen?: boolean;
 }
 
 /** Acknowledge parsed output in batches: often enough to keep the PTY flowing, rarely enough to stay off the IPC bridge. */
@@ -111,6 +116,7 @@ export function ensureTerminal(pane: PaneMeta): TermEntry {
   tracker.onCwd = (cwd) => useLayout.getState().updatePane(pane.id, { cwd });
   tracker.onPrompt = () => {
     if (!useRuntime.getState().panes[pane.id]?.integrated) runtime.patch(pane.id, { integrated: true });
+    entry.promptSeen = true;
     flushInit(entry);
   };
   tracker.onCommandStart = (b) => {
@@ -199,7 +205,10 @@ export function fitTerminal(paneId: string) {
 function spawn(entry: TermEntry, cols: number, rows: number) {
   const pane = useLayout.getState().panes[entry.paneId];
   entry.spawned = true;
+  entry.ready = false;
   entry.sentSize = { cols, rows };
+  const fresh = !!entry.fresh;
+  entry.fresh = false;
   const onData = new Channel<ArrayBuffer>();
   entry.unacked = 0;
   onData.onmessage = (buf) => {
@@ -208,8 +217,16 @@ function spawn(entry: TermEntry, cols: number, rows: number) {
     entry.term.write(bytes, () => parsed(entry, bytes.length));
   };
   ipc
-    .ptySpawn({ paneId: entry.paneId, cwd: pane?.cwd, account: pane?.account, env: pane?.env, secretEnv: pane?.secretEnv, cols, rows, onData })
+    .ptySpawn({ paneId: entry.paneId, cwd: pane?.cwd, account: pane?.account, env: pane?.env, secretEnv: pane?.secretEnv, cols, rows, fresh, onData })
+    .then(({ attached }) => {
+      entry.ready = true;
+      // A shell that kept running in the terminal host: whatever it runs is still there
+      // (a replayed prompt mark must not type `claude` into a live Claude).
+      if (attached) entry.pendingInit = undefined;
+      else if (entry.promptSeen) flushInit(entry);
+    })
     .catch((err) => {
+      entry.ready = true;
       entry.term.write(`\r\n\x1b[31m[AureliaSpace] could not start shell: ${err}\x1b[0m\r\n`);
     });
   // Shells without our integration never announce a prompt; don't wait forever.
@@ -218,7 +235,7 @@ function spawn(entry: TermEntry, cols: number, rows: number) {
 
 function flushInit(entry: TermEntry) {
   const cmd = entry.pendingInit;
-  if (!cmd || !entry.spawned) return;
+  if (!cmd || !entry.spawned || !entry.ready) return;
   entry.pendingInit = undefined;
   ipc.ptyWrite(entry.paneId, cmd + "\r").catch(() => {});
 }
@@ -233,6 +250,8 @@ export function respawnPane(paneId: string, init: string): boolean {
   ipc.ptyKill(paneId).catch(() => {});
   entry.pendingInit = init;
   entry.spawned = false;
+  entry.fresh = true;
+  entry.promptSeen = false;
   entry.sentSize = undefined;
   entry.term.write("\r\n\x1b[2m[AureliaSpace] switching account…\x1b[0m\r\n");
   fitTerminal(paneId);

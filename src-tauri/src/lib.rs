@@ -11,6 +11,7 @@ mod ide;
 mod integration;
 mod privacy;
 mod pty;
+mod ptyhost;
 mod review;
 mod subagents;
 mod suggest;
@@ -85,12 +86,18 @@ fn no_webview_context_menu<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R>
         .build()
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// `aurelia-space mcp`: the MCP server Claude panes start (DeepSeek subagents), no UI.
 pub fn serve_mcp() {
     subagents::serve()
 }
 
+/// `aurelia-space pty-host`: the background process that keeps panes' shells alive
+/// across app restarts (ptyhost.rs), no UI.
+pub fn serve_pty_host() {
+    ptyhost::main_entry()
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -129,6 +136,10 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_ack,
             pty::pty_kill,
+            pty::pty_alive,
+            pty::pty_prune,
+            pty::pty_stop_background,
+            integration::agent_events_ready,
             config::get_config,
             config::save_config,
             config::load_state,
