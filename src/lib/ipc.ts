@@ -60,6 +60,8 @@ export interface Usage {
   fiveHourResetsAt: string | null;
   sevenDayResetsAt: string | null;
   updatedAt: number;
+  /** "live": read by a Claude pane from its own API responses; otherwise polled from the usage endpoint. */
+  source?: "live" | "poll";
 }
 
 export interface TranscriptUsage {

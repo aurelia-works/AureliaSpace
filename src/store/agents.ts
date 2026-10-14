@@ -4,7 +4,9 @@ import { activeTab, useLayout } from "./layout";
 import { onStopFailure } from "../lib/limits";
 import { answerPermission, permissionOptions } from "../lib/permissions";
 import { alertUser, useNotices, type NoticeAction } from "./notifications";
+import { ingestLive, useLive } from "./live";
 import { useUi } from "./ui";
+import { useUsage } from "./usage";
 
 export type AgentStatus = "starting" | "idle" | "working" | "needs_input";
 
@@ -115,6 +117,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
   handle(ev) {
     if (!ev?.pane || !useLayout.getState().panes[ev.pane]) return;
     const prev = get().sessions[ev.pane];
+    if (ev.event === "StatusLine") return onStatusLine(ev, prev);
     if (ev.event === "SessionEnd") return get().remove(ev.pane);
     const status = statusFor(ev, prev?.status);
     if (!status) return;
@@ -181,6 +184,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
 
   remove(paneId) {
     useNotices.getState().resolvePane(paneId);
+    useLive.getState().remove(paneId);
     if (!get().sessions[paneId]) return;
     set((s) => {
       const sessions = { ...s.sessions };
@@ -189,6 +193,25 @@ export const useAgents = create<AgentsState>((set, get) => ({
     });
   },
 }));
+
+/**
+ * Claude Code's status line fired (src-tauri/resources/statusline.sh): keep its numbers for
+ * the pane, and hand its rate limits to the account's meter. Never changes the agent status.
+ */
+function onStatusLine(ev: AgentEvent, prev: AgentSession | undefined) {
+  const live = ingestLive(ev.pane, ev.payload);
+  if (prev && ((live.sessionId && live.sessionId !== prev.sessionId) || (live.transcriptPath && live.transcriptPath !== prev.transcriptPath))) {
+    useAgents.setState((s) => ({
+      sessions: { ...s.sessions, [ev.pane]: { ...prev, sessionId: live.sessionId ?? prev.sessionId, transcriptPath: live.transcriptPath ?? prev.transcriptPath } },
+    }));
+  }
+  const account = accountFor(ev.pane, ev.configDir) ?? prev?.account;
+  if (!account || (!live.fiveHour && !live.sevenDay)) return;
+  // Before its first request a session reports the limits it last saw, which can be hours old:
+  // those only fill an empty meter. Once it has talked to the API they are the freshest reading.
+  const fresh = (live.cache?.requests ?? 0) > 0 || (live.costUsd ?? 0) > 0;
+  useUsage.getState().applyLive(account, { fiveHour: live.fiveHour, sevenDay: live.sevenDay }, fresh);
+}
 
 const rank: Record<AgentStatus, number> = { needs_input: 3, working: 2, starting: 1, idle: 0 };
 

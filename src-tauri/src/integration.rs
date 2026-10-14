@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter};
 const ZSHENV: &str = include_str!("../resources/zshenv.zsh");
 const ZSH_INTEGRATION: &str = include_str!("../resources/integration.zsh");
 const HOOK_SH: &str = include_str!("../resources/hook.sh");
+const STATUSLINE_SH: &str = include_str!("../resources/statusline.sh");
 
 pub struct Paths {
     pub zdotdir: PathBuf,
@@ -30,9 +31,10 @@ pub fn paths() -> Paths {
     }
 }
 
-/// Hook settings passed to `claude --settings`. Covers every event the agent panel
-/// derives status from.
-fn claude_settings(hook_path: &str) -> Value {
+/// Settings passed to `claude --settings`: hooks for every event the agent panel derives
+/// status from, and a status line that forwards Claude Code's own live numbers (rate
+/// limits, context window, cache expiry, effort, cost) before running the user's.
+fn claude_settings(hook_path: &str, statusline_path: &str) -> Value {
     let cmd = |event: &str| {
         json!([{ "matcher": "*", "hooks": [{
             "type": "command",
@@ -48,6 +50,7 @@ fn claude_settings(hook_path: &str) -> Value {
         }]}])
     };
     json!({
+        "statusLine": { "type": "command", "command": format!("sh '{statusline_path}'"), "padding": 0 },
         "hooks": {
             "SessionStart": plain("SessionStart"),
             "UserPromptSubmit": plain("UserPromptSubmit"),
@@ -66,13 +69,15 @@ fn claude_settings(hook_path: &str) -> Value {
 pub fn install() -> Result<(), String> {
     let p = paths();
     let hook_path = app_dir().join("hooks/aurelia-hook.sh");
+    let statusline_path = app_dir().join("hooks/aurelia-statusline.sh");
     for dir in [&p.zdotdir, &app_dir().join("hooks"), &app_dir().join("run")] {
         fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     fs::write(p.zdotdir.join(".zshenv"), ZSHENV).map_err(|e| e.to_string())?;
     fs::write(&p.zsh_integration, ZSH_INTEGRATION).map_err(|e| e.to_string())?;
     fs::write(&hook_path, HOOK_SH).map_err(|e| e.to_string())?;
-    let settings = claude_settings(&hook_path.to_string_lossy());
+    fs::write(&statusline_path, STATUSLINE_SH).map_err(|e| e.to_string())?;
+    let settings = claude_settings(&hook_path.to_string_lossy(), &statusline_path.to_string_lossy());
     fs::write(&p.claude_settings, serde_json::to_string_pretty(&settings).unwrap())
         .map_err(|e| e.to_string())?;
     // Events from a previous run refer to panes that no longer exist.

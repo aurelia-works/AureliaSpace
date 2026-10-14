@@ -19,12 +19,12 @@ function level(pct: number) {
   return pct >= 90 ? "crit" : pct >= 70 ? "warn" : "ok";
 }
 
-function Meter({ label, pct, reset, fc, compact }: { label: string; pct: number | null; reset: string | null; fc?: Forecast; compact?: boolean }) {
+function Meter({ label, pct, reset, fc, compact, live }: { label: string; pct: number | null; reset: string | null; fc?: Forecast; compact?: boolean; live?: boolean }) {
   const v = pct ?? 0;
   const resetIn = formatReset(reset);
   const eta = forecastText(fc);
   return (
-    <span className={`meter${eta ? " out" : ""}`} title={`${label} window: ${pct === null ? "unknown" : `${Math.round(v)}% used`}${resetIn ? ` · resets in ${resetIn}` : ""}${forecastTip(fc)}`}>
+    <span className={`meter${eta ? " out" : ""}`} title={`${label} window: ${pct === null ? "unknown" : `${Math.round(v * 10) / 10}% used`}${resetIn ? ` · resets in ${resetIn}` : ""}${forecastTip(fc)}${live ? " · live from Claude's last request" : ""}`}>
       <span className="meter-label">{label}</span>
       <span className="meter-track">
         <span className={`meter-fill ${level(v)}`} style={{ width: `${Math.min(100, v)}%` }} />
@@ -44,8 +44,8 @@ export function UsageMeter({ usage, compact }: { usage: Usage | null | undefined
   if (usage === null) return <span className="usage muted" title="No usage data (not logged in, or fetch-usage.sh missing)">usage n/a</span>;
   return (
     <span className={`usage${compact ? " compact" : ""}`}>
-      <Meter label="5h" pct={usage.fiveHour} reset={usage.fiveHourResetsAt} fc={fc?.["5h"]} compact={compact} />
-      <Meter label="7d" pct={usage.sevenDay} reset={usage.sevenDayResetsAt} fc={fc?.["7d"]} compact={compact} />
+      <Meter label="5h" pct={usage.fiveHour} reset={usage.fiveHourResetsAt} fc={fc?.["5h"]} compact={compact} live={usage.source === "live"} />
+      <Meter label="7d" pct={usage.sevenDay} reset={usage.sevenDayResetsAt} fc={fc?.["7d"]} compact={compact} live={usage.source === "live"} />
     </span>
   );
 }

@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { label, useAgents, type AgentSession } from "../store/agents";
 import { useConfig } from "../store/config";
+import { useLive, type LiveStatus } from "../store/live";
+import { useMetrics } from "../store/metrics";
 import { alertUser } from "../store/notifications";
 
 /** Amber (and the one-time notification) once this fraction of the TTL is left. */
@@ -8,16 +10,34 @@ export const WARN_FRACTION = 0.15;
 
 export const cacheTtlMs = () => (useConfig.getState().config?.cache?.ttlMinutes === 5 ? 5 : 60) * 60_000;
 
+/** Below this much context a cold cache costs too little to warn about. */
+export const COLD_WARN_TOKENS = 40_000;
+
+/**
+ * The cache lifetime for one pane, best source first: what Claude Code reports, then the
+ * lifetime its cache writes got in the transcript, then the setting.
+ */
+export function cacheTtlFor(paneId: string): number {
+  const ttl = useLive.getState().byPane[paneId]?.cache?.ttl;
+  if (ttl === "1h") return 60 * 60_000;
+  if (ttl === "5m") return 5 * 60_000;
+  return useMetrics.getState().byPane[paneId]?.cacheTtlMs ?? cacheTtlMs();
+}
+
 export type CacheState =
   | { kind: "none" }
   | { kind: "live" }
   | { kind: "warm" | "warn"; remainingMs: number }
   | { kind: "cold" };
 
-export function cacheState(s: AgentSession | undefined, now: number, ttl = cacheTtlMs()): CacheState {
-  if (!s?.lastRequestAt) return { kind: "none" };
-  if (s.status === "working") return { kind: "live" };
-  const remainingMs = s.lastRequestAt + ttl - now;
+export function cacheState(s: AgentSession | undefined, now: number, ttl = cacheTtlMs(), live?: LiveStatus): CacheState {
+  // The CLI's own expiry is exact (it knows every request, subagents included); the hook
+  // timestamp plus the lifetime is the fallback.
+  const exact = live?.cache?.expiresAt ?? null;
+  if (!s?.lastRequestAt && exact === null) return { kind: "none" };
+  if (s?.status === "working") return { kind: "live" };
+  const expires = exact ?? s!.lastRequestAt! + ttl;
+  const remainingMs = expires - now;
   if (remainingMs <= 0) return { kind: "cold" };
   return { kind: remainingMs < ttl * WARN_FRACTION ? "warn" : "warm", remainingMs };
 }
@@ -63,14 +83,19 @@ export function startCacheWatch() {
     const cfg = useConfig.getState().config;
     if (!cfg) return;
     const t = Date.now();
-    const ttl = cacheTtlMs();
     const sessions = useAgents.getState().sessions;
+    const live = useLive.getState().byPane;
+    const metrics = useMetrics.getState().byPane;
     for (const id of notified.keys()) if (!sessions[id]) notified.delete(id);
     for (const s of Object.values(sessions)) {
       if (s.status !== "idle" && s.status !== "needs_input") continue;
-      const c = cacheState(s, t, ttl);
-      if (c.kind !== "warn" || notified.get(s.paneId) === s.lastRequestAt) continue;
-      notified.set(s.paneId, s.lastRequestAt!);
+      const c = cacheState(s, t, cacheTtlFor(s.paneId), live[s.paneId]);
+      const stamp = live[s.paneId]?.cache?.expiresAt ?? s.lastRequestAt!;
+      if (c.kind !== "warn" || notified.get(s.paneId) === stamp) continue;
+      // Re-writing a small context is cheap; only a big one is worth an interruption.
+      const tokens = live[s.paneId]?.contextTokens ?? metrics[s.paneId]?.contextTokens ?? 0;
+      if (tokens < COLD_WARN_TOKENS) continue;
+      notified.set(s.paneId, stamp);
       const mins = Math.ceil(c.remainingMs / 60_000);
       alertUser({
         kind: "cache",

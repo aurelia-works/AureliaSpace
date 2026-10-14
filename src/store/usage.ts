@@ -15,7 +15,19 @@ interface UsageState {
   forecasts: Record<string, Forecasts>;
   fetchedAt: Record<string, number>;
   refresh(account: string, force?: boolean): Promise<void>;
+  /**
+   * Rate limits a Claude pane read from its own latest API response (status line bridge).
+   * `fresh` = the session has made a request; otherwise the numbers are the CLI's last-known
+   * values and only fill a meter that has nothing yet.
+   */
+  applyLive(account: string, w: { fiveHour?: LiveWindow; sevenDay?: LiveWindow }, fresh: boolean): void;
 }
+
+type LiveWindow = { pct: number; resetsAt: number | null };
+
+/** Last forecast sample per account from live data; live readings arrive per request, so samples are thinned. */
+const lastLiveSample = new Map<string, { t: number; key: string }>();
+const LIVE_SAMPLE_MS = 30_000;
 
 const inflight = new Set<string>();
 const history = new Map<string, Record<WindowId, { samples: Sample[]; resetAt: number | null }>>();
@@ -68,7 +80,7 @@ function track(account: string, u: Usage): Forecasts {
   return out;
 }
 
-export const useUsage = create<UsageState>((set) => ({
+export const useUsage = create<UsageState>((set, get) => ({
   usage: {},
   forecasts: {},
   fetchedAt: {},
@@ -88,6 +100,36 @@ export const useUsage = create<UsageState>((set) => ({
     } finally {
       inflight.delete(account);
     }
+  },
+  applyLive(account, w, fresh) {
+    const prev = get().usage[account];
+    if (!fresh && prev) return;
+    const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
+    // A window whose reset already passed is a stale reading; leave that window as it was.
+    const now = Date.now();
+    const ok = (x?: LiveWindow) => x && (x.resetsAt === null || x.resetsAt > now) ? x : undefined;
+    const five = ok(w.fiveHour);
+    const seven = ok(w.sevenDay);
+    if (!five && !seven) return;
+    const u: Usage = {
+      fiveHour: five ? five.pct : (prev?.fiveHour ?? null),
+      sevenDay: seven ? seven.pct : (prev?.sevenDay ?? null),
+      fiveHourResetsAt: five ? iso(five.resetsAt) : (prev?.fiveHourResetsAt ?? null),
+      sevenDayResetsAt: seven ? iso(seven.resetsAt) : (prev?.sevenDayResetsAt ?? null),
+      updatedAt: Math.floor(now / 1000),
+      source: "live",
+    };
+    const key = `${u.fiveHour}|${u.sevenDay}|${u.fiveHourResetsAt}|${u.sevenDayResetsAt}`;
+    const last = lastLiveSample.get(account);
+    const sample = !last || last.key !== key || now - last.t >= LIVE_SAMPLE_MS;
+    if (sample) lastLiveSample.set(account, { t: now, key });
+    const forecasts = sample ? track(account, u) : null;
+    set((s) => ({
+      usage: { ...s.usage, [account]: u },
+      forecasts: forecasts ? { ...s.forecasts, [account]: forecasts } : s.forecasts,
+      // Polling skips the account while live readings keep coming.
+      fetchedAt: fresh ? { ...s.fetchedAt, [account]: now } : s.fetchedAt,
+    }));
   },
 }));
 
