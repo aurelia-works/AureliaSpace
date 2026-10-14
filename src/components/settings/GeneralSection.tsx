@@ -51,6 +51,15 @@ export function GeneralSection({ draft, update }: SectionProps) {
       </section>
 
       <section className="set-group">
+        <h3>Restore</h3>
+        <label className="field check">
+          <input type="checkbox" checked={draft.resumeOnLaunch !== false} onChange={(e) => update((c) => (c.resumeOnLaunch = e.target.checked))} />
+          <span>Reopen each Claude pane's conversation when AureliaSpace starts</span>
+        </label>
+        <p className="hint">Restored panes run <code>claude --resume</code> on the conversation they last had, instead of starting blank.</p>
+      </section>
+
+      <section className="set-group">
         <h3>Notifications</h3>
         <label className="field check">
           <input type="checkbox" checked={draft.notifications} onChange={(e) => update((c) => (c.notifications = e.target.checked))} />

@@ -140,3 +140,47 @@ pub fn handoff_summary(transcript_path: String, max_chars: usize) -> Result<Stri
     out.reverse();
     Ok(out.join("\n\n"))
 }
+
+/// Claude Code's project folder name for a working directory: every character that
+/// isn't ASCII alphanumeric becomes `-` (`/Users/me/My App` -> `-Users-me-My-App`).
+pub fn project_slug(cwd: &str) -> String {
+    cwd.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect()
+}
+
+/// The conversation a restored pane should reopen: `prefer` (the session the pane last
+/// ran) when its transcript is still there, else the newest conversation that account
+/// had in that folder. None when there is nothing to resume.
+#[tauri::command]
+pub fn resumable_session(account: String, cwd: String, prefer: Option<String>) -> Option<String> {
+    let cfg = config::load();
+    let acct = cfg.accounts.iter().find(|a| a.name == account)?;
+    let dir = PathBuf::from(acct.resolved_dir())
+        .join("projects")
+        .join(project_slug(&config::expand_path(&cwd)));
+    let valid = |id: &str| !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+    if let Some(id) = prefer.filter(|id| valid(id)) {
+        if dir.join(format!("{id}.jsonl")).is_file() {
+            return Some(id);
+        }
+    }
+    fs::read_dir(&dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|x| x == "jsonl"))
+        .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+        .max_by_key(|(t, _)| *t)
+        .and_then(|(_, p)| p.file_stem().map(|s| s.to_string_lossy().into_owned()))
+        .filter(|id| valid(id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slug_matches_claude_code_folder_names() {
+        assert_eq!(project_slug("/Users/Boon/Downloads/AureliaSpace"), "-Users-Boon-Downloads-AureliaSpace");
+        assert_eq!(project_slug("/Users/Boon/Downloads/Aurelia Transit Architecture"), "-Users-Boon-Downloads-Aurelia-Transit-Architecture");
+        assert_eq!(project_slug("/Users/Boon/Downloads/AureliaSpace.worktrees/claude-a-2"), "-Users-Boon-Downloads-AureliaSpace-worktrees-claude-a-2");
+    }
+}

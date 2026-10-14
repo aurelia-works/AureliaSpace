@@ -135,6 +135,10 @@ export const useAgents = create<AgentsState>((set, get) => ({
       lastRequestAt: ev.event === "UserPromptSubmit" || ev.event === "PostToolUse" ? Date.now() : prev?.lastRequestAt,
       updatedAt: Date.now(),
     };
+    // Remembered with the layout, so a restart reopens this conversation (lib/resume.ts).
+    if (next.sessionId && useLayout.getState().panes[ev.pane]?.claudeSession !== next.sessionId) {
+      useLayout.getState().updatePane(ev.pane, { claudeSession: next.sessionId });
+    }
     const finished = ev.event === "Stop" && prev?.status === "working";
     const asking = status === "needs_input" && prev?.status !== "needs_input";
     const background = isBackground(ev.pane);

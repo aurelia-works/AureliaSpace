@@ -10,6 +10,7 @@ import { ipc } from "./lib/ipc";
 import { applyPaletteVars } from "./lib/palettes";
 import { primeNotifications } from "./lib/notify";
 import { startHudBridge } from "./lib/hudBridge";
+import { planResume } from "./lib/resume";
 import { installShortcuts } from "./lib/shortcuts";
 import { applyAppearance } from "./lib/terminals";
 import { onSystemThemeChange, resolveDark } from "./lib/theme";
@@ -59,6 +60,7 @@ async function boot() {
   await Promise.all([loadUiState(), loadTasks(), loadRecents(), loadCustomAgents()]);
   const saved = await ipc.loadState<SavedLayout>("layout").catch(() => null);
   useLayout.getState().hydrate(saved);
+  await planResume(saved);
   persistLayout();
 
   applyTheme();

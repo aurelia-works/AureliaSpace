@@ -29,6 +29,8 @@ export interface Config {
   editor: string;
   /** Folder new panes open in when they have no cwd to inherit. */
   defaultWorkspace: string;
+  /** Claude panes restored at launch reopen the conversation they last ran. */
+  resumeOnLaunch: boolean;
   terminal: {
     fontFamily: string;
     fontSize: number;
@@ -119,6 +121,8 @@ export const ipc = {
   ptyWrite: (paneId: string, data: string) => invoke<void>("pty_write", { paneId, data }),
   ptyWriteBinary: (paneId: string, data: number[]) => invoke<void>("pty_write_binary", { paneId, data }),
   ptyResize: (paneId: string, cols: number, rows: number) => invoke<void>("pty_resize", { paneId, cols, rows }),
+  /** xterm has parsed `bytes` more of the pane's output (PTY flow control, see pty.rs). */
+  ptyAck: (paneId: string, bytes: number) => invoke<void>("pty_ack", { paneId, bytes }),
   ptyKill: (paneId: string) => invoke<void>("pty_kill", { paneId }),
 
   getConfig: () => invoke<Config>("get_config"),
@@ -153,6 +157,8 @@ export const ipc = {
 
   handoffPrepare: (transcriptPath: string, toAccount: string) =>
     invoke<{ sessionId: string; path: string }>("handoff_prepare", { transcriptPath, toAccount }),
+  resumableSession: (account: string, cwd: string, prefer: string | null) =>
+    invoke<string | null>("resumable_session", { account, cwd, prefer }),
   handoffSummary: (transcriptPath: string, maxChars: number) => invoke<string>("handoff_summary", { transcriptPath, maxChars }),
   transcriptUsage: (path: string, offset: number) =>
     invoke<{ entries: TranscriptUsage[]; offset: number }>("transcript_usage", { path, offset }),

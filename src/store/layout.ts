@@ -25,6 +25,8 @@ export interface PaneMeta {
   launcher?: boolean;
   /** A built-in browser pane (native child webview) instead of a terminal; url "" = blank. */
   browser?: { url: string };
+  /** The Claude conversation this pane last ran, reopened when the app restores the layout. */
+  claudeSession?: string;
 }
 
 export interface Tab {

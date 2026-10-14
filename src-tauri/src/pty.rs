@@ -1,5 +1,13 @@
 //! One PTY per pane. Output is streamed to the frontend as raw bytes over a Tauri
 //! channel, coalesced into small batches so busy panes don't flood the IPC bridge.
+//!
+//! Flow control: xterm parses on the webview's single UI thread, which every pane
+//! shares, and one flooding pane can outrun it (measured: a PTY produces ~48 MB/s,
+//! headless xterm parses ~69 MB/s before any rendering). The frontend acknowledges
+//! bytes once xterm has parsed them (`pty_ack`); while it is more than `FLOW_HIGH`
+//! behind, the batcher waits, the bounded reader queue fills, the reader stops reading,
+//! and the kernel's PTY buffer makes the program itself wait. Memory stays bounded and
+//! keystroke echo never queues behind megabytes of backlog.
 
 use crate::config;
 use crate::integration;
@@ -9,7 +17,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -17,6 +25,61 @@ use tauri::{AppHandle, Emitter, Manager, State};
 const READ_BUF: usize = 64 * 1024;
 const BATCH_WINDOW: Duration = Duration::from_millis(3);
 const BATCH_MAX: usize = 512 * 1024;
+/// Reader chunks buffered between the reader and the batcher (each up to READ_BUF).
+const READ_QUEUE: usize = 16;
+/// Pause sending once the frontend is this many bytes behind...
+const FLOW_HIGH: usize = 2 * 1024 * 1024;
+/// ...and resume once it has caught up to this.
+const FLOW_LOW: usize = 512 * 1024;
+/// A webview that stops acknowledging (reloaded, crashed) must not freeze the pane forever.
+const FLOW_STALL: Duration = Duration::from_secs(10);
+
+/// Bytes sent to the frontend that xterm has not parsed yet.
+#[derive(Default)]
+pub struct Flow {
+    pending: Mutex<usize>,
+    caught_up: Condvar,
+}
+
+impl Flow {
+    fn sent(&self, n: usize) {
+        *self.pending.lock().unwrap() += n;
+    }
+
+    fn ack(&self, n: usize) {
+        let mut p = self.pending.lock().unwrap();
+        *p = p.saturating_sub(n);
+        if *p <= FLOW_LOW {
+            self.caught_up.notify_all();
+        }
+    }
+
+    /// Blocks while the frontend is more than FLOW_HIGH behind, until it is back under
+    /// FLOW_LOW. After `stall` with no progress the debt is forgotten and sending resumes.
+    /// Returns whether it had to wait.
+    fn wait(&self, stall: Duration) -> bool {
+        let mut p = self.pending.lock().unwrap();
+        if *p <= FLOW_HIGH {
+            return false;
+        }
+        let mut deadline = Instant::now() + stall;
+        let mut last = *p;
+        while *p > FLOW_LOW {
+            let now = Instant::now();
+            if now >= deadline {
+                *p = 0;
+                break;
+            }
+            p = self.caught_up.wait_timeout(p, deadline - now).unwrap().0;
+            if *p < last {
+                // Still making progress: a slow frontend is not a dead one.
+                last = *p;
+                deadline = Instant::now() + stall;
+            }
+        }
+        true
+    }
+}
 
 struct Session {
     writer: Box<dyn Write + Send>,
@@ -24,6 +87,7 @@ struct Session {
     child: Box<dyn Child + Send + Sync>,
     /// Bumped on respawn so a stale reader thread doesn't report the new session's exit.
     generation: u64,
+    flow: Arc<Flow>,
 }
 
 #[derive(Default)]
@@ -143,10 +207,12 @@ pub fn pty_spawn(
         *g += 1;
         *g
     };
-    let session = Arc::new(Mutex::new(Session { writer, master: pair.master, child, generation }));
+    let flow = Arc::new(Flow::default());
+    let session = Arc::new(Mutex::new(Session { writer, master: pair.master, child, generation, flow: flow.clone() }));
     state.sessions.lock().unwrap().insert(pane_id.clone(), session.clone());
 
-    let (tx, rx) = mpsc::channel::<Vec<u8>>();
+    // Bounded: when the batcher waits on the frontend, the reader blocks here and stops reading.
+    let (tx, rx) = mpsc::sync_channel::<Vec<u8>>(READ_QUEUE);
 
     std::thread::spawn(move || {
         let mut buf = vec![0u8; READ_BUF];
@@ -165,23 +231,7 @@ pub fn pty_spawn(
     });
 
     std::thread::spawn(move || {
-        'outer: while let Ok(first) = rx.recv() {
-            let mut out = first;
-            let deadline = Instant::now() + BATCH_WINDOW;
-            while out.len() < BATCH_MAX {
-                match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-                    Ok(chunk) => out.extend_from_slice(&chunk),
-                    Err(RecvTimeoutError::Timeout) => break,
-                    Err(RecvTimeoutError::Disconnected) => {
-                        let _ = on_data.send(InvokeResponseBody::Raw(out));
-                        break 'outer;
-                    }
-                }
-            }
-            if on_data.send(InvokeResponseBody::Raw(out)).is_err() {
-                break;
-            }
-        }
+        forward(&rx, Some(&flow), FLOW_STALL, |out| on_data.send(InvokeResponseBody::Raw(out)).is_ok());
 
         let code = {
             let mut s = session.lock().unwrap();
@@ -198,6 +248,36 @@ pub fn pty_spawn(
     });
 
     Ok(())
+}
+
+/// Batches reader chunks (up to BATCH_WINDOW / BATCH_MAX) and hands them to `send`,
+/// waiting on `flow` first. Returns when the reader is done or `send` fails.
+fn forward(rx: &mpsc::Receiver<Vec<u8>>, flow: Option<&Flow>, stall: Duration, mut send: impl FnMut(Vec<u8>) -> bool) {
+    while let Ok(first) = rx.recv() {
+        let mut out = first;
+        let deadline = Instant::now() + BATCH_WINDOW;
+        let mut done = false;
+        while out.len() < BATCH_MAX {
+            match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                Ok(chunk) => out.extend_from_slice(&chunk),
+                Err(RecvTimeoutError::Timeout) => break,
+                Err(RecvTimeoutError::Disconnected) => {
+                    done = true;
+                    break;
+                }
+            }
+        }
+        if let Some(f) = flow {
+            f.wait(stall);
+        }
+        let n = out.len();
+        if !send(out) || done {
+            return;
+        }
+        if let Some(f) = flow {
+            f.sent(n);
+        }
+    }
 }
 
 fn with_session<T>(state: &PtyState, pane_id: &str, f: impl FnOnce(&mut Session) -> Result<T, String>) -> Result<T, String> {
@@ -229,6 +309,14 @@ pub fn pty_write_binary(state: State<'_, PtyState>, pane_id: String, data: Vec<u
     })
 }
 
+/// xterm has parsed `bytes` more of this pane's output (see the flow control note above).
+#[tauri::command]
+pub fn pty_ack(state: State<'_, PtyState>, pane_id: String, bytes: usize) -> Result<(), String> {
+    let flow = with_session(&state, &pane_id, |s| Ok(s.flow.clone()))?;
+    flow.ack(bytes);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn pty_resize(state: State<'_, PtyState>, pane_id: String, cols: u16, rows: u16) -> Result<(), String> {
     with_session(&state, &pane_id, |s| {
@@ -250,5 +338,113 @@ pub fn pty_kill(state: State<'_, PtyState>, pane_id: String) -> Result<(), Strin
 pub fn kill_all(state: &PtyState) {
     for (_, session) in state.sessions.lock().unwrap().drain() {
         let _ = session.lock().unwrap().child.kill();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn flow_does_not_wait_under_the_high_mark() {
+        let f = Flow::default();
+        f.sent(FLOW_HIGH);
+        assert!(!f.wait(Duration::from_millis(50)));
+    }
+
+    #[test]
+    fn flow_waits_until_acknowledged_below_the_low_mark() {
+        let f = Arc::new(Flow::default());
+        f.sent(FLOW_HIGH + 1);
+        let acker = {
+            let f = f.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(80));
+                f.ack(FLOW_HIGH); // leaves 1 byte pending, under FLOW_LOW
+            })
+        };
+        let t = Instant::now();
+        assert!(f.wait(Duration::from_secs(5)));
+        let waited = t.elapsed();
+        acker.join().unwrap();
+        assert!(waited >= Duration::from_millis(70), "returned before the ack: {waited:?}");
+        assert!(waited < Duration::from_secs(2), "kept waiting after the ack: {waited:?}");
+        assert_eq!(*f.pending.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn flow_gives_up_on_a_frontend_that_never_acknowledges() {
+        let f = Flow::default();
+        f.sent(FLOW_HIGH * 2);
+        let t = Instant::now();
+        assert!(f.wait(Duration::from_millis(100)));
+        assert!(t.elapsed() < Duration::from_secs(2));
+        assert_eq!(*f.pending.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn flow_keeps_waiting_while_a_slow_frontend_makes_progress() {
+        let f = Arc::new(Flow::default());
+        f.sent(FLOW_HIGH * 2);
+        let acker = {
+            let f = f.clone();
+            std::thread::spawn(move || {
+                // Ten small acks 40 ms apart: 400 ms in all, longer than the 150 ms stall.
+                for _ in 0..10 {
+                    std::thread::sleep(Duration::from_millis(40));
+                    f.ack(FLOW_HIGH * 2 / 10);
+                }
+            })
+        };
+        let t = Instant::now();
+        assert!(f.wait(Duration::from_millis(150)));
+        let waited = t.elapsed();
+        acker.join().unwrap();
+        // Under FLOW_LOW only after the 9th ack (~360 ms); giving up would return at ~150 ms.
+        assert!(waited >= Duration::from_millis(300), "gave up on a frontend that was still acking: {waited:?}");
+    }
+
+    /// A real PTY flooding output (`yes`) into a frontend that never acknowledges. With
+    /// flow control only about FLOW_HIGH reaches the frontend and the program is held
+    /// back; without it, everything the program writes is pushed through.
+    fn flood(flow: Option<&Flow>) -> usize {
+        let pair = native_pty_system()
+            .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
+            .unwrap();
+        let mut cmd = CommandBuilder::new("/usr/bin/yes");
+        cmd.arg("building module foo/bar/baz.rs ... ok");
+        let mut child = pair.slave.spawn_command(cmd).unwrap();
+        drop(pair.slave);
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let (tx, rx) = mpsc::sync_channel::<Vec<u8>>(READ_QUEUE);
+        std::thread::spawn(move || {
+            let mut buf = vec![0u8; READ_BUF];
+            while let Ok(n) = reader.read(&mut buf) {
+                if n == 0 || tx.send(buf[..n].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        let start = Instant::now();
+        let mut total = 0usize;
+        forward(&rx, flow, Duration::from_secs(2), |out| {
+            if start.elapsed() >= Duration::from_millis(1500) {
+                return false;
+            }
+            total += out.len();
+            true
+        });
+        let _ = child.kill();
+        total
+    }
+
+    #[test]
+    fn flood_is_held_back_until_the_frontend_catches_up() {
+        let unbounded = flood(None);
+        let gated = flood(Some(&Flow::default()));
+        println!("bytes pushed to a frontend that never acks, 1.5 s: without flow control {unbounded}, with {gated}");
+        // A batch can pass BATCH_MAX by one reader chunk before it is sent.
+        assert!(gated <= FLOW_HIGH + BATCH_MAX + READ_BUF, "flow control let {gated} bytes through");
+        assert!(unbounded > gated * 4, "expected the ungated flood to run far ahead ({unbounded} vs {gated})");
     }
 }

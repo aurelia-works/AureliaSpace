@@ -187,6 +187,8 @@ pub struct Config {
     pub default_account: String,
     /// Folder -> account name; wins over `default_account` for panes in that folder.
     pub workspace_accounts: std::collections::HashMap<String, String>,
+    /// Claude panes restored at launch reopen the conversation they last ran.
+    pub resume_on_launch: bool,
 }
 
 impl Default for Config {
@@ -208,6 +210,7 @@ impl Default for Config {
             discord: DiscordConfig::default(),
             default_account: String::new(),
             workspace_accounts: Default::default(),
+            resume_on_launch: true,
         }
     }
 }

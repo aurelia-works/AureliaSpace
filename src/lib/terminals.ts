@@ -32,6 +32,28 @@ export interface TermEntry {
   /** Typed into the shell once its first prompt appears (e.g. `claude`). */
   pendingInit?: string;
   sentSize?: { cols: number; rows: number };
+  /** Output parsed by xterm and not yet acknowledged to the PTY (flow control). */
+  unacked: number;
+  ackTimer?: ReturnType<typeof setTimeout>;
+}
+
+/** Acknowledge parsed output in batches: often enough to keep the PTY flowing, rarely enough to stay off the IPC bridge. */
+const ACK_EVERY = 256 * 1024;
+const ACK_IDLE_MS = 30;
+
+function flushAck(entry: TermEntry) {
+  clearTimeout(entry.ackTimer);
+  entry.ackTimer = undefined;
+  if (!entry.unacked) return;
+  const n = entry.unacked;
+  entry.unacked = 0;
+  ipc.ptyAck(entry.paneId, n).catch(() => {});
+}
+
+function parsed(entry: TermEntry, n: number) {
+  entry.unacked += n;
+  if (entry.unacked >= ACK_EVERY) flushAck(entry);
+  else if (!entry.ackTimer) entry.ackTimer = setTimeout(() => flushAck(entry), ACK_IDLE_MS);
 }
 
 const entries = new Map<string, TermEntry>();
@@ -83,7 +105,7 @@ export function ensureTerminal(pane: PaneMeta): TermEntry {
   host.className = "term-host";
 
   const tracker = new BlockTracker(term);
-  const entry: TermEntry = { paneId: pane.id, term, fit, host, tracker, opened: false, spawned: false };
+  const entry: TermEntry = { paneId: pane.id, term, fit, host, tracker, opened: false, spawned: false, unacked: 0 };
   const runtime = useRuntime.getState();
 
   tracker.onCwd = (cwd) => useLayout.getState().updatePane(pane.id, { cwd });
@@ -99,8 +121,12 @@ export function ensureTerminal(pane: PaneMeta): TermEntry {
   };
   tracker.onCommandEnd = (b) => {
     runtime.patch(pane.id, { running: undefined, lastExit: b.exitCode });
-    // Covers Claude exiting without a SessionEnd hook (crash, kill).
-    if (/^claude(\s|$)/.test(b.command)) useAgents.getState().remove(pane.id);
+    // Covers Claude exiting without a SessionEnd hook (crash, kill). Quitting the app kills the
+    // shell before any prompt returns, so this only runs when Claude itself ended: nothing to reopen.
+    if (/^claude(\s|$)/.test(b.command)) {
+      useAgents.getState().remove(pane.id);
+      useLayout.getState().updatePane(pane.id, { claudeSession: undefined });
+    }
   };
 
   term.onData((d) => {
@@ -175,7 +201,12 @@ function spawn(entry: TermEntry, cols: number, rows: number) {
   entry.spawned = true;
   entry.sentSize = { cols, rows };
   const onData = new Channel<ArrayBuffer>();
-  onData.onmessage = (buf) => entry.term.write(new Uint8Array(buf));
+  entry.unacked = 0;
+  onData.onmessage = (buf) => {
+    const bytes = new Uint8Array(buf);
+    // The callback runs once xterm has parsed this chunk; until then the PTY may hold back.
+    entry.term.write(bytes, () => parsed(entry, bytes.length));
+  };
   ipc
     .ptySpawn({ paneId: entry.paneId, cwd: pane?.cwd, account: pane?.account, env: pane?.env, secretEnv: pane?.secretEnv, cols, rows, onData })
     .catch((err) => {
@@ -288,6 +319,7 @@ function destroyTerminal(paneId: string) {
   useAgents.getState().remove(paneId);
   useRuntime.getState().remove(paneId);
   if (!entry) return;
+  clearTimeout(entry.ackTimer);
   if (entry.webgl) {
     entry.webgl.dispose();
     webglCount--;
