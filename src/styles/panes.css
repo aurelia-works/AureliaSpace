@@ -609,6 +609,44 @@ body.pane-dragging .block-overlay {
   color: var(--text-faint);
 }
 
+/* ---------- ⌘L prompt composer (shares the suggestion bar's frame) ---------- */
+
+.composer-row {
+  align-items: flex-start;
+}
+.composer-row .suggest-icon {
+  margin-top: 6px;
+}
+.composer-row > textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  padding: 4px 0;
+  overflow-y: auto;
+}
+.effort-chip {
+  flex: none;
+  height: 24px;
+  margin-top: 1px;
+  padding: 0 9px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.effort-chip.manual {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
 /* ---------- Start screen (new tab) ---------- */
 
 .start-screen {

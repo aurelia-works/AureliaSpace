@@ -51,7 +51,7 @@ export function App() {
       if (!pane) return;
       if (useLayout.getState().panes[pane]?.launcher) {
         document.querySelector<HTMLElement>(`[data-pane-id="${pane}"] .start-screen`)?.focus();
-      } else if (useUi.getState().suggestPaneId !== pane) focusTerminal(pane);
+      } else if (useUi.getState().suggestPaneId !== pane && useUi.getState().composerPaneId !== pane) focusTerminal(pane);
     });
     return () => cancelAnimationFrame(id);
   }, [focusKey, modalOpen, mode]);

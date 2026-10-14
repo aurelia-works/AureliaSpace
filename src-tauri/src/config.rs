@@ -146,6 +146,25 @@ pub struct HudConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct EffortConfig {
+    /// Prompts sent from the composer pick their own effort (effort.rs, lib/effort.ts).
+    pub auto: bool,
+    /// Unclear prompts go to a Haiku 5.5 judge; off = rules only.
+    pub judge: bool,
+    pub floor: String,
+    /// xhigh and max cost the most; they still apply when the prompt asks for them by name
+    /// only if the ceiling allows.
+    pub ceiling: String,
+}
+
+impl Default for EffortConfig {
+    fn default() -> Self {
+        Self { auto: true, judge: true, floor: "low".into(), ceiling: "high".into() }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct SubagentsConfig {
     /// Claude panes get a `deepseek_agent` tool that hands tasks to OpenCode (subagents.rs).
     pub enabled: bool,
@@ -207,6 +226,7 @@ pub struct Config {
     /// Claude panes restored at launch reopen the conversation they last ran.
     pub resume_on_launch: bool,
     pub subagents: SubagentsConfig,
+    pub effort: EffortConfig,
 }
 
 impl Default for Config {
@@ -230,6 +250,7 @@ impl Default for Config {
             workspace_accounts: Default::default(),
             resume_on_launch: true,
             subagents: SubagentsConfig::default(),
+            effort: EffortConfig::default(),
         }
     }
 }

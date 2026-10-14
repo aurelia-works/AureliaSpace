@@ -269,6 +269,16 @@ export function submitToPane(paneId: string, text: string) {
   return true;
 }
 
+/** The text on screen (the active buffer's viewport), to see what a TUI is showing. */
+export function screenText(paneId: string): string {
+  const entry = entries.get(paneId);
+  if (!entry) return "";
+  const buf = entry.term.buffer.active;
+  const lines: string[] = [];
+  for (let y = buf.viewportY; y < buf.viewportY + entry.term.rows; y++) lines.push(buf.getLine(y)?.translateToString(true) ?? "");
+  return lines.join("\n");
+}
+
 /** Inserts text at the prompt without running it (bracketed paste when available). */
 export function insertAtPrompt(paneId: string, text: string) {
   const entry = entries.get(paneId);

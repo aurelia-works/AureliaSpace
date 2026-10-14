@@ -3,6 +3,7 @@ import type { Config } from "../../lib/ipc";
 import { AccountsSection } from "./AccountsSection";
 import { AgentsSection } from "./AgentsSection";
 import { AppearanceSection } from "./AppearanceSection";
+import { EffortSection } from "./EffortSection";
 import { GeneralSection } from "./GeneralSection";
 import { HudSection } from "./HudSection";
 import { IntegrationsSection } from "./IntegrationsSection";
@@ -33,6 +34,7 @@ export const SECTIONS: SettingsSection[] = [
   { id: "accounts", label: "Accounts", Component: AccountsSection },
   { id: "my-agents", label: "My agents", Component: MyAgentsSection },
   { id: "agents", label: "Agent keys", Component: AgentsSection },
+  { id: "effort", label: "Auto effort", Component: EffortSection },
   { id: "subagents", label: "Subagents", Component: SubagentsSection },
   { id: "suggestions", label: "Suggestions", Component: SuggestionsSection },
   { id: "voice", label: "Voice", Component: VoiceSection },

@@ -32,6 +32,8 @@ interface UiState {
   toast: null | { text: string; error?: boolean; at: number };
   /** Pane whose command-suggestion bar is open. */
   suggestPaneId: string | null;
+  /** Pane whose prompt composer (⌘L) is open. */
+  composerPaneId: string | null;
   fontDelta: number;
   windowFocused: boolean;
 
@@ -51,6 +53,7 @@ export const useUi = create<UiState>((set) => ({
   useWorktree: false,
   toast: null,
   suggestPaneId: null,
+  composerPaneId: null,
   fontDelta: 0,
   windowFocused: document.hasFocus(),
   set: (patch) => set(patch),

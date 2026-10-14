@@ -5,6 +5,7 @@ import { useUi } from "../store/ui";
 import { useAgents } from "../store/agents";
 import { BlockOverlay } from "./BlockOverlay";
 import { BrowserPane } from "./BrowserPane";
+import { Composer } from "./Composer";
 import { DropIndicator, usePaneDrag } from "./PaneDrag";
 import { PaneHeader } from "./PaneHeader";
 import { StartScreen } from "./StartScreen";
@@ -18,6 +19,7 @@ export function PaneView({ paneId }: { paneId: string }) {
   const launcher = useLayout((s) => !!s.panes[paneId]?.launcher);
   const isBrowser = useLayout((s) => !!s.panes[paneId]?.browser);
   const suggestOpen = useUi((s) => s.suggestPaneId === paneId);
+  const composerOpen = useUi((s) => s.composerPaneId === paneId);
   const dragging = usePaneDrag((s) => s.paneId === paneId);
   // Drives the pane's edge colour: gold when it needs you, the working hue while busy.
   const state = useAgents((s) => {
@@ -67,6 +69,7 @@ export function PaneView({ paneId }: { paneId: string }) {
             </div>
             {/* Docked under the terminal (which refits), never floating over its text. */}
             {suggestOpen && <SuggestBar paneId={paneId} />}
+            {composerOpen && <Composer paneId={paneId} />}
           </>
         )}
       </div>

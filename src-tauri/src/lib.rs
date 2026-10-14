@@ -2,6 +2,7 @@ mod agents;
 mod browser;
 mod config;
 mod discord;
+mod effort;
 mod files;
 mod git;
 mod handoff;
@@ -148,6 +149,7 @@ pub fn run() {
             handoff::handoff_prepare,
             handoff::handoff_summary,
             handoff::resumable_session,
+            effort::choose_effort,
             suggest::suggest_command,
             suggest::set_api_key,
             suggest::has_api_key,

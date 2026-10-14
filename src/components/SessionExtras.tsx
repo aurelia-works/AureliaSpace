@@ -2,7 +2,7 @@ import { useEffect, useState, type KeyboardEvent, type MouseEvent } from "react"
 import { formatCost, formatTokens } from "../lib/format";
 import { handOff } from "../lib/handoff";
 import { answerPermission, permissionOptions, type PermissionChoice } from "../lib/permissions";
-import { submitToPane } from "../lib/terminals";
+import { sendPrompt } from "../lib/effort";
 import { useMetrics } from "../store/metrics";
 import { useNotices } from "../store/notifications";
 import { toast } from "../store/ui";
@@ -84,11 +84,16 @@ export function MetricsLine({ paneId }: { paneId: string }) {
  */
 export function ReplyBox({ paneId, placeholder = "Reply to Claude…", inputRef }: { paneId: string; placeholder?: string; inputRef?: React.Ref<HTMLInputElement> }) {
   const [draft, setDraft] = useState("");
-  const send = () => {
+  const send = async () => {
     const text = draft.trim();
     if (!text) return;
-    if (!submitToPane(paneId, text)) return toast("That pane is gone", true);
     setDraft("");
+    // Auto effort applies when Claude is idle at its prompt; answers to its questions go as is.
+    const { sent } = await sendPrompt(paneId, text);
+    if (!sent) {
+      setDraft(text);
+      return toast("That pane is gone", true);
+    }
     useNotices.getState().resolvePane(paneId, ["finished", "needs_input"]);
   };
   return (

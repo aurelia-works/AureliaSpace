@@ -647,10 +647,11 @@ printf '{{"type":"text","sessionID":"ses_t","part":{{"messageID":"m","text":"don
         let bin = fake_opencode(&dir, r#"printf '{"type":"text","sessionID":"s","part":{"messageID":"m","text":"partial"}}\n'; sleep 30; echo late"#);
         let running: Running = Default::default();
         let started = Instant::now();
-        let o = run_job(&bin, "m", &job(json!({ "tasks": ["t"] })), dir.to_str().unwrap(), Duration::from_millis(500), "2", &running, |_, _| {}).unwrap();
-        assert!(o.timed_out && started.elapsed() < Duration::from_secs(10));
+        // Long enough for the partial line to arrive even on a loaded machine.
+        let o = run_job(&bin, "m", &job(json!({ "tasks": ["t"] })), dir.to_str().unwrap(), Duration::from_secs(3), "2", &running, |_, _| {}).unwrap();
+        assert!(o.timed_out && started.elapsed() < Duration::from_secs(15));
         let (text, failed) = render(&o, "m", Mode::Read);
-        assert!(!failed, "a partial report is still returned");
+        assert!(!failed, "a partial report is still returned: elapsed {:?}, exit_ok {}, stderr {:?}, report {:?}", o.elapsed, o.exit_ok, o.stderr, o.report);
         assert!(text.starts_with("partial") && text.contains("time limit"), "{text}");
         let _ = std::fs::remove_dir_all(&dir);
     }

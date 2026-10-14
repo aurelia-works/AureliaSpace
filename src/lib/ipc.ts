@@ -33,6 +33,8 @@ export interface Config {
   resumeOnLaunch: boolean;
   /** `deepseek_agent` tool for Claude panes: tasks handed to OpenCode (src-tauri/src/subagents.rs). */
   subagents: { enabled: boolean; model: string; timeoutMinutes: number };
+  /** Composer prompts pick their own effort: rules, then a Haiku 5.5 judge (src-tauri/src/effort.rs). */
+  effort: { auto: boolean; judge: boolean; floor: EffortLevel; ceiling: EffortLevel };
   terminal: {
     fontFamily: string;
     fontSize: number;
@@ -56,6 +58,17 @@ export interface Config {
     /** Tidy dictation typed into plain shell panes (never Claude panes). */
     shellCleanup: boolean;
   };
+}
+
+export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
+
+export interface EffortPick {
+  /** null = leave the effort as it is (e.g. "continue" mid-task). */
+  level: EffortLevel | null;
+  source: "rules" | "judge" | "keep";
+  why: string;
+  /** A rules-only preview of a prompt the judge decides on send. */
+  pending: boolean;
 }
 
 export interface Usage {
@@ -159,6 +172,8 @@ export const ipc = {
 
   handoffPrepare: (transcriptPath: string, toAccount: string) =>
     invoke<{ sessionId: string; path: string }>("handoff_prepare", { transcriptPath, toAccount }),
+  chooseEffort: (account: string | null, prompt: string, useJudge: boolean) =>
+    invoke<EffortPick>("choose_effort", { account, prompt, useJudge }),
   resumableSession: (account: string, cwd: string, prefer: string | null) =>
     invoke<string | null>("resumable_session", { account, cwd, prefer }),
   handoffSummary: (transcriptPath: string, maxChars: number) => invoke<string>("handoff_summary", { transcriptPath, maxChars }),

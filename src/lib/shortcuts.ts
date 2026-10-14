@@ -126,6 +126,9 @@ export function installShortcuts(): () => void {
       case "KeyI":
         if (!shift && !alt && pane) action = () => ui.set({ suggestPaneId: ui.suggestPaneId === pane ? null : pane });
         break;
+      case "KeyL":
+        if (!shift && !alt && pane) action = () => ui.set({ composerPaneId: ui.composerPaneId === pane ? null : pane });
+        break;
       case "KeyG":
         if (!shift && !alt) action = () => ui.set({ gridOpen: true });
         break;

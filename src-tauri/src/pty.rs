@@ -405,10 +405,11 @@ mod tests {
         assert!(waited >= Duration::from_millis(300), "gave up on a frontend that was still acking: {waited:?}");
     }
 
-    /// A real PTY flooding output (`yes`) into a frontend that never acknowledges. With
-    /// flow control only about FLOW_HIGH reaches the frontend and the program is held
-    /// back; without it, everything the program writes is pushed through.
-    fn flood(flow: Option<&Flow>) -> usize {
+    /// A real PTY flooding output (`yes`) into a frontend that never acknowledges, for up
+    /// to `deadline` or until `enough` bytes got through. With flow control only about
+    /// FLOW_HIGH reaches the frontend and the program is held back; without it,
+    /// everything the program writes is pushed through.
+    fn flood(flow: Option<&Flow>, deadline: Duration, enough: usize) -> usize {
         let pair = native_pty_system()
             .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
             .unwrap();
@@ -429,7 +430,7 @@ mod tests {
         let start = Instant::now();
         let mut total = 0usize;
         forward(&rx, flow, Duration::from_secs(2), |out| {
-            if start.elapsed() >= Duration::from_millis(1500) {
+            if start.elapsed() >= deadline || total >= enough {
                 return false;
             }
             total += out.len();
@@ -441,11 +442,14 @@ mod tests {
 
     #[test]
     fn flood_is_held_back_until_the_frontend_catches_up() {
-        let unbounded = flood(None);
-        let gated = flood(Some(&Flow::default()));
-        println!("bytes pushed to a frontend that never acks, 1.5 s: without flow control {unbounded}, with {gated}");
         // A batch can pass BATCH_MAX by one reader chunk before it is sent.
-        assert!(gated <= FLOW_HIGH + BATCH_MAX + READ_BUF, "flow control let {gated} bytes through");
-        assert!(unbounded > gated * 4, "expected the ungated flood to run far ahead ({unbounded} vs {gated})");
+        let bound = FLOW_HIGH + BATCH_MAX + READ_BUF;
+        // Conditions, not timing: a busy machine slows both floods but can't make the gated
+        // one exceed its bound, and the ungated one gets as long as it needs to run past it.
+        let gated = flood(Some(&Flow::default()), Duration::from_millis(1500), usize::MAX);
+        let unbounded = flood(None, Duration::from_secs(30), bound * 4);
+        println!("bytes pushed to a frontend that never acks: without flow control {unbounded}, with {gated}");
+        assert!(gated <= bound, "flow control let {gated} bytes through");
+        assert!(unbounded >= bound * 4, "expected the ungated flood to run far ahead ({unbounded} vs {gated})");
     }
 }
