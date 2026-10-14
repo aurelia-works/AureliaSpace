@@ -115,9 +115,9 @@ const MAX_UNTRACKED_BYTES: u64 = 200 * 1024;
 
 #[derive(Serialize)]
 pub struct Diff {
-    root: String,
-    diff: String,
-    truncated: bool,
+    pub(crate) root: String,
+    pub(crate) diff: String,
+    pub(crate) truncated: bool,
 }
 
 /// Uncommitted changes (staged + unstaged + untracked) relative to HEAD.

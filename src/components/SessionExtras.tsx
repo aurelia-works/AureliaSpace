@@ -3,6 +3,8 @@ import { formatCost, formatTokens } from "../lib/format";
 import { handOff } from "../lib/handoff";
 import { answerPermission, permissionOptions, type PermissionChoice } from "../lib/permissions";
 import { sendPrompt } from "../lib/effort";
+import { riskOf } from "../lib/risk";
+import { useAgents } from "../store/agents";
 import { useMetrics } from "../store/metrics";
 import { useNotices } from "../store/notifications";
 import { toast } from "../store/ui";
@@ -41,13 +43,21 @@ export function PermissionButtons({ paneId, keys }: { paneId: string; keys?: boo
     return () => clearInterval(id);
   }, []);
   const opts = permissionOptions(paneId);
+  const s = useAgents((st) => st.sessions[paneId]);
   if (!opts) return null;
+  const risk = riskOf(s?.tool, s?.toolInput, s?.cwd);
+  const what = s?.toolInput?.command ?? s?.toolInput?.file_path ?? s?.toolInput?.url;
   const ask = (c: PermissionChoice) => () => {
     answerPermission(paneId, c);
     tick((n) => n + 1);
   };
   return (
     <span className="perm-buttons">
+      {risk && (
+        <span className={`risk-tag ${risk.level}`} title={what ? `${s?.tool}: ${what}` : s?.tool}>
+          {risk.why}
+        </span>
+      )}
       <Act cls="primary" onRun={ask("allow")} k={keys ? "Y" : undefined}>Allow</Act>
       {opts.always && <Act onRun={ask("always")} k={keys ? "A" : undefined}>Always</Act>}
       <Act cls="danger" onRun={ask("deny")} k={keys ? "N" : undefined}>Deny</Act>

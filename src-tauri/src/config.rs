@@ -155,11 +155,13 @@ pub struct EffortConfig {
     /// xhigh and max cost the most; they still apply when the prompt asks for them by name
     /// only if the ceiling allows.
     pub ceiling: String,
+    /// Panes launched on a task start on the model picked for it (haiku/sonnet/opus).
+    pub auto_model: bool,
 }
 
 impl Default for EffortConfig {
     fn default() -> Self {
-        Self { auto: true, judge: true, floor: "low".into(), ceiling: "high".into() }
+        Self { auto: true, judge: true, floor: "low".into(), ceiling: "high".into(), auto_model: false }
     }
 }
 

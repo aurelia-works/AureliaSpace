@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { parseDiff, type DiffFile, type DiffLine } from "../lib/diff";
 import { basename } from "../lib/format";
-import { ipc } from "../lib/ipc";
+import { ipc, type ReviewResult } from "../lib/ipc";
 import { focusTerminal, insertAtPrompt, writeToPane } from "../lib/terminals";
 import { useAgents } from "../store/agents";
 import { paneDir, useGit } from "../store/git";
@@ -161,12 +161,14 @@ export function DiffReview() {
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [target, setTarget] = useState<string>("");
+  const [review, setReview] = useState<ReviewResult | { error: string } | "running" | null>(null);
 
   const load = () => {
     const pane = focusedPaneId();
     const dir = pane ? paneDir(pane) : undefined;
     setComments({}); // comments are keyed by line index; a reload can shift lines
     setEditing(null);
+    setReview(null);
     if (!dir) return setState({ error: "The focused pane has no working directory yet." });
     setState(null);
     ipc.gitDiff(dir).then(
@@ -222,6 +224,12 @@ export function DiffReview() {
   const dels = files.reduce((n, f) => n + f.dels, 0);
   const commentsIn = (path: string) => list.filter((c) => c.path === path).length;
 
+  const runReview = () => {
+    if (!root || review === "running") return;
+    setReview("running");
+    ipc.reviewChanges(root).then(setReview, (e) => setReview({ error: String(e) }));
+  };
+
   return (
     <div
       className="page review-page"
@@ -243,6 +251,14 @@ export function DiffReview() {
             </span>
           )}
         </div>
+        <button
+          className="btn"
+          onClick={runReview}
+          disabled={!files.length || review === "running"}
+          title="A read-only DeepSeek agent (OpenCode Go) grades these changes against .aurelia/scorers/*.md, or the built-in scorers. Doesn't use Claude limits."
+        >
+          {review === "running" ? "Reviewing…" : "Review with DeepSeek"}
+        </button>
         <button className="btn" onClick={load}>
           Reload
         </button>
@@ -270,6 +286,25 @@ export function DiffReview() {
           {!state && <p className="empty">Loading diff…</p>}
           {state && "error" in state && <p className="empty">{state.error}</p>}
           {state && "files" in state && state.files.length === 0 && <p className="empty">No uncommitted changes.</p>}
+          {review === "running" && <p className="hint">DeepSeek is reading the changes… this takes a minute or two.</p>}
+          {review && typeof review === "object" && "error" in review && <p className="hint warn">{review.error}</p>}
+          {review && typeof review === "object" && "text" in review && (
+            <section className={`review-verdict ${review.verdict ?? "none"}`}>
+              <header>
+                <b>{review.verdict ? `Verdict: ${review.verdict}` : review.failed ? "Review stopped" : "No verdict"}</b>
+                <span className="page-sub">
+                  {review.scorers.join(" · ")} · {Math.round(review.seconds)}s
+                </span>
+                <button className="link-btn" onClick={() => setNote((n) => (n ? `${n}\n\n` : "") + `DeepSeek review:\n${review.text}`)}>
+                  add to note for Claude
+                </button>
+                <button className="link-btn" onClick={() => setReview(null)}>
+                  hide
+                </button>
+              </header>
+              <pre>{review.text}</pre>
+            </section>
+          )}
           {state && "files" in state && (
             <>
               {state.truncated && <p className="hint">Diff is large and was truncated.</p>}

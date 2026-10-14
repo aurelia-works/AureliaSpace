@@ -17,6 +17,13 @@ const JUDGE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Enough of a long prompt to judge it; the rest rarely changes the answer.
 const JUDGE_CHARS: usize = 4000;
 
+const MODEL_RUBRIC: &str = "You pick which Claude model a coding agent should start a new task on. \
+Reply with exactly one word: haiku, sonnet or opus.\n\
+haiku: small, well-defined tasks: lookups, mechanical edits, renames, formatting, git chores, short scripts.\n\
+sonnet: ordinary feature work, bug fixes with a clear cause, tests, explanations, edits across a few files.\n\
+opus: hard debugging, architecture and design, large refactors, security or concurrency work, anything ambiguous and costly to get wrong.\n\
+Prefer the cheapest model that will do the task well.";
+
 const RUBRIC: &str = "You pick the reasoning effort a coding agent should use for the task it is about to get. \
 Reply with exactly one word: low, medium, high or xhigh.\n\
 low: lookups, quick factual questions, one-line or mechanical edits, formatting, renames, git chores.\n\
@@ -127,23 +134,29 @@ pub fn clamp(mut pick: EffortPick, floor: &str, ceiling: &str) -> EffortPick {
     pick
 }
 
-/// The judge's one-word answer, from `claude -p --output-format json`.
-fn parse_judge(stdout: &str) -> Option<String> {
+/// The judge's one-word answer, from `claude -p --output-format json`, if it is one of
+/// `choices` (listed longest first, so "xhigh" isn't read as "high").
+fn parse_answer(stdout: &str, choices: &[&str]) -> Option<String> {
     let v: Value = serde_json::from_str(stdout.trim()).ok()?;
     if v["is_error"].as_bool() == Some(true) {
         return None;
     }
     let text = v["result"].as_str()?.trim().to_lowercase();
-    // Longest names first, so "xhigh" isn't read as "high".
-    ["xhigh", "medium", "high", "low"].into_iter().find(|l| text.split(|c: char| !c.is_ascii_alphanumeric()).any(|w| w == *l)).map(String::from)
+    choices.iter().find(|l| text.split(|c: char| !c.is_ascii_alphanumeric()).any(|w| w == **l)).map(|l| l.to_string())
 }
 
-fn judge(account: Option<&str>, prompt: &str) -> Result<String, String> {
+fn parse_judge(stdout: &str) -> Option<String> {
+    parse_answer(stdout, &["xhigh", "medium", "high", "low"])
+}
+
+/// Runs Haiku 5.5 headless on `account` with `rubric` as its system prompt and returns
+/// its raw JSON output.
+fn ask_haiku(account: Option<&str>, rubric: &str, prompt: &str) -> Result<String, String> {
     let claude = which::locate("claude").ok_or("claude isn't installed")?;
     let task: String = prompt.chars().take(JUDGE_CHARS).collect();
     let mut cmd = Command::new(claude);
     cmd.args(["-p", "--model", JUDGE_MODEL, "--output-format", "json", "--setting-sources", "", "--strict-mcp-config", "--tools", ""])
-        .args(["--disable-slash-commands", "--no-session-persistence", "--system-prompt", RUBRIC])
+        .args(["--disable-slash-commands", "--no-session-persistence", "--system-prompt", rubric])
         .arg(format!("Task:\n{task}"))
         .current_dir(std::env::temp_dir())
         .env_remove("CLAUDECODE")
@@ -175,7 +188,54 @@ fn judge(account: Option<&str>, prompt: &str) -> Result<String, String> {
     }
     let mut out = String::new();
     child.stdout.take().ok_or("judge has no output")?.read_to_string(&mut out).map_err(|e| e.to_string())?;
-    parse_judge(&out).ok_or_else(|| "the judge gave no level".into())
+    Ok(out)
+}
+
+fn judge(account: Option<&str>, prompt: &str) -> Result<String, String> {
+    parse_judge(&ask_haiku(account, RUBRIC, prompt)?).ok_or_else(|| "the judge gave no level".into())
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+pub struct ModelPick {
+    /// A `claude --model` alias: "haiku" | "sonnet" | "opus".
+    pub model: String,
+    /// "rules" | "judge"
+    pub source: &'static str,
+    pub why: String,
+}
+
+/// The model the rules would start a task on, when they're sure: the effort they'd pick
+/// says how hard the task is.
+pub fn model_rules(prompt: &str) -> Option<ModelPick> {
+    let (pick, sure) = rules(prompt);
+    let level = pick.level.filter(|_| sure)?;
+    let model = match level.as_str() {
+        "low" => "haiku",
+        "medium" => "sonnet",
+        _ => "opus",
+    };
+    Some(ModelPick { model: model.into(), source: "rules", why: pick.why })
+}
+
+/// Model for a new task (a pane launched on it). Switching model mid-conversation
+/// re-writes the whole cache, so this is only ever used at the start.
+#[tauri::command]
+pub async fn choose_model(account: Option<String>, prompt: String) -> ModelPick {
+    if let Some(pick) = model_rules(&prompt) {
+        return pick;
+    }
+    if !config::load().effort.judge {
+        return ModelPick { model: "sonnet".into(), source: "rules", why: "an ordinary task".into() };
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let answer = ask_haiku(account.as_deref(), MODEL_RUBRIC, &prompt).ok().and_then(|o| parse_answer(&o, &["sonnet", "haiku", "opus"]));
+        match answer {
+            Some(model) => ModelPick { model, source: "judge", why: "Haiku's call".into() },
+            None => ModelPick { model: "sonnet".into(), source: "rules", why: "an ordinary task (the judge didn't answer)".into() },
+        }
+    })
+    .await
+    .unwrap_or_else(|e| ModelPick { model: "sonnet".into(), source: "rules", why: e.to_string() })
 }
 
 /// Effort for `prompt` on `account`'s pane. `use_judge` false = rules only (the
@@ -272,6 +332,22 @@ mod tests {
         assert_eq!(clamp(p("low"), "high", "low").level.as_deref(), Some("high"));
         let keep = EffortPick { level: None, source: "keep", why: "k".into(), pending: false };
         assert_eq!(clamp(keep, "high", "high").level, None);
+    }
+
+    #[test]
+    fn model_follows_how_hard_the_rules_think_the_task_is() {
+        assert_eq!(model_rules("fix the typo in the README").map(|p| p.model), Some("haiku".into()));
+        assert_eq!(model_rules("the app crashes on launch, find out why").map(|p| p.model), Some("opus".into()));
+        assert_eq!(model_rules("ultrathink about the cache").map(|p| p.model), Some("opus".into()));
+        // Unsure tasks and "continue" go to the judge or the default.
+        assert_eq!(model_rules("add a settings toggle for the HUD opacity"), None);
+        assert_eq!(model_rules("continue"), None);
+    }
+
+    #[test]
+    fn reads_a_model_answer() {
+        assert_eq!(parse_answer(r#"{"is_error":false,"result":"Opus."}"#, &["sonnet", "haiku", "opus"]).as_deref(), Some("opus"));
+        assert_eq!(parse_answer(r#"{"is_error":false,"result":"gpt"}"#, &["sonnet", "haiku", "opus"]), None);
     }
 
     #[test]

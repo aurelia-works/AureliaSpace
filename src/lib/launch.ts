@@ -1,3 +1,4 @@
+import { useConfig } from "../store/config";
 import { focusedPaneId, useLayout, type NewPaneOpts } from "../store/layout";
 import { useTasks } from "../store/tasks";
 import { toast, type PickerTask } from "../store/ui";
@@ -28,6 +29,21 @@ export interface LaunchOpts {
   task?: PickerTask;
 }
 
+/**
+ * `--model` / `--effort` for a pane starting on `prompt`, from Settings → Auto effort. At
+ * the start there's no cache to lose, so any model and effort is fair game.
+ */
+async function startFlags(account: string, prompt: string): Promise<string> {
+  const cfg = useConfig.getState().config?.effort;
+  const [model, effort] = await Promise.all([
+    cfg?.autoModel ? ipc.chooseModel(account, prompt).catch(() => null) : null,
+    cfg?.auto !== false ? ipc.chooseEffort(account, prompt, true).catch(() => null) : null,
+  ]);
+  const flags = [model && `--model ${model.model}`, effort?.level && `--effort ${effort.level}`].filter(Boolean);
+  if (model) toast(`Starting on ${model.model}${effort?.level ? ` at ${effort.level} effort` : ""} · ${model.why}`);
+  return flags.length ? flags.join(" ") + " " : "";
+}
+
 /** Opens a Claude pane as `account`, optionally in its own worktree and starting on a task. */
 export async function launchClaude({ account, where, worktree, task }: LaunchOpts) {
   const layout = useLayout.getState();
@@ -37,7 +53,7 @@ export async function launchClaude({ account, where, worktree, task }: LaunchOpt
   const opts: NewPaneOpts = { account, cwd };
   const paneId = where === "split" && from && layout.panes[from] ? layout.splitPane(from, "row", opts) : layout.newTab(opts);
   if (task) {
-    queueInit(paneId, `claude ${shellQuote(task.title)}`);
+    queueInit(paneId, `claude ${await startFlags(account, task.title)}${shellQuote(task.title)}`);
     const tasks = useTasks.getState();
     tasks.attach(task.project, task.id, paneId);
     tasks.setStatus(task.project, task.id, "doing");

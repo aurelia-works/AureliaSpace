@@ -10,6 +10,7 @@ mod hud;
 mod integration;
 mod privacy;
 mod pty;
+mod review;
 mod subagents;
 mod suggest;
 mod transcript;
@@ -150,6 +151,8 @@ pub fn run() {
             handoff::handoff_summary,
             handoff::resumable_session,
             effort::choose_effort,
+            effort::choose_model,
+            review::review_changes,
             suggest::suggest_command,
             suggest::set_api_key,
             suggest::has_api_key,

@@ -39,7 +39,7 @@ const HOT_CTX = 85;
 const COOL_CTX = 75;
 
 /** $ per MTok (input, output) by model family, from the Claude API pricing table (cached 2026-09-25). */
-function price(model = ""): [number, number] {
+export function price(model = ""): [number, number] {
   const m = model.toLowerCase();
   if (/fable|mythos/.test(m)) return [10, 50];
   if (m.includes("opus")) {

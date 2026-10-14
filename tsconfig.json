@@ -17,5 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  // Run by `npm test` under Node's own type stripping, with node:test types it doesn't need here.
+  "exclude": ["src/**/*.test.ts"]
 }

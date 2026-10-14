@@ -34,7 +34,7 @@ export interface Config {
   /** `deepseek_agent` tool for Claude panes: tasks handed to OpenCode (src-tauri/src/subagents.rs). */
   subagents: { enabled: boolean; model: string; timeoutMinutes: number };
   /** Composer prompts pick their own effort: rules, then a Haiku 5.5 judge (src-tauri/src/effort.rs). */
-  effort: { auto: boolean; judge: boolean; floor: EffortLevel; ceiling: EffortLevel };
+  effort: { auto: boolean; judge: boolean; floor: EffortLevel; ceiling: EffortLevel; autoModel: boolean };
   terminal: {
     fontFamily: string;
     fontSize: number;
@@ -69,6 +69,16 @@ export interface EffortPick {
   why: string;
   /** A rules-only preview of a prompt the judge decides on send. */
   pending: boolean;
+}
+
+/** A DeepSeek review of a repo's uncommitted changes (src-tauri/src/review.rs). */
+export interface ReviewResult {
+  text: string;
+  verdict: "ship" | "fix" | "block" | null;
+  scorers: string[];
+  model: string;
+  seconds: number;
+  failed: boolean;
 }
 
 export interface Usage {
@@ -174,6 +184,9 @@ export const ipc = {
     invoke<{ sessionId: string; path: string }>("handoff_prepare", { transcriptPath, toAccount }),
   chooseEffort: (account: string | null, prompt: string, useJudge: boolean) =>
     invoke<EffortPick>("choose_effort", { account, prompt, useJudge }),
+  reviewChanges: (cwd: string) => invoke<ReviewResult>("review_changes", { cwd }),
+  chooseModel: (account: string | null, prompt: string) =>
+    invoke<{ model: "haiku" | "sonnet" | "opus"; source: "rules" | "judge"; why: string }>("choose_model", { account, prompt }),
   resumableSession: (account: string, cwd: string, prefer: string | null) =>
     invoke<string | null>("resumable_session", { account, cwd, prefer }),
   handoffSummary: (transcriptPath: string, maxChars: number) => invoke<string>("handoff_summary", { transcriptPath, maxChars }),

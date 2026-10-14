@@ -614,6 +614,29 @@ button.chip:hover,
   gap: 4px;
   flex-wrap: wrap;
 }
+/* What the pending tool call would do (lib/risk.ts). */
+.risk-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 550;
+  white-space: nowrap;
+  color: var(--text-dim);
+  background: var(--surface-2, transparent);
+  border: 1px solid var(--border);
+}
+.risk-tag.medium {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.risk-tag.high {
+  color: var(--err);
+  background: var(--err-soft);
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+}
 
 /* Prompt-cache countdown. */
 .cache-badge {

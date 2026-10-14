@@ -6,6 +6,7 @@ import { answerPermission, permissionOptions } from "../lib/permissions";
 import { alertUser, useNotices, type NoticeAction } from "./notifications";
 import { ingestLive, useLive } from "./live";
 import { useUi } from "./ui";
+import type { ToolInput } from "../lib/risk";
 import { useUsage } from "./usage";
 
 export type AgentStatus = "starting" | "idle" | "working" | "needs_input";
@@ -19,6 +20,8 @@ export interface AgentSession {
   transcriptPath?: string;
   message?: string;
   tool?: string;
+  /** The pending tool call's command, path or URL (for the permission prompt's risk tag). */
+  toolInput?: ToolInput;
   /** Finished or needs input while in the background, and not looked at since. */
   attention?: boolean;
   /** Start of the last model request (user prompt or tool result); drives the prompt-cache timer. */
@@ -38,6 +41,7 @@ export interface AgentEvent {
     notification_type?: string;
     message?: string;
     tool_name?: string;
+    tool_input?: ToolInput;
     transcript_path?: string;
     model?: string;
     /** StopFailure: "rate_limit", "billing_error", ... */
@@ -129,7 +133,9 @@ export const useAgents = create<AgentsState>((set, get) => ({
       cwd: ev.payload.cwd ?? prev?.cwd,
       transcriptPath: ev.payload.transcript_path ?? prev?.transcriptPath,
       message: ev.event === "Notification" ? ev.payload.message : status === "working" ? undefined : prev?.message,
-      tool: ev.event === "PreToolUse" ? ev.payload.tool_name : status === "working" ? prev?.tool : undefined,
+      // Kept while Claude asks permission for it, so the prompt can say what it would run.
+      tool: ev.event === "PreToolUse" ? ev.payload.tool_name : status === "working" || status === "needs_input" ? prev?.tool : undefined,
+      toolInput: ev.event === "PreToolUse" ? ev.payload.tool_input : status === "working" || status === "needs_input" ? prev?.toolInput : undefined,
       attention: status === "working" ? false : prev?.attention,
       // Each prompt and each tool result triggers a new API request that refreshes the cache.
       lastRequestAt: ev.event === "UserPromptSubmit" || ev.event === "PostToolUse" ? Date.now() : prev?.lastRequestAt,

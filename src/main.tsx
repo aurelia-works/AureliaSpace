@@ -3,6 +3,7 @@ import { homeDir } from "@tauri-apps/api/path";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { startCacheWatch } from "./lib/cache";
+import { startHandoffAdvisor } from "./lib/handoffAdvisor";
 import { startDiscord } from "./lib/discord";
 import { installFileDrop } from "./lib/filedrop";
 import { setHome } from "./lib/format";
@@ -81,6 +82,7 @@ async function boot() {
   trackAttention();
   trackNoticeFocus();
   startCacheWatch();
+  startHandoffAdvisor();
   startMetrics();
   startVoice().catch(() => {});
   primeNotifications();

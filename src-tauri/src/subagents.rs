@@ -192,6 +192,9 @@ fn command(bin: &Path, model: &str, job: &Job, cwd: &str) -> Command {
     }
     cmd.arg(prompt(job, cwd))
         .current_dir(cwd)
+        // OpenCode takes its project folder from $PWD, not the process's working directory;
+        // an inherited one would put the agent in the wrong project, unable to read this one.
+        .env("PWD", cwd)
         .env("OPENCODE_CONFIG_CONTENT", agent_config())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -415,12 +418,38 @@ fn initialize(params: &Value) -> Value {
 /// Where the tool can run from: off in Settings or no `opencode` means no tool at all,
 /// so Claude never sees one it can't use.
 fn available() -> Option<(PathBuf, config::SubagentsConfig)> {
+    usable().filter(|(_, cfg)| cfg.enabled)
+}
+
+/// opencode and the configured model, whether or not the Claude tool is switched on.
+fn usable() -> Option<(PathBuf, config::SubagentsConfig)> {
     let cfg = config::load().subagents;
     // Subagents are for cheap models; Opus is never one of them.
-    if !cfg.enabled || cfg.model.trim().is_empty() || cfg.model.to_ascii_lowercase().contains("opus") {
+    if cfg.model.trim().is_empty() || cfg.model.to_ascii_lowercase().contains("opus") {
         return None;
     }
     Some((which::locate("opencode")?, cfg))
+}
+
+/// What one app-started agent run returned (the diff reviewer, review.rs).
+pub(crate) struct AgentRun {
+    /// The agent's final message alone.
+    pub report: String,
+    /// The report with the run's footer (model, tool calls, time, anything blocked).
+    pub rendered: String,
+    pub failed: bool,
+    pub model: String,
+}
+
+/// Runs one read-only agent on `task` in `cwd`, with `context` and attached `files`.
+pub(crate) fn run_read_only(task: String, context: Option<String>, files: Vec<String>, cwd: &str) -> Result<AgentRun, String> {
+    let (bin, cfg) = usable().ok_or("opencode isn't installed, or the subagent model is unset or an Opus model (Settings → Subagents)")?;
+    let job = Job { tasks: vec![task], context, mode: Mode::Read, files, effort: None, session: None };
+    let limit = Duration::from_secs(cfg.timeout_minutes.max(1) * 60);
+    let model = cfg.model.trim().to_string();
+    let o = run_job(&bin, &model, &job, cwd, limit, "app", &Running::default(), |_, _| {})?;
+    let (rendered, failed) = render(&o, &model, Mode::Read);
+    Ok(AgentRun { report: o.report.text, rendered, failed, model })
 }
 
 fn call(params: &Value, key: &str, running: &Running, out: &Out) -> Value {
@@ -615,7 +644,7 @@ mod tests {
         let bin = fake_opencode(
             &dir,
             &format!(
-                r#"printf '%s\n' "$@" > '{d}/argv'; pwd > '{d}/cwd'; printf '%s' "$OPENCODE_CONFIG_CONTENT" > '{d}/cfg'
+                r#"printf '%s\n' "$@" > '{d}/argv'; pwd > '{d}/cwd'; printf '%s' "$PWD" > '{d}/pwd'; printf '%s' "$OPENCODE_CONFIG_CONTENT" > '{d}/cfg'
 printf '{{"type":"tool_use","sessionID":"ses_t","part":{{"tool":"read","state":{{"status":"completed","input":{{"path":"a.rs"}}}}}}}}\n'
 printf '{{"type":"text","sessionID":"ses_t","part":{{"messageID":"m","text":"done"}}}}\n'"#
             ),
@@ -634,6 +663,7 @@ printf '{{"type":"text","sessionID":"ses_t","part":{{"messageID":"m","text":"don
         assert!(argv.contains("Task:\nlook at a.rs"), "{argv}");
         let cwd = std::fs::read_to_string(dir.join("cwd")).unwrap();
         assert!(cwd.trim().ends_with(dir.file_name().unwrap().to_str().unwrap()), "{cwd}");
+        assert_eq!(std::fs::read_to_string(dir.join("pwd")).unwrap(), d, "PWD must name the agent's folder");
         let cfg: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("cfg")).unwrap()).unwrap();
         assert!(cfg["agents"]["aurelia-read"].is_object() && cfg["agents"]["aurelia-work"].is_object());
         assert!(running.lock().unwrap().is_empty());
