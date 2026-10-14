@@ -900,3 +900,39 @@ body.pane-dragging .block-overlay {
   direction: rtl;
   text-align: left;
 }
+
+/* Effort chip on Claude pane headers (PaneHeader EffortChip) */
+.effort-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.effort-chip:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.effort-chip.picked {
+  color: var(--work);
+  border-color: color-mix(in srgb, var(--work) 45%, transparent);
+}
+.effort-chip.off {
+  opacity: 0.6;
+}
+.effort-bolt {
+  font-size: 9px;
+}
+.effort-auto {
+  font-size: 9px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

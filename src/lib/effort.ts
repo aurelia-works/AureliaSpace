@@ -1,3 +1,4 @@
+import { create } from "zustand";
 import { useAgents } from "../store/agents";
 import { useConfig } from "../store/config";
 import { useLayout } from "../store/layout";
@@ -13,6 +14,9 @@ export const EFFORT_LEVELS: EffortLevel[] = ["low", "medium", "high", "xhigh", "
  * any effort saves). Auto effort leaves every other model alone.
  */
 export const cacheSafe = (model: string | undefined) => !!model && /(opus|sonnet)-5-5/.test(model);
+
+/** What auto effort last decided for each pane (shown on the pane header's effort chip). */
+export const useEffortPicks = create<{ byPane: Record<string, EffortPick & { at: number; switched: boolean }> }>(() => ({ byPane: {} }));
 
 /** The level each pane was last switched to here, until the status line reports one newer. */
 const switched = new Map<string, { level: EffortLevel; at: number }>();
@@ -82,5 +86,6 @@ export async function sendPrompt(paneId: string, text: string, override?: Effort
     : await ipc.chooseEffort(pane.account ?? null, text, true).catch(() => ({ level: null, source: "keep" as const, why: "couldn't decide", pending: false }));
   let switchedTo: EffortLevel | undefined;
   if (pick.level && pick.level !== currentEffort(paneId) && (await setSessionEffort(paneId, pick.level))) switchedTo = pick.level;
+  useEffortPicks.setState((s) => ({ byPane: { ...s.byPane, [paneId]: { ...pick, at: Date.now(), switched: !!switchedTo } } }));
   return { sent: submitToPane(paneId, text), pick, switchedTo };
 }
