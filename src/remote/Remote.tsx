@@ -142,7 +142,9 @@ export function Remote() {
 
   useEffect(() => {
     link.connect();
-    const wake = () => document.visibilityState === "visible" && link.connect();
+    // Leaving Safari or locking the phone lets go of the pane right away (the desktop
+    // gets its size back) instead of when the dead connection finally times out.
+    const wake = () => (document.visibilityState === "visible" ? link.connect() : link.ws?.close());
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wake);
     return () => {
@@ -440,6 +442,16 @@ function PaneView({ pane, conn, onBack }: { pane: RemotePane; conn: Conn; onBack
     term.loadAddon(new Unicode11Addon());
     term.unicode.activeVersion = "11";
     term.open(host.current!);
+    // The phone types through the composer, never into xterm: iOS dictation into xterm's
+    // hidden textarea sent the text twice, and each backspace there was a round trip to
+    // the Mac. Taps still reach the program as mouse clicks.
+    const composer = () => document.querySelector<HTMLTextAreaElement>(".rm-compose textarea");
+    if (term.textarea) {
+      term.textarea.readOnly = true;
+      term.textarea.inputMode = "none";
+      // xterm focuses it on every tap; hand the keyboard to the composer instead.
+      term.textarea.addEventListener("focus", () => composer()?.focus());
+    }
     termRef.current = term;
     fitRef.current = fit;
     setEnded(false);

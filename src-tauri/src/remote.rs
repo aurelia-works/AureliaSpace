@@ -160,6 +160,20 @@ pub fn desk_resize(pane: &str, cols: u16, rows: u16) -> bool {
     true
 }
 
+/// The desktop opened the pane at this size. Until now the remote only learnt the
+/// desktop's size from resizes, so a pane never resized since launch had nothing to go
+/// back to when the last phone let go, and kept the phone's size.
+pub fn spawned(pane: &str, cols: u16, rows: u16) {
+    {
+        let mut mirrors = REMOTE.mirrors.lock().unwrap();
+        let m = mirrors.entry(pane.to_string()).or_default();
+        m.desk = Some((cols, rows));
+        m.applied = Some((cols, rows));
+    }
+    // A phone still fitting it (a webview reload respawns panes) gets its size back.
+    settle(pane, false);
+}
+
 /// The frontend's pane list (titles, agent state, accounts, projects), relayed to phones.
 pub fn set_snapshot(v: Value) {
     REMOTE.snapshot.send_replace(v);
@@ -750,6 +764,18 @@ mod tests {
     }
 
     #[test]
+    fn a_pane_never_resized_since_launch_still_gets_its_size_back() {
+        let pane = "spawn-test";
+        spawned(pane, 103, 42);
+        let (a, _rx, _) = subscribe(pane, Some((54, 14)));
+        let applied = || REMOTE.mirrors.lock().unwrap()[pane].applied;
+        assert_eq!(applied(), Some((54, 14)));
+        unsubscribe(pane, a);
+        assert_eq!(applied(), Some((103, 42)), "the desktop's size, not the phone's");
+        exit(pane);
+    }
+
+    #[test]
     fn opening_replays_what_came_before() {
         let pane = "replay-test";
         tap(pane, b"hello ");
@@ -810,7 +836,7 @@ mod tests {
             let mut reader = pair.master.try_clone_reader().unwrap();
             demo.writers.lock().unwrap().insert(pane.into(), pair.master.take_writer().unwrap());
             demo.masters.lock().unwrap().insert(pane.into(), pair.master);
-            desk_resize(pane, 120, 40);
+            spawned(pane, 120, 40);
             std::thread::spawn(move || {
                 let mut buf = vec![0u8; 65536];
                 while let Ok(n) = reader.read(&mut buf) {

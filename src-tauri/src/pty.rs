@@ -267,6 +267,8 @@ pub fn pty_spawn(
     let flow = Arc::new(Flow::default());
     let session = Arc::new(Mutex::new(Session { io, generation, flow: flow.clone() }));
     state.sessions.lock().unwrap().insert(pane_id.clone(), session.clone());
+    // The desktop's size, for the remote to give back when a phone lets go of the pane.
+    crate::remote::spawned(&pane_id, cols, rows);
 
     std::thread::spawn(move || {
         forward(&rx, Some(&flow), FLOW_STALL, |out| {
