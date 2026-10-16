@@ -385,24 +385,40 @@ function PaneView({ pane, conn, onBack }: { pane: RemotePane; conn: Conn; onBack
   const [confirmClose, setConfirmClose] = useState(false);
   const fitModeRef = useRef(fitMode);
   fitModeRef.current = fitMode;
-  const desk = useRef<{ cols: number; rows: number } | null>(null);
+  /** The PTY's real size (the server says), and the size this phone asked for. */
+  const pty = useRef<{ cols: number; rows: number } | null>(null);
+  const asked = useRef<{ cols: number; rows: number } | null>(null);
+  /** Another screen set the size since: we show its size rather than garble it. */
+  const [foreign, setForeign] = useState(false);
 
   const size = () => {
     const fit = fitRef.current?.proposeDimensions();
     return fit && fit.cols > 0 && fit.rows > 0 ? { cols: fit.cols, rows: fit.rows } : null;
   };
 
-  /** Fit: the PTY takes the phone's size. Mirror: the phone shows the desktop's size. */
-  const layout = useCallback(() => {
+  /**
+   * The terminal always has the PTY's exact size: the program draws for that width, and
+   * output drawn at any other width garbles. Fit asks for the phone's size (and takes it
+   * back from another device); Desktop size asks for nothing.
+   */
+  const follow = useCallback((sz: { cols: number; rows: number }) => {
+    pty.current = sz;
     const term = termRef.current;
-    if (!term) return;
+    if (term && (term.cols !== sz.cols || term.rows !== sz.rows)) term.resize(sz.cols, sz.rows);
+    const a = asked.current;
+    setForeign(fitModeRef.current && !!a && (a.cols !== sz.cols || a.rows !== sz.rows));
+  }, []);
+
+  const layout = useCallback(() => {
+    if (!termRef.current) return;
     if (fitModeRef.current) {
       const s = size();
       if (!s) return;
-      if (s.cols !== term.cols || s.rows !== term.rows) term.resize(s.cols, s.rows);
+      asked.current = s;
       link.send({ t: "fit", fit: s });
-    } else if (desk.current) {
-      term.resize(desk.current.cols, desk.current.rows);
+    } else {
+      asked.current = null;
+      setForeign(false);
       link.send({ t: "fit", fit: null });
     }
   }, []);
@@ -431,12 +447,10 @@ function PaneView({ pane, conn, onBack }: { pane: RemotePane; conn: Conn; onBack
     const offData = link.onData((b) => term.write(b));
     const offMsg = link.onMessage((m) => {
       if (m.t === "opened" && m.pane === pane.id) {
-        desk.current = (m.desk as { cols: number; rows: number } | null) ?? null;
-        if (!fitModeRef.current) layout();
-      } else if (m.t === "desk") {
-        desk.current = { cols: m.cols as number, rows: m.rows as number };
-        if (!fitModeRef.current) layout();
-      } else if (m.t === "exit") setEnded(true);
+        const sz = m.size as { cols: number; rows: number } | null;
+        if (sz) follow(sz);
+      } else if (m.t === "size") follow({ cols: m.cols as number, rows: m.rows as number });
+      else if (m.t === "exit") setEnded(true);
     });
     const onInput = term.onData((d) => link.type(d));
 
@@ -447,28 +461,37 @@ function PaneView({ pane, conn, onBack }: { pane: RemotePane; conn: Conn; onBack
     });
     ro.observe(host.current!);
 
-    // Touch scrolling through the scrollback (xterm's own is unreliable on phones).
+    // Swipes scroll (xterm's own touch scrolling is unreliable on phones). A program
+    // that reads the mouse, like Claude Code on its full-screen view, has no scrollback
+    // for xterm to scroll: it gets mouse-wheel reports and scrolls itself.
     const el = host.current!;
-    let lastY: number | null = null;
+    let last: { x: number; y: number } | null = null;
+    let axis: "x" | "y" | null = null;
     let carry = 0;
     const start = (e: TouchEvent) => {
-      lastY = e.touches[0].clientY;
+      last = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      axis = null;
       carry = 0;
     };
     const move = (e: TouchEvent) => {
-      if (lastY === null) return;
-      const y = e.touches[0].clientY;
-      const cell = term.options.fontSize! * 1.1 * 1.2;
-      carry += lastY - y;
-      lastY = y;
-      const lines = Math.trunc(carry / cell);
-      if (lines) {
-        term.scrollLines(lines);
-        carry -= lines * cell;
-      }
+      if (!last) return;
+      const { clientX: x, clientY: y } = e.touches[0];
+      // Sideways swipes pan a terminal wider than the phone; leave those to the browser.
+      axis ??= Math.abs(x - last.x) > Math.abs(y - last.y) ? "x" : "y";
+      if (axis === "x") return;
       e.preventDefault();
+      const cell = term.options.fontSize! * 1.1 * 1.2;
+      carry += last.y - y;
+      last = { x, y };
+      const lines = Math.trunc(carry / cell);
+      if (!lines) return;
+      carry -= lines * cell;
+      if (term.modes.mouseTrackingMode !== "none") {
+        const at = `${Math.ceil(term.cols / 2)};${Math.ceil(term.rows / 2)}`;
+        link.type(`\x1b[<${lines > 0 ? 65 : 64};${at}M`.repeat(Math.abs(lines)));
+      } else term.scrollLines(lines);
     };
-    const end = () => (lastY = null);
+    const end = () => (last = null);
     el.addEventListener("touchstart", start, { passive: true });
     el.addEventListener("touchmove", move, { passive: false });
     el.addEventListener("touchend", end);
@@ -494,7 +517,9 @@ function PaneView({ pane, conn, onBack }: { pane: RemotePane; conn: Conn; onBack
     const term = termRef.current;
     if (conn !== "open" || !term) return;
     term.reset();
-    link.send({ t: "open", pane: pane.id, fit: fitModeRef.current ? size() : null });
+    asked.current = fitModeRef.current ? size() : null;
+    setForeign(false);
+    link.send({ t: "open", pane: pane.id, fit: asked.current });
   }, [conn, pane.id]);
 
   useEffect(() => {
@@ -566,8 +591,19 @@ function PaneView({ pane, conn, onBack }: { pane: RemotePane; conn: Conn; onBack
         </div>
       )}
       {pane.status === "needs_input" && pane.message && <div className="rm-ask">{pane.message}</div>}
+      {foreign && (
+        <button
+          className="rm-foreign"
+          onClick={() => {
+            layout();
+            link.send({ t: "claim" });
+          }}
+        >
+          Sized for another screen · <strong>Fit to this phone</strong>
+        </button>
+      )}
       <div className="rm-term-wrap">
-        <div className={`rm-term${fitMode ? "" : " mirror"}`} ref={host} />
+        <div className={`rm-term${fitMode && !foreign ? "" : " mirror"}`} ref={host} />
         {ended && <div className="rm-ended">Session ended</div>}
       </div>
       <Keys />

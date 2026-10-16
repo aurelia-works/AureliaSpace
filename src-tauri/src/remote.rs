@@ -49,8 +49,9 @@ pub trait Host: Send + Sync + 'static {
 
 enum Out {
     Data(Vec<u8>),
-    /// The desktop's size changed (sent to phones that mirror it rather than fit).
-    Desk(u16, u16),
+    /// The PTY's size changed. Every phone shows exactly this size: drawing a program's
+    /// output at any other width garbles it, whoever set the size.
+    Size(u16, u16),
     Exit,
 }
 
@@ -150,9 +151,11 @@ pub fn desk_resize(pane: &str, cols: u16, rows: u16) -> bool {
     if m.subs.iter().any(|s| s.fit.is_some()) {
         return false;
     }
-    m.applied = Some((cols, rows));
-    for s in &m.subs {
-        let _ = s.tx.try_send(Out::Desk(cols, rows));
+    if m.applied != Some((cols, rows)) {
+        m.applied = Some((cols, rows));
+        for s in &m.subs {
+            let _ = s.tx.try_send(Out::Size(cols, rows));
+        }
     }
     true
 }
@@ -167,16 +170,31 @@ pub fn set_snapshot(v: Value) {
 fn subscribe(pane: &str, fit: Option<(u16, u16)>) -> (u64, mpsc::Receiver<Out>, Option<(u16, u16)>) {
     let id = REMOTE.next_id.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = mpsc::channel(CLIENT_QUEUE);
-    let desk = {
+    {
         // Under the lock: the replay and the live stream neither overlap nor leave a gap.
         let mut mirrors = REMOTE.mirrors.lock().unwrap();
         let m = mirrors.entry(pane.to_string()).or_default();
         let _ = tx.try_send(Out::Data(m.replay()));
         m.subs.push(Sub { id, tx, fit });
-        m.desk
-    };
+    }
     settle(pane, true);
-    (id, rx, desk)
+    let size = REMOTE.mirrors.lock().unwrap().get(pane).and_then(|m| m.applied);
+    (id, rx, size)
+}
+
+/// The phone being typed into takes the size back if another device took it since.
+fn claim(pane: &str, id: u64) {
+    {
+        let mut mirrors = REMOTE.mirrors.lock().unwrap();
+        let Some(m) = mirrors.get_mut(pane) else { return };
+        let Some(i) = m.subs.iter().position(|s| s.id == id && s.fit.is_some()) else { return };
+        if i + 1 == m.subs.len() {
+            return;
+        }
+        let sub = m.subs.remove(i);
+        m.subs.push(sub);
+    }
+    settle(pane, false);
 }
 
 fn set_fit(pane: &str, id: u64, fit: Option<(u16, u16)>) {
@@ -193,25 +211,31 @@ fn unsubscribe(pane: &str, id: u64) {
     settle(pane, false);
 }
 
-/// Gives the PTY the size it should have now. `redraw` also makes the program repaint at
-/// an unchanged size (the kernel only signals SIGWINCH on a real change), for a phone
-/// that just opened the pane and has only the raw replay.
+/// Gives the PTY the size it should have now, and tells the phones. `redraw` also makes
+/// the program repaint, for a phone that just opened the pane and has only the raw
+/// replay (diffs drawn for whatever was on screen before). Only a width change makes a
+/// TUI like Claude Code repaint everything, so an unchanged width is nudged by a column.
 fn settle(pane: &str, redraw: bool) {
-    let (target, changed) = {
+    let (target, before) = {
         let mut mirrors = REMOTE.mirrors.lock().unwrap();
         let Some(m) = mirrors.get_mut(pane) else { return };
         let target = m.target();
-        let changed = target.is_some() && target != m.applied;
-        if changed {
+        let before = m.applied;
+        if let Some((cols, rows)) = target.filter(|t| Some(*t) != before) {
             m.applied = target;
+            for s in &m.subs {
+                let _ = s.tx.try_send(Out::Size(cols, rows));
+            }
         }
-        (target, changed)
+        (target, before)
     };
     let (Some((cols, rows)), Some(h)) = (target, host()) else { return };
-    if changed {
+    if Some((cols, rows)) != before {
         let _ = h.resize(pane, cols, rows);
-    } else if redraw && rows > 2 {
-        let _ = h.resize(pane, cols, rows - 1);
+    }
+    let width_changed = before.map(|(c, _)| c) != Some(cols);
+    if redraw && !width_changed && cols > 20 {
+        let _ = h.resize(pane, cols - 1, rows);
         let pane = pane.to_string();
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(80));
@@ -370,7 +394,7 @@ async fn session(ctx: Shared, socket: WebSocket) {
                 }
                 out = out => match out {
                     Some(Out::Data(bytes)) => Some(Message::Binary(bytes.into())),
-                    Some(Out::Desk(cols, rows)) => Some(Message::Text(json!({ "t": "desk", "cols": cols, "rows": rows }).to_string().into())),
+                    Some(Out::Size(cols, rows)) => Some(Message::Text(json!({ "t": "size", "cols": cols, "rows": rows }).to_string().into())),
                     Some(Out::Exit) => {
                         open = None;
                         Some(Message::Text(json!({ "t": "exit" }).to_string().into()))
@@ -407,10 +431,10 @@ fn handle(ctx: &Ctx, v: &Value, open: &mut Option<(String, u64, mpsc::Receiver<O
                 unsubscribe(&old, id);
             }
             let fit = size_of(&v["fit"]);
-            let (id, rx, desk) = subscribe(&pane, fit);
+            let (id, rx, size) = subscribe(&pane, fit);
             *open = Some((pane.clone(), id, rx));
-            let desk = desk.map(|(c, r)| json!({ "cols": c, "rows": r }));
-            Some(Message::Text(json!({ "t": "opened", "pane": pane, "desk": desk }).to_string().into()))
+            let size = size.map(|(c, r)| json!({ "cols": c, "rows": r }));
+            Some(Message::Text(json!({ "t": "opened", "pane": pane, "size": size }).to_string().into()))
         }
         "close" => {
             if let Some((pane, id, _)) = open.take() {
@@ -420,12 +444,19 @@ fn handle(ctx: &Ctx, v: &Value, open: &mut Option<(String, u64, mpsc::Receiver<O
         }
         "fit" => {
             let (pane, id, _) = open.as_ref()?;
+            // Not a claim: a phone re-measures whenever its own layout shifts.
             set_fit(pane, *id, size_of(&v["fit"]));
             None
         }
+        "claim" => {
+            let (pane, id, _) = open.as_ref()?;
+            claim(pane, *id);
+            None
+        }
         "in" => {
-            let (pane, _, _) = open.as_ref()?;
+            let (pane, id, _) = open.as_ref()?;
             let _ = ctx.host.write(pane, v["d"].as_str()?.as_bytes());
+            claim(pane, *id);
             None
         }
         "action" => {
@@ -697,8 +728,8 @@ mod tests {
     fn a_fitting_phone_holds_the_size_until_it_lets_go() {
         let pane = "fit-test";
         assert!(desk_resize(pane, 120, 40));
-        let (a, _rx_a, desk) = subscribe(pane, Some((50, 30)));
-        assert_eq!(desk, Some((120, 40)));
+        let (a, mut rx_a, size) = subscribe(pane, Some((50, 30)));
+        assert_eq!(size, Some((50, 30)), "the PTY takes the phone's size");
         assert!(!desk_resize(pane, 130, 42), "the desktop waits while a phone fits");
         let target = || REMOTE.mirrors.lock().unwrap()[pane].target();
         assert_eq!(target(), Some((50, 30)));
@@ -706,6 +737,11 @@ mod tests {
         assert_eq!(target(), Some((50, 30)), "a mirroring phone doesn't take over");
         set_fit(pane, b, Some((60, 20)));
         assert_eq!(target(), Some((60, 20)), "the newest fitting phone wins");
+        // Typing into the first phone takes the size back for it, and every phone hears the new size.
+        claim(pane, a);
+        assert_eq!(target(), Some((50, 30)));
+        let sizes: Vec<(u16, u16)> = std::iter::from_fn(|| rx_a.try_recv().ok()).filter_map(|o| if let Out::Size(c, r) = o { Some((c, r)) } else { None }).collect();
+        assert_eq!(sizes, [(50, 30), (60, 20), (50, 30)]);
         unsubscribe(pane, b);
         unsubscribe(pane, a);
         assert_eq!(target(), Some((130, 42)), "back to the desktop's last size");

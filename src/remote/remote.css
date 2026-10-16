@@ -363,6 +363,21 @@ button {
   border-bottom: 1px solid color-mix(in srgb, var(--attn) 25%, transparent);
 }
 
+.rm-foreign {
+  flex: none;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: left;
+}
+.rm-foreign strong {
+  color: var(--text);
+}
+
 .rm-term-wrap {
   position: relative;
   flex: 1;
@@ -376,6 +391,11 @@ button {
 }
 .rm-term.mirror {
   overflow: auto;
+  /* A scrollbar would take width from the phone's own size measurement. */
+  scrollbar-width: none;
+}
+.rm-term.mirror::-webkit-scrollbar {
+  display: none;
 }
 .rm-term .xterm {
   height: 100%;
