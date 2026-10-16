@@ -5,6 +5,18 @@ export interface Account {
   configDir: string;
 }
 
+export interface RemoteStatus {
+  enabled: boolean;
+  running: boolean;
+  port: number | null;
+  error: string | null;
+  /** Pairing links a phone can open, best first. */
+  links: { label: string; url: string }[];
+  qrSvg: string | null;
+  tailscale: boolean;
+  clients: number;
+}
+
 export interface ProviderConfig {
   baseUrl: string;
   model: string;
@@ -37,6 +49,8 @@ export interface Config {
   subagents: { enabled: boolean; model: string; timeoutMinutes: number };
   /** Composer prompts pick their own effort: rules, then a Haiku 5.5 judge (src-tauri/src/effort.rs). */
   effort: { auto: boolean; judge: boolean; floor: EffortLevel; ceiling: EffortLevel; autoModel: boolean };
+  /** Phone remote (src-tauri/src/remote.rs): off by default; LAN off = this Mac and Tailscale only. */
+  remote: { enabled: boolean; port: number; allowLan: boolean };
   terminal: {
     fontFamily: string;
     fontSize: number;
@@ -185,6 +199,11 @@ export const ipc = {
   ptyAlive: () => invoke<string[]>("pty_alive"),
   ptyPrune: (keep: string[]) => invoke<number>("pty_prune", { keep }),
   ptyStopBackground: () => invoke<number>("pty_stop_background"),
+  remoteStatus: () => invoke<RemoteStatus>("remote_status"),
+  /** After saving `remote` settings: starts, restarts or stops the server. */
+  remoteApply: () => invoke<RemoteStatus>("remote_apply"),
+  remoteResetToken: () => invoke<RemoteStatus>("remote_reset_token"),
+  remoteSnapshot: (snapshot: unknown) => invoke<void>("remote_snapshot", { snapshot }),
   /** The frontend listens for agent events now: start (re)playing them. */
   agentEventsReady: () => invoke<void>("agent_events_ready"),
 

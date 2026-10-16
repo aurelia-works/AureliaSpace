@@ -304,3 +304,60 @@
   text-align: center;
   font-weight: 650;
 }
+
+/* Remote: pairing QR and links */
+.remote-qr-row {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+.remote-qr {
+  flex: none;
+  width: 168px;
+  height: 168px;
+  padding: 6px;
+  border-radius: var(--r-md);
+  background: #fff;
+}
+.remote-qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.remote-qr-help p {
+  margin: 0 0 8px;
+}
+.remote-steps {
+  margin: 0 0 var(--sp-3);
+  padding-left: 20px;
+  line-height: 1.6;
+}
+.remote-links {
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.remote-links li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.remote-link-label {
+  flex: none;
+  width: 110px;
+  color: var(--text-dim);
+}
+.remote-links code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hint.err {
+  color: var(--err);
+}

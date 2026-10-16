@@ -11,6 +11,7 @@ import { ipc } from "./lib/ipc";
 import { applyPaletteVars } from "./lib/palettes";
 import { primeNotifications } from "./lib/notify";
 import { startHudBridge } from "./lib/hudBridge";
+import { startRemote } from "./lib/remote";
 import { planResume } from "./lib/resume";
 import { installShortcuts } from "./lib/shortcuts";
 import { applyAppearance } from "./lib/terminals";
@@ -90,6 +91,7 @@ async function boot() {
   startVoice().catch(() => {});
   primeNotifications();
   startHudBridge().catch(() => {});
+  startRemote().catch(() => {});
   startDiscord();
   checkFullDiskAccess();
 

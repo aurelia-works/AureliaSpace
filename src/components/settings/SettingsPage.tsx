@@ -55,7 +55,9 @@ export function SettingsPage() {
     try {
       // Accounts may have changed on their own since the draft was taken; always keep the live list.
       const live = useConfig.getState().config;
+      const remoteChanged = JSON.stringify(live?.remote) !== JSON.stringify(draft.remote);
       await useConfig.getState().save({ ...draft, accounts: live?.accounts ?? draft.accounts });
+      if (remoteChanged) await ipc.remoteApply();
       applyAppearance();
       setMsg("Saved.");
     } catch (e) {

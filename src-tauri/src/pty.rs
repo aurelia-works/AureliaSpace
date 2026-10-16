@@ -269,7 +269,10 @@ pub fn pty_spawn(
     state.sessions.lock().unwrap().insert(pane_id.clone(), session.clone());
 
     std::thread::spawn(move || {
-        forward(&rx, Some(&flow), FLOW_STALL, |out| on_data.send(InvokeResponseBody::Raw(out)).is_ok());
+        forward(&rx, Some(&flow), FLOW_STALL, |out| {
+            crate::remote::tap(&pane_id, &out);
+            on_data.send(InvokeResponseBody::Raw(out)).is_ok()
+        });
 
         let code = {
             let mut s = session.lock().unwrap();
@@ -284,6 +287,7 @@ pub fn pty_spawn(
         if current == Some(generation) {
             sessions.remove(&pane_id);
             drop(sessions);
+            crate::remote::exit(&pane_id);
             let _ = app.emit("pty-exit", PtyExit { pane_id, code });
         }
     });
@@ -388,7 +392,20 @@ pub fn pty_ack(state: State<'_, PtyState>, pane_id: String, bytes: usize) -> Res
 
 #[tauri::command]
 pub fn pty_resize(state: State<'_, PtyState>, pane_id: String, cols: u16, rows: u16) -> Result<(), String> {
-    with_session(&state, &pane_id, |s| match &mut s.io {
+    // A phone that fits this pane holds its size; the remote applies this once it lets go.
+    if !crate::remote::desk_resize(&pane_id, cols, rows) {
+        return Ok(());
+    }
+    resize_to(&state, &pane_id, cols, rows)
+}
+
+/// Types into a pane for the phone remote (remote.rs).
+pub fn write_to(state: &PtyState, pane_id: &str, data: &[u8]) -> Result<(), String> {
+    with_session(state, pane_id, |s| write_input(s, data))
+}
+
+pub fn resize_to(state: &PtyState, pane_id: &str, cols: u16, rows: u16) -> Result<(), String> {
+    with_session(state, pane_id, |s| match &mut s.io {
         Io::Local { master, .. } => master
             .resize(PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 })
             .map_err(|e| e.to_string()),
@@ -399,6 +416,7 @@ pub fn pty_resize(state: State<'_, PtyState>, pane_id: String, cols: u16, rows: 
 #[tauri::command]
 pub fn pty_kill(state: State<'_, PtyState>, pane_id: String) -> Result<(), String> {
     let removed = state.sessions.lock().unwrap().remove(&pane_id);
+    crate::remote::exit(&pane_id);
     if let Some(session) = removed {
         match &mut session.lock().unwrap().io {
             Io::Local { child, .. } => {

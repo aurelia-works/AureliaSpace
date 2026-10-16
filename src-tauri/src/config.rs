@@ -188,6 +188,22 @@ impl Default for SubagentsConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct RemoteConfig {
+    /// Serve the phone remote (remote.rs): a web page that lists and drives the panes.
+    pub enabled: bool,
+    pub port: u16,
+    /// Also accept phones on the local network; off = this Mac and Tailscale only.
+    pub allow_lan: bool,
+}
+
+impl Default for RemoteConfig {
+    fn default() -> Self {
+        Self { enabled: false, port: 4747, allow_lan: false }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct DiscordConfig {
     /// Discord Rich Presence; on by default, like a game's.
     pub enabled: bool,
@@ -235,6 +251,7 @@ pub struct Config {
     pub open_files_in_app: bool,
     pub subagents: SubagentsConfig,
     pub effort: EffortConfig,
+    pub remote: RemoteConfig,
 }
 
 impl Default for Config {
@@ -260,6 +277,7 @@ impl Default for Config {
             open_files_in_app: true,
             subagents: SubagentsConfig::default(),
             effort: EffortConfig::default(),
+            remote: RemoteConfig::default(),
         }
     }
 }

@@ -12,6 +12,7 @@ mod integration;
 mod privacy;
 mod pty;
 mod ptyhost;
+mod remote;
 mod review;
 mod subagents;
 mod suggest;
@@ -111,6 +112,7 @@ pub fn run() {
             config::load(); // writes the default config on first run
             integration::watch_events(app.handle().clone());
             voice::listen(app.handle().clone());
+            remote::init(app.handle());
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| {
                 if event.id() == "settings" {
@@ -139,6 +141,10 @@ pub fn run() {
             pty::pty_alive,
             pty::pty_prune,
             pty::pty_stop_background,
+            remote::remote_status,
+            remote::remote_apply,
+            remote::remote_reset_token,
+            remote::remote_snapshot,
             integration::agent_events_ready,
             config::get_config,
             config::save_config,

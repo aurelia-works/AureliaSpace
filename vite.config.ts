@@ -13,7 +13,7 @@ export default defineConfig({
   build: {
     target: "safari16",
     chunkSizeWarningLimit: 2000,
-    // The HUD window is a second, lightweight entry (no terminals, no bootstrap).
-    rollupOptions: { input: { main: "index.html", hud: "hud.html" } },
+    // The HUD window and the phone remote are lightweight extra entries (no bootstrap).
+    rollupOptions: { input: { main: "index.html", hud: "hud.html", remote: "remote.html" } },
   },
 });

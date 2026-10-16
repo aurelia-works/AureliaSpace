@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { basename } from "../lib/format";
+import { useRemote } from "../lib/remote";
 import { showPane } from "../lib/terminals";
 import { useAgents } from "../store/agents";
 import { useConfig } from "../store/config";
@@ -46,6 +47,21 @@ function FontReset() {
   );
 }
 
+/** Shown while a phone is connected to the remote (Settings → Remote): it can type into your panes. */
+function PhoneChip() {
+  const clients = useRemote((s) => s.clients);
+  if (!clients) return null;
+  const label = clients === 1 ? "Phone connected" : `${clients} phones connected`;
+  return (
+    <button className="sb-phone" title={`${label} (Settings → Remote)`} onClick={() => useUi.getState().set({ settingsOpen: true, settingsSection: "remote" })}>
+      <svg width={10} height={12} viewBox="0 0 10 14" aria-hidden>
+        <rect x="1" y="1" width="8" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+      {clients > 1 ? clients : null}
+    </button>
+  );
+}
+
 /** 5h / 7d usage for every account that has a pane open (all accounts when none do). */
 function Fuel() {
   const accounts = useConfig((s) => s.config?.accounts) ?? [];
@@ -76,6 +92,7 @@ export function StatusBar() {
     <footer className="statusbar">
       <Fleet />
       <FontReset />
+      <PhoneChip />
       <Fuel />
     </footer>
   );

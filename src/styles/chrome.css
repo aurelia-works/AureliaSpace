@@ -1035,3 +1035,15 @@
 .thread-tool.failed .thread-tool-name {
   color: var(--err);
 }
+.sb-phone {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: var(--sp-3);
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+  font-size: 10px;
+}
