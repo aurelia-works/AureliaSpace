@@ -1047,3 +1047,19 @@
   color: var(--ok);
   font-size: 10px;
 }
+
+/* Saved prompts in the rail (QueueRail Prompts) */
+.prompt-row .recent-open {
+  cursor: grab;
+}
+.prompt-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+body.prompt-dragging,
+body.prompt-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}

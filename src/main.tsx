@@ -11,6 +11,7 @@ import { ipc } from "./lib/ipc";
 import { applyPaletteVars } from "./lib/palettes";
 import { primeNotifications } from "./lib/notify";
 import { startHudBridge } from "./lib/hudBridge";
+import { startOutbox } from "./lib/outbox";
 import { startRemote } from "./lib/remote";
 import { planResume } from "./lib/resume";
 import { installShortcuts } from "./lib/shortcuts";
@@ -23,6 +24,7 @@ import { useConfig } from "./store/config";
 import { startGitPolling } from "./store/git";
 import { serializeLayout, useLayout, type SavedLayout } from "./store/layout";
 import { loadCustomAgents } from "./store/customAgents";
+import { loadPrompts, startPromptLinks } from "./store/prompts";
 import { loadRecents } from "./store/recents";
 import { loadTasks } from "./store/tasks";
 import { loadUiState, useUi } from "./store/ui";
@@ -59,7 +61,7 @@ function persistLayout() {
 async function boot() {
   await useConfig.getState().load();
   setHome(await homeDir().catch(() => ""));
-  await Promise.all([loadUiState(), loadTasks(), loadRecents(), loadCustomAgents()]);
+  await Promise.all([loadUiState(), loadTasks(), loadRecents(), loadCustomAgents(), loadPrompts()]);
   const saved = await ipc.loadState<SavedLayout>("layout").catch(() => null);
   useLayout.getState().hydrate(saved);
   await planResume(saved);
@@ -92,11 +94,13 @@ async function boot() {
   primeNotifications();
   startHudBridge().catch(() => {});
   startRemote().catch(() => {});
+  startOutbox();
   startDiscord();
   checkFullDiskAccess();
 
   createRoot(document.getElementById("root")!).render(<App />);
   hideSplash();
+  startPromptLinks().catch(() => {});
 }
 
 /** Without Full Disk Access, commands run in the terminals trigger a macOS prompt per

@@ -3,19 +3,33 @@ import { create } from "zustand";
 import type { RemotePane, Snapshot } from "../remote/Remote";
 import { visualOf } from "../components/StatusGlyph";
 import { paneTitle } from "../components/TitleBar";
-import { useAgents } from "../store/agents";
+import { useAgents, type AgentSession } from "../store/agents";
 import { useConfig } from "../store/config";
+import { useNotices } from "../store/notifications";
 import { customAgentById, useCustomAgents } from "../store/customAgents";
 import { paneIds, useLayout } from "../store/layout";
 import { useRecents } from "../store/recents";
 import { useRuntime } from "../store/runtime";
 import { basename } from "./format";
 import { ipc } from "./ipc";
+import { answerPermission, permissionOptions, type PermissionChoice } from "./permissions";
+import { riskOf } from "./risk";
 
 /** Phones connected to the remote (src-tauri/src/remote.rs), for the status bar. */
 export const useRemote = create<{ clients: number }>(() => ({ clients: 0 }));
 
 let created: Snapshot["created"];
+
+/** What a permission request is about, so an answer can be matched to the request it was for. */
+const askKey = (s: AgentSession) => `${s.tool ?? ""}\u0000${s.toolInput?.command ?? s.toolInput?.file_path ?? s.toolInput?.url ?? ""}\u0000${s.message ?? ""}`;
+
+/** Read off the screen, so only a dialog that is really showing gets buttons on the phone. */
+function permissionFor(s: AgentSession): RemotePane["permission"] {
+  const opts = s.status === "needs_input" ? permissionOptions(s.paneId) : null;
+  if (!opts) return undefined;
+  const what = s.toolInput?.command ?? s.toolInput?.file_path ?? s.toolInput?.url;
+  return { always: opts.always, tool: s.tool, what, risk: riskOf(s.tool, s.toolInput, s.cwd)?.why, key: askKey(s) };
+}
 
 function snapshot(): Snapshot {
   const { tabs, panes } = useLayout.getState();
@@ -38,6 +52,7 @@ function snapshot(): Snapshot {
           tab: i + 1,
           status: s ? visualOf(s) : "shell",
           message: s?.status === "needs_input" ? s.message : s?.status === "working" && s.tool ? `running ${s.tool}` : undefined,
+          permission: s ? permissionFor(s) : undefined,
         },
       ];
     }),
@@ -56,17 +71,28 @@ function push() {
   ipc.remoteSnapshot(snapshot()).catch(() => {});
 }
 
-type Action = { kind: "new"; account: string | null; cwd: string | null; nonce: string } | { kind: "close"; pane: string };
+type Action =
+  | { kind: "new"; account: string | null; cwd: string | null; nonce: string }
+  | { kind: "close"; pane: string }
+  | { kind: "permission"; pane: string; choice: PermissionChoice; key: string };
+
+const CHOICES: PermissionChoice[] = ["allow", "always", "deny"];
 
 /** Keeps the phone's pane list current and runs what it asks for. */
 export async function startRemote() {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let late: ReturnType<typeof setTimeout> | undefined;
   const soon = () => {
     clearTimeout(timer);
     timer = setTimeout(push, 250);
   };
   useLayout.subscribe(soon);
-  useAgents.subscribe(soon);
+  useAgents.subscribe(() => {
+    soon();
+    // A permission dialog draws a moment after its hook event; look again once it's up.
+    clearTimeout(late);
+    late = setTimeout(push, 700);
+  });
   useRuntime.subscribe((s, prev) => s.panes !== prev.panes && soon());
   useCustomAgents.subscribe(soon);
   useConfig.subscribe(soon);
@@ -82,6 +108,12 @@ export async function startRemote() {
       push();
     } else if (a.kind === "close" && layout.panes[a.pane]) {
       layout.closePane(a.pane);
+    } else if (a.kind === "permission" && CHOICES.includes(a.choice)) {
+      // Only if the pane still asks exactly what the phone showed: a tap on a stale list
+      // must never answer a newer request. Otherwise the phone just gets a fresh list.
+      const s = useAgents.getState().sessions[a.pane];
+      if (s && askKey(s) === a.key && answerPermission(a.pane, a.choice)) useNotices.getState().resolvePane(a.pane, ["permission", "needs_input"]);
+      soon();
     }
   });
 }

@@ -9,6 +9,7 @@ mod handoff;
 mod hud;
 mod ide;
 mod integration;
+mod links;
 mod privacy;
 mod pty;
 mod ptyhost;
@@ -145,6 +146,7 @@ pub fn run() {
             remote::remote_apply,
             remote::remote_reset_token,
             remote::remote_snapshot,
+            links::take_prompt_links,
             integration::agent_events_ready,
             config::get_config,
             config::save_config,
@@ -190,6 +192,10 @@ pub fn run() {
         .expect("error while building AureliaSpace");
 
     app.run(|handle, event| {
+        #[cfg(target_os = "macos")]
+        if let RunEvent::Opened { urls } = &event {
+            links::opened(handle, urls.iter().map(|u| u.to_string()));
+        }
         if let RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } = &event {
             if label == "main" {
                 hud::close(handle);

@@ -204,13 +204,14 @@ export const ipc = {
   remoteApply: () => invoke<RemoteStatus>("remote_apply"),
   remoteResetToken: () => invoke<RemoteStatus>("remote_reset_token"),
   remoteSnapshot: (snapshot: unknown) => invoke<void>("remote_snapshot", { snapshot }),
+  takePromptLinks: () => invoke<string[]>("take_prompt_links"),
   /** The frontend listens for agent events now: start (re)playing them. */
   agentEventsReady: () => invoke<void>("agent_events_ready"),
 
   getConfig: () => invoke<Config>("get_config"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
-  loadState: <T>(name: "layout" | "tasks" | "ui" | "recents" | "agents") => invoke<T | null>("load_state", { name }),
-  saveState: (name: "layout" | "tasks" | "ui" | "recents" | "agents", value: unknown) => invoke<void>("save_state", { name, value }),
+  loadState: <T>(name: "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts") => invoke<T | null>("load_state", { name }),
+  saveState: (name: "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts", value: unknown) => invoke<void>("save_state", { name, value }),
   pickFolder: (start?: string) => invoke<string | null>("pick_folder", { start: start ?? null }),
   revealConfig: (file: boolean) => invoke<void>("reveal_config", { file }),
   browserOpen: (pane: string, url: string, r: { x: number; y: number; w: number; h: number }) =>

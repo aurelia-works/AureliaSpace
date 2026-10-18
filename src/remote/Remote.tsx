@@ -13,6 +13,17 @@ export interface RemotePane {
   /** A StatusGlyph state: needs_input, done, working, starting, idle, or shell. */
   status: string;
   message?: string;
+  /** A permission dialog is on screen in the pane; `always` when it offers "don't ask again". */
+  permission?: {
+    always: boolean;
+    tool?: string;
+    /** The command, file or URL it wants to use. */
+    what?: string;
+    /** Why it looks risky (lib/risk.ts), if it does. */
+    risk?: string;
+    /** Sent back with the answer; the desktop ignores answers to a request that has changed. */
+    key: string;
+  };
 }
 
 export interface Snapshot {
@@ -234,7 +245,7 @@ function PaneList({ snap, conn, onOpen }: { snap: Snapshot; conn: Conn; onOpen(i
   }, [snap, onOpen]);
 
   const row = (p: RemotePane) => (
-    <li key={p.id}>
+    <li key={p.id} className={p.permission ? "rm-asking" : undefined}>
       <button className="rm-row" onClick={() => onOpen(p.id)}>
         <span className={`glyph ${p.status}`} role="img" aria-label={LABEL[p.status] ?? p.status} />
         <span className="rm-row-main">
@@ -246,6 +257,7 @@ function PaneList({ snap, conn, onOpen }: { snap: Snapshot; conn: Conn; onOpen(i
         </span>
         <span className="rm-tab num">{p.tab}</span>
       </button>
+      {p.permission && <Approve pane={p} />}
     </li>
   );
 
@@ -292,6 +304,42 @@ function PaneList({ snap, conn, onOpen }: { snap: Snapshot; conn: Conn; onOpen(i
         />
       )}
     </>
+  );
+}
+
+/** Allow / Always / Deny for the permission dialog showing in a pane on the Mac. */
+function Approve({ pane }: { pane: RemotePane }) {
+  const [sent, setSent] = useState(false);
+  // A new dialog (or the same pane asking again) gets fresh buttons.
+  const key = pane.permission?.key;
+  useEffect(() => setSent(false), [key]);
+  if (!pane.permission || !key) return null;
+  const { tool, what, risk } = pane.permission;
+  const answer = (choice: "allow" | "always" | "deny") => {
+    setSent(true);
+    link.send({ t: "action", action: { kind: "permission", pane: pane.id, choice, key } });
+  };
+  return (
+    <div className="rm-approve" role="group" aria-label="Answer the permission request">
+      {(tool || what) && (
+        <div className="rm-approve-what">
+          {risk && <span className="rm-risk">{risk}</span>}
+          {tool && <strong>{tool}</strong>}
+          {what && <code>{what}</code>}
+        </div>
+      )}
+      <button className="rm-btn primary" disabled={sent} onClick={() => answer("allow")}>
+        Allow
+      </button>
+      {pane.permission.always && (
+        <button className="rm-btn" disabled={sent} onClick={() => answer("always")}>
+          Always
+        </button>
+      )}
+      <button className="rm-btn danger" disabled={sent} onClick={() => answer("deny")}>
+        Deny
+      </button>
+    </div>
   );
 }
 
@@ -603,6 +651,7 @@ function PaneView({ pane, conn, onBack }: { pane: RemotePane; conn: Conn; onBack
         </div>
       )}
       {pane.status === "needs_input" && pane.message && <div className="rm-ask">{pane.message}</div>}
+      {pane.permission && <Approve pane={pane} />}
       {foreign && (
         <button
           className="rm-foreign"

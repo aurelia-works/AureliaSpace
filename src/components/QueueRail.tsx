@@ -3,7 +3,8 @@ import { basename, shortenPath } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { focusTerminal, showPane } from "../lib/terminals";
 import { useAgents, type AgentSession } from "../store/agents";
-import { paneIds, useLayout } from "../store/layout";
+import { focusedPaneId, paneIds, useLayout } from "../store/layout";
+import { draftInPane, usePrompts, type SavedPrompt } from "../store/prompts";
 import { useRecents } from "../store/recents";
 import { useTasks, type Task, type TaskStatus } from "../store/tasks";
 import { useUi } from "../store/ui";
@@ -218,6 +219,69 @@ function Tasks() {
   );
 }
 
+/**
+ * Drags a saved prompt with the pointer (Tauri's native drop handler eats HTML5 drags); let
+ * go over a pane to open its composer with the prompt in it. A plain click uses the focused pane.
+ */
+function dragPrompt(e: React.PointerEvent, p: SavedPrompt) {
+  if (e.button !== 0) return;
+  const x0 = e.clientX;
+  const y0 = e.clientY;
+  let active = false;
+  let over: HTMLElement | null = null;
+  const target = (ev: PointerEvent) => document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>("[data-pane-id]") ?? null;
+  const hover = (el: HTMLElement | null) => {
+    if (el === over) return;
+    over?.classList.remove("drop-target");
+    el?.classList.add("drop-target");
+    over = el;
+  };
+  const move = (ev: PointerEvent) => {
+    if (!active && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+    if (!active) document.body.classList.add("prompt-dragging");
+    active = true;
+    hover(target(ev));
+  };
+  const up = (ev: PointerEvent) => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    document.body.classList.remove("prompt-dragging");
+    hover(null);
+    const paneId = active ? target(ev)?.dataset.paneId : focusedPaneId();
+    if (paneId) draftInPane(paneId, p.text);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+}
+
+function Prompts() {
+  const saved = usePrompts((s) => s.saved);
+  return (
+    <section className="rail-section">
+      <h3 className="rail-head">
+        <span className="label">Prompts</span>
+        <span className="rail-count num">{saved.length}</span>
+      </h3>
+      {saved.length === 0 ? (
+        <p className="empty">
+          Write a prompt in the composer (<kbd>⌘L</kbd>) and press Save. Click one to use it, or drag it onto any pane.
+        </p>
+      ) : (
+        saved.map((p) => (
+          <div key={p.id} className="recent-row prompt-row">
+            <button className="recent-open" onPointerDown={(e) => dragPrompt(e, p)} title={`${p.text}\n\nClick: put it in the focused pane's composer · drag onto a pane`}>
+              <span className="recent-name prompt-title">{p.title}</span>
+            </button>
+            <button className="icon-btn recent-del" onClick={() => usePrompts.getState().remove(p.id)} title="Delete prompt">
+              <CloseIcon width={11} height={11} />
+            </button>
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
 function Recents() {
   const folders = useRecents((s) => s.folders);
   return (
@@ -245,12 +309,13 @@ function Recents() {
   );
 }
 
-/** Right rail (⌘B): the agent queue, tasks for the focused project, and recent folders. */
+/** Right rail (⌘B): the agent queue, tasks for the focused project, saved prompts, and recent folders. */
 export function QueueRail() {
   return (
     <aside className="rail" aria-label="Queue">
       <Queue />
       <Tasks />
+      <Prompts />
       <Recents />
     </aside>
   );

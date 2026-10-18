@@ -2,6 +2,7 @@ import { basename } from "../lib/format";
 import { openInBrowserPane } from "../lib/browser";
 import { cacheSafe, currentEffort, useEffortPicks } from "../lib/effort";
 import { closePaneSafely, openFile, useEditors } from "../lib/openFile";
+import { useOutbox } from "../lib/outbox";
 import { useConfig } from "../store/config";
 import { useLive } from "../store/live";
 import { useUi } from "../store/ui";
@@ -17,6 +18,7 @@ import { BranchIcon, CloseIcon, GlobeIcon, MicIcon, OpenIcon, SplitDownIcon, Spl
 import { startPaneDrag } from "./PaneDrag";
 import { PermissionButtons } from "./SessionExtras";
 import { StatusGlyph, stateLabel, visualOf } from "./StatusGlyph";
+import { UsageChip } from "./UsageChip";
 
 function PaneActions({ paneId, browser, editor }: { paneId: string; browser?: boolean; editor?: string }) {
   const { splitPane } = useLayout.getState();
@@ -93,6 +95,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
   const voiceInstalled = useVoice((s) => s.installed);
   const voiceState = useVoice((s) => (focusedPaneId() === paneId ? s.state : "idle"));
   const dirty = useEditors((s) => !!s.dirty[paneId]);
+  const queued = useOutbox((s) => s.byPane[paneId]?.length ?? 0);
   if (!pane) return null;
 
   if (pane.editor) {
@@ -140,6 +143,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
           {pane.launcher ? "New tab" : basename(dir) || "~"}
         </span>
         {(agent || pane.account) && <EffortChip paneId={paneId} />}
+        {(agent || pane.account) && <UsageChip paneId={paneId} />}
         {git && (
           <span
             className={`git-chip hide-tight${git.worktree ? " worktree" : ""}`}
@@ -163,6 +167,11 @@ export function PaneHeader({ paneId }: { paneId: string }) {
           </span>
         )}
         {v === "needs_input" && <PermissionButtons paneId={paneId} />}
+        {queued > 0 && (
+          <button className="pane-queued" title="Messages waiting for Claude to finish its turn · click to see or edit them" onClick={() => useUi.getState().set({ composerPaneId: paneId })}>
+            {queued} queued
+          </button>
+        )}
         {task && (
           <span className={`pane-task hide-narrow ${task.status}`} title={`Attached task (${task.status}): ${task.title}`}>
             ◆ {task.title}

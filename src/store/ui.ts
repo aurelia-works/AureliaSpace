@@ -38,6 +38,8 @@ interface UiState {
   suggestPaneId: string | null;
   /** Pane whose prompt composer (⌘L) is open. */
   composerPaneId: string | null;
+  /** Text for that pane's composer to start from (a saved prompt or a prompt link), taken once. */
+  composerDraft: { paneId: string; text: string } | null;
   fontDelta: number;
   windowFocused: boolean;
 
@@ -58,6 +60,7 @@ export const useUi = create<UiState>((set) => ({
   toast: null,
   suggestPaneId: null,
   composerPaneId: null,
+  composerDraft: null,
   fontDelta: 0,
   windowFocused: document.hasFocus(),
   set: (patch) => set(patch),
