@@ -15,7 +15,7 @@ import { AgentChip, usePaneAgent } from "./AgentChip";
 import { ArrowIcon, BranchIcon, GridIcon, SparkIcon } from "./Icons";
 import { paneTail } from "./paneTail";
 import { MetricsLine, PermissionButtons, ReplyBox, since } from "./SessionExtras";
-import { StatusGlyph, stateLabel, visualOf, type Visual } from "./StatusGlyph";
+import { StatusGlyph, visualOf, type Visual } from "./StatusGlyph";
 
 /** A card on the board: a Claude session, or any other live terminal (Codex, Gemini, a shell). */
 type Item = { paneId: string; tab: number; session?: AgentSession };
@@ -127,7 +127,6 @@ function Card({ it, selected, onSelect, replyRef }: { it: Item; selected: boolea
         </div>
       )}
       <p className={`card-detail${v ? ` ${v}` : ""}`}>
-        {v && <span className={`state-text ${v}`}>{stateLabel[v]}</span>}
         <span className="card-detail-text">{detail}</span>
       </p>
       <Tail paneId={it.paneId} />

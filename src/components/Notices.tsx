@@ -97,14 +97,14 @@ function Card({ n }: { n: Notice }) {
 /** Live cards, newest on top, bottom-right of the window. */
 export function NoticeStack() {
   const notices = useNotices((s) => s.notices);
-  // Don't repeat what's already on screen. "Finished" cards defer to the queue whenever it's
-  // visible; cards that need an answer only hide when you can see that agent's pane itself.
+  // Don't repeat what's already on screen: agent cards defer to the queue or board whenever
+  // either is visible (both carry the same answers), and to the agent's pane when it's showing.
   const queueVisible = useUi((s) => s.mode === "agents" || s.agentPanelOpen);
   const onStage = useUi((s) => s.mode === "terminals" && !s.reviewOpen && !s.settingsOpen);
   const visible = useVisiblePanes();
   const paneShown = (n: Notice) => onStage && !!n.paneId && visible.split(" ").includes(n.paneId);
   const live = notices.filter(
-    (n) => n.live && !(QUEUED.includes(n.kind) && (paneShown(n) || (n.kind === "finished" && queueVisible))),
+    (n) => n.live && !(QUEUED.includes(n.kind) && (paneShown(n) || queueVisible)),
   );
   // Re-render for the "ago" labels.
   const [, tick] = useState(0);

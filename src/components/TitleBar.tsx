@@ -5,7 +5,7 @@ import { useCustomAgents } from "../store/customAgents";
 import { paneIds, useLayout } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { useUi, type Mode } from "../store/ui";
-import { AureliaMark, CloseIcon, GearIcon, GridIcon, PanelIcon, PlusIcon, SearchIcon, SidebarIcon, SparkIcon } from "./Icons";
+import { AureliaMark, CloseIcon, GearIcon, PanelIcon, PlusIcon, SearchIcon, SidebarIcon } from "./Icons";
 import { NoticeBell } from "./Notices";
 import { StatusGlyph } from "./StatusGlyph";
 
@@ -84,13 +84,12 @@ function Tabs() {
               if (e.button === 1) closeTab(tab.id);
               else select();
             }}
-            title={`${focused?.cwd ?? ""}${i < 9 ? `  (⌘${i + 1})` : ""}`}
+            title={`${[account, focused?.cwd].filter(Boolean).join(" · ")}${i < 9 ? `  (⌘${i + 1})` : ""}`}
           >
             <span className="tab-index num">{i + 1}</span>
             {status && <StatusGlyph state={status === "idle" && done ? "done" : status} />}
             <span className="tab-title">{title}</span>
-            {account && <span className="tab-account">{account}</span>}
-            {ids.length > 1 && <span className="tab-count num">×{ids.length}</span>}
+            {ids.length > 1 && <span className="tab-count num">{ids.length}</span>}
             <button
               className="tab-close"
               onMouseDown={(e) => e.stopPropagation()}
@@ -123,8 +122,6 @@ function Beacon() {
     >
       <StatusGlyph state={needs ? "needs_input" : "done"} />
       <span>{text}</span>
-      {needs > 0 && waiting.length > needs && <span className="beacon-more num">+{waiting.length - needs}</span>}
-      <kbd>⌘J</kbd>
     </button>
   );
 }
@@ -157,20 +154,12 @@ export function TitleBar() {
           <button className="icon-btn sm" title="New tab (⌘T)" aria-label="New tab" onClick={() => useLayout.getState().newTab({ launcher: true })}>
             <PlusIcon />
           </button>
-          <button className="icon-btn sm" title="Launch agents (⇧⌘E)" aria-label="Launch agents" onClick={() => ui.set({ accountPicker: { target: "tab" } })}>
-            <SparkIcon />
-          </button>
-          <button className="icon-btn sm" title="New grid tab (⌘G)" aria-label="New grid tab" onClick={() => ui.set({ gridOpen: true })}>
-            <GridIcon />
-          </button>
         </div>
       </div>
       <div className="titlebar-right">
         <Beacon />
-        <button className="cmdk-trigger" onClick={() => ui.set({ paletteOpen: true })} title="Command palette (⌘P)">
-          <SearchIcon width={12} height={12} />
-          <span>Go to…</span>
-          <kbd>⌘P</kbd>
+        <button className="icon-btn" onClick={() => ui.set({ paletteOpen: true })} title="Go to a pane or action (⌘P)" aria-label="Command palette">
+          <SearchIcon />
         </button>
         <NoticeBell />
         <button

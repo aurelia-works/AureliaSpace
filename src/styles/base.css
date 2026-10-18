@@ -108,11 +108,9 @@ kbd {
 /* ---------- Text atoms ---------- */
 
 .label {
-  font-size: var(--fs-label);
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 .hint {
   margin: 6px 0 0;

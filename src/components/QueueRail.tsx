@@ -10,7 +10,7 @@ import { useTasks, type Task, type TaskStatus } from "../store/tasks";
 import { useUi } from "../store/ui";
 import { AgentChip, usePaneAgent } from "./AgentChip";
 import { CloseIcon, PinIcon, PlayIcon } from "./Icons";
-import { MetricsLine, PermissionButtons, ReplyBox, since } from "./SessionExtras";
+import { PermissionButtons, ReplyBox, since } from "./SessionExtras";
 import { StatusGlyph, stateLabel, urgency, visualOf, type Visual } from "./StatusGlyph";
 
 function goToPane(paneId: string) {
@@ -18,35 +18,31 @@ function goToPane(paneId: string) {
   requestAnimationFrame(() => focusTerminal(paneId));
 }
 
+/**
+ * One line per agent: glyph, project, account, age. Only an agent that needs you grows: its
+ * question, the permission answers and a reply box. Metrics live on the board and pane header.
+ */
 function AgentRow({ s, tabIndex, now }: { s: AgentSession; tabIndex: number; now: number }) {
   const v = visualOf(s);
   const custom = usePaneAgent(s.paneId);
-  const detail =
-    v === "needs_input" ? s.message || "Waiting for you" : v === "working" ? (s.tool ? `Running ${s.tool}` : "Thinking…") : v === "done" ? "Finished. Your turn." : "";
   return (
     <div className={`q-row ${v}`}>
-      <button className="q-open" onClick={() => showPane(s.paneId)} title={`${shortenPath(s.cwd)} · open pane`}>
+      <button className="q-open" onClick={() => showPane(s.paneId)} title={`${shortenPath(s.cwd)} · tab ${tabIndex + 1} · ${stateLabel[v]}`}>
         <StatusGlyph state={v} />
         <span className="q-main">
           <span className="q-line">
             <span className="q-folder">{basename(s.cwd) || "—"}</span>
-            {custom ? <AgentChip agent={custom} /> : <span className="account-chip">{s.account ?? "claude"}</span>}
+            {custom ? <AgentChip agent={custom} /> : <span className="q-account">{s.account ?? "claude"}</span>}
             <span className="q-ago num" title="Since last change">
               {since(now - s.updatedAt)}
             </span>
           </span>
-          <span className="q-sub">
-            <span className={`state-text ${v}`}>{stateLabel[v]}</span>
-            <span className="q-tab num">tab {tabIndex + 1}</span>
-          </span>
-          {detail && <span className="q-detail">{detail}</span>}
+          {v === "needs_input" && <span className="q-detail">{s.message || "Waiting for you"}</span>}
+          {v === "working" && s.tool && <span className="q-detail quiet">{s.tool}</span>}
         </span>
       </button>
       {v === "needs_input" && <PermissionButtons paneId={s.paneId} />}
-      {(v === "needs_input" || v === "done") && <ReplyBox paneId={s.paneId} />}
-      <span className="q-foot">
-        <MetricsLine paneId={s.paneId} />
-      </span>
+      {v === "needs_input" && <ReplyBox paneId={s.paneId} />}
     </div>
   );
 }
