@@ -43,7 +43,7 @@ async function waitForScreen(paneId: string, text: string, timeoutMs: number) {
  * as the model's default for new sessions; the bare `/effort` picker has a session-only
  * key instead. Its slider stops at the left edge, so six ← always reach "low".
  */
-async function setSessionEffort(paneId: string, level: EffortLevel): Promise<boolean> {
+export async function setSessionEffort(paneId: string, level: EffortLevel): Promise<boolean> {
   writeToPane(paneId, "/effort");
   await sleep(150);
   writeToPane(paneId, "\r");
@@ -73,19 +73,28 @@ export interface SendResult {
  * model, the effort is chosen first (`override`, else rules and the Haiku judge) and
  * switched if it differs. Anywhere else the text is sent as is.
  */
-export async function sendPrompt(paneId: string, text: string, override?: EffortLevel): Promise<SendResult> {
+/** A Claude pane idle at its prompt, on a cache-safe model, where effort may be switched. */
+export function canPickEffort(paneId: string, override = false): boolean {
   const pane = useLayout.getState().panes[paneId];
   const cfg = useConfig.getState().config?.effort;
   const agent = useAgents.getState().sessions[paneId];
   const live = useLive.getState().byPane[paneId];
-  const eligible = !!pane?.account && agent?.status === "idle" && cacheSafe(live?.model) && (!!override || cfg?.auto !== false);
-  if (!eligible) return { sent: submitToPane(paneId, text) };
+  return !!pane?.account && agent?.status === "idle" && cacheSafe(live?.model) && (override || cfg?.auto !== false);
+}
+
+export function recordPick(paneId: string, pick: EffortPick, switched: boolean) {
+  useEffortPicks.setState((s) => ({ byPane: { ...s.byPane, [paneId]: { ...pick, at: Date.now(), switched } } }));
+}
+
+export async function sendPrompt(paneId: string, text: string, override?: EffortLevel): Promise<SendResult> {
+  const pane = useLayout.getState().panes[paneId];
+  if (!canPickEffort(paneId, !!override)) return { sent: submitToPane(paneId, text) };
 
   const pick: EffortPick = override
     ? { level: override, source: "rules", why: "your choice", pending: false }
     : await ipc.chooseEffort(pane.account ?? null, text, true).catch(() => ({ level: null, source: "keep" as const, why: "couldn't decide", pending: false }));
   let switchedTo: EffortLevel | undefined;
   if (pick.level && pick.level !== currentEffort(paneId) && (await setSessionEffort(paneId, pick.level))) switchedTo = pick.level;
-  useEffortPicks.setState((s) => ({ byPane: { ...s.byPane, [paneId]: { ...pick, at: Date.now(), switched: !!switchedTo } } }));
+  recordPick(paneId, pick, !!switchedTo);
   return { sent: submitToPane(paneId, text), pick, switchedTo };
 }

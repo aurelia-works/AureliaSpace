@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { cacheSafe, currentEffort, useEffortPicks } from "../lib/effort";
 import { formatCost, formatTokens } from "../lib/format";
+import { useInlinePicking } from "../lib/inlineEffort";
+import { useConfig } from "../store/config";
 import { useLive, type LiveStatus } from "../store/live";
 
 function clock(ms: number) {
@@ -31,11 +34,14 @@ function rows(live: LiveStatus): [string, string][] {
 }
 
 /**
- * A Claude pane's session cost; click for what its status line reports: model, context,
- * cache, and the account's limits as of the pane's last request.
+ * A Claude pane's effort and session cost in one chip; click for what its status line
+ * reports (model, context, cache, the account's limits) and what auto effort last chose.
  */
 export function UsageChip({ paneId }: { paneId: string }) {
   const live = useLive((s) => s.byPane[paneId]);
+  const pick = useEffortPicks((s) => s.byPane[paneId]);
+  const picking = useInlinePicking((s) => !!s.panes[paneId]);
+  const auto = useConfig((s) => s.config?.effort?.auto !== false);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const btn = useRef<HTMLButtonElement>(null);
 
@@ -51,7 +57,15 @@ export function UsageChip({ paneId }: { paneId: string }) {
     };
   }, [pos]);
 
-  if (live?.costUsd === undefined) return null;
+  if (!live || (live.costUsd === undefined && !live.effort)) return null;
+  const level = currentEffort(paneId) ?? live.effort;
+  const autoLine = !auto
+    ? "Off (Settings → Effort)"
+    : !cacheSafe(live.model)
+      ? "Left alone: this model loses its cache on effort changes"
+      : pick
+        ? `${pick.switched ? `switched to ${pick.level}` : `kept ${level ?? ""}`.trim()} · ${pick.why}`
+        : "Picks a level when you press Enter at Claude's prompt";
   const open = () => {
     const r = btn.current?.getBoundingClientRect();
     if (r) setPos(pos ? null : { x: Math.min(r.left, window.innerWidth - 270), y: r.bottom + 4 });
@@ -59,14 +73,20 @@ export function UsageChip({ paneId }: { paneId: string }) {
 
   return (
     <>
-      <button ref={btn} className="usage-chip hide-tight" title="Session usage and cost" onClick={open}>
-        {formatCost(live.costUsd)}
+      <button ref={btn} className={`usage-chip hide-tight${pick?.switched ? " picked" : ""}${picking ? " picking" : ""}`} title="Effort, usage and cost" onClick={open}>
+        {picking ? "picking…" : level}
+        {level && live.costUsd !== undefined && !picking && <span className="usage-sep" aria-hidden>·</span>}
+        {!picking && live.costUsd !== undefined && formatCost(live.costUsd)}
       </button>
       {pos &&
         createPortal(
           <div className="account-menu usage-menu" style={{ left: pos.x, top: pos.y }} onMouseDown={(e) => e.stopPropagation()}>
             <div className="account-menu-head">Live from Claude Code · updated {clock(live.at)}</div>
             <dl>
+              <div>
+                <dt>Auto effort</dt>
+                <dd>{autoLine}</dd>
+              </div>
               {rows(live).map(([k, v]) => (
                 <div key={k}>
                   <dt>{k}</dt>

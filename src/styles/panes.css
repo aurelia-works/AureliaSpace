@@ -1031,3 +1031,29 @@ body.pane-dragging .block-overlay {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.usage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.usage-sep {
+  color: var(--text-faint);
+}
+.usage-chip.picked {
+  color: var(--work);
+  border-color: color-mix(in srgb, var(--work) 45%, transparent);
+}
+.usage-chip.picking {
+  color: var(--work);
+  animation: chip-breathe 1.2s var(--ease) infinite alternate;
+}
+@keyframes chip-breathe {
+  to {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .usage-chip.picking {
+    animation: none;
+  }
+}

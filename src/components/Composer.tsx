@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { cacheSafe, currentEffort, EFFORT_LEVELS, sendPrompt } from "../lib/effort";
-import { ipc, type EffortLevel, type EffortPick } from "../lib/ipc";
+import { sendPrompt } from "../lib/effort";
 import { enqueue, unqueue, useOutbox } from "../lib/outbox";
 import { focusTerminal } from "../lib/terminals";
 import { useAgents } from "../store/agents";
-import { useConfig } from "../store/config";
 import { useLayout } from "../store/layout";
-import { useLive } from "../store/live";
 import { usePrompts } from "../store/prompts";
 import { toast, useUi } from "../store/ui";
 import { SparkIcon } from "./Icons";
@@ -14,27 +11,19 @@ import { SparkIcon } from "./Icons";
 const MAX_ROWS = 8;
 
 /**
- * ⌘L: write a prompt for the pane, multi-line, and send it with Enter. On a Claude pane the
- * effort is picked for it first (lib/effort.ts): the chip shows the rules' preview, and a
- * click overrides it for this message. While Claude works, Enter queues the message for the
- * end of the turn (lib/outbox.ts) and ⌘Enter steers: it goes in now, as is.
+ * ⌘L: write a multi-line prompt for the pane and send it with Enter. Auto effort applies as
+ * it does to text typed straight into Claude (lib/effort.ts). While Claude works, Enter
+ * queues the message for the end of the turn (lib/outbox.ts) and ⌘Enter steers it in now.
  */
 export function Composer({ paneId }: { paneId: string }) {
   const [text, setText] = useState("");
-  const [override, setOverride] = useState<EffortLevel | null>(null);
-  const [preview, setPreview] = useState<EffortPick | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const account = useLayout((s) => s.panes[paneId]?.account);
-  const model = useLive((s) => s.byPane[paneId]?.model);
-  const modelName = useLive((s) => s.byPane[paneId]?.modelName);
-  const effort = useLive((s) => s.byPane[paneId]?.effort);
   const status = useAgents((s) => s.sessions[paneId]?.status);
-  const auto = useConfig((s) => s.config?.effort?.auto !== false);
   const queued = useOutbox((s) => s.byPane[paneId]);
   const draft = useUi((s) => (s.composerDraft?.paneId === paneId ? s.composerDraft.text : null));
-  const canSwitch = !!account && cacheSafe(model);
   const busyAgent = status === "working" || status === "starting";
 
   useEffect(() => {
@@ -45,7 +34,6 @@ export function Composer({ paneId }: { paneId: string }) {
   useEffect(() => {
     if (draft === null) return;
     setText(draft);
-    setOverride(null);
     useUi.getState().set({ composerDraft: null });
     requestAnimationFrame(() => {
       const el = ref.current;
@@ -63,15 +51,6 @@ export function Composer({ paneId }: { paneId: string }) {
     el.style.height = `${Math.min(el.scrollHeight, line * MAX_ROWS + 8)}px`;
   }, [text]);
 
-  // Rules-only preview while typing: free, instant, never calls the judge.
-  useEffect(() => {
-    if (!canSwitch || !auto || !text.trim()) return setPreview(null);
-    const t = setTimeout(() => {
-      ipc.chooseEffort(account ?? null, text, false).then(setPreview).catch(() => setPreview(null));
-    }, 250);
-    return () => clearTimeout(t);
-  }, [text, account, canSwitch, auto]);
-
   const close = () => {
     useUi.getState().set({ composerPaneId: null });
     focusTerminal(paneId);
@@ -83,51 +62,21 @@ export function Composer({ paneId }: { paneId: string }) {
     if (busyAgent && !steer) {
       enqueue(paneId, t);
       setText("");
-      setOverride(null);
-      setPreview(null);
       setNote("Queued: goes out when Claude finishes this turn · ⌘Enter steers instead");
       return;
     }
     setBusy(true);
-    const r = await sendPrompt(paneId, t, override ?? undefined).finally(() => setBusy(false));
+    const r = await sendPrompt(paneId, t).finally(() => setBusy(false));
     if (!r.sent) return toast("That pane isn't running", true);
     setText("");
-    setOverride(null);
-    setPreview(null);
-    if (r.switchedTo) setNote(`Effort → ${r.switchedTo} (this session) · ${r.pick?.why}`);
-    else if (r.pick) setNote(`Effort stays ${currentEffort(paneId) ?? "as it is"} · ${r.pick.why}`);
-    else setNote(null);
+    setNote(r.switchedTo ? `Effort → ${r.switchedTo} for this session · ${r.pick?.why}` : null);
   };
-
-  const cycle = () => {
-    const order: (EffortLevel | null)[] = [null, ...EFFORT_LEVELS];
-    setOverride(order[(order.indexOf(override) + 1) % order.length]);
-  };
-
-  const chip = override
-    ? `${override} · yours`
-    : !auto
-      ? `${effort ?? "effort"} · auto off`
-      : preview?.level
-        ? `Auto · ${preview.level}${preview.pending ? "?" : ""}`
-        : preview?.source === "keep"
-          ? `Auto · keep ${effort ?? ""}`.trim()
-          : `Auto${effort ? ` · now ${effort}` : ""}`;
-  const chipTitle = override
-    ? "Sends at this effort. Click to cycle; back to Auto after low…max."
-    : preview?.pending
-      ? `${preview.why}. Haiku 5.5 makes the call when you send.`
-      : (preview?.why ?? "Effort is picked when you send. Click to choose one yourself.");
 
   const foot = !account
     ? "Sends to the shell · Enter to send, ⇧Enter for a new line · Esc to close"
-    : !canSwitch
-      ? `Effort stays fixed${modelName ? ` on ${modelName}` : ""}: switching it there would rewrite the prompt cache · Enter to send · Esc to close`
-      : busyAgent
-        ? "Claude is working · Enter queues it for the end of the turn · ⌘Enter steers it in now · Esc to close"
-        : status && status !== "idle"
-        ? "Claude is waiting on you: this is sent as is, effort unchanged · Enter to send · Esc to close"
-        : "Enter to send, ⇧Enter for a new line · effort set for this session only · Esc to close";
+    : busyAgent
+      ? "Claude is working · Enter queues it for the end of the turn · ⌘Enter steers it in now"
+      : "Enter to send · ⇧Enter for a new line · Esc to close";
 
   return (
     <div
@@ -156,11 +105,6 @@ export function Composer({ paneId }: { paneId: string }) {
           disabled={busy}
           spellCheck={false}
         />
-        {canSwitch && (
-          <button type="button" className={`effort-chip${override ? " manual" : ""}`} onClick={cycle} title={chipTitle}>
-            {chip}
-          </button>
-        )}
         {text.trim() && (
           <button type="button" className="composer-save" onClick={() => usePrompts.getState().save(text)} title="Save to Prompts (right rail, ⌘B) to reuse later">
             Save
@@ -182,7 +126,7 @@ export function Composer({ paneId }: { paneId: string }) {
           ))}
         </ol>
       )}
-      {busy && <div className="suggest-status">{override || !canSwitch || !auto ? "Sending…" : "Picking the effort…"}</div>}
+      {busy && <div className="suggest-status">Sending…</div>}
       {!busy && note && <div className="suggest-status">{note}</div>}
       <div className="suggest-foot">{foot}</div>
     </div>

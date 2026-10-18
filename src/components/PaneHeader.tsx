@@ -1,10 +1,7 @@
 import { basename } from "../lib/format";
 import { openInBrowserPane } from "../lib/browser";
-import { cacheSafe, currentEffort, useEffortPicks } from "../lib/effort";
 import { closePaneSafely, openFile, useEditors } from "../lib/openFile";
 import { useOutbox } from "../lib/outbox";
-import { useConfig } from "../store/config";
-import { useLive } from "../store/live";
 import { useUi } from "../store/ui";
 import { toggleVoice, useVoice } from "../lib/voice";
 import { useAgents } from "../store/agents";
@@ -44,36 +41,6 @@ function PaneActions({ paneId, browser, editor }: { paneId: string; browser?: bo
         <CloseIcon width={11} height={11} />
       </button>
     </span>
-  );
-}
-
-/**
- * A Claude pane's effort, live from its status line, and what auto effort last chose.
- * Click opens the composer (⌘L), the one place prompts get their effort picked: text
- * typed straight into the terminal reaches Claude untouched.
- */
-function EffortChip({ paneId }: { paneId: string }) {
-  const live = useLive((s) => s.byPane[paneId]);
-  const pick = useEffortPicks((s) => s.byPane[paneId]);
-  const auto = useConfig((s) => s.config?.effort.auto !== false);
-  if (!live?.effort) return null;
-  const level = currentEffort(paneId) ?? live.effort;
-  const safe = cacheSafe(live.model);
-  const lines = [
-    `Effort: ${level} (live from Claude)`,
-    pick ? `Last auto pick: ${pick.level ?? "kept"} (${pick.source}) · ${pick.why}` : "No prompt sent through the composer yet",
-    !auto ? "Auto effort is off in Settings" : safe ? "⌘L or click: send through the composer, which picks effort per prompt" : "This model loses its cache on effort changes: auto effort leaves it alone",
-  ];
-  return (
-    <button
-      className={`effort-chip hide-tight${pick?.switched ? " picked" : ""}${!auto || !safe ? " off" : ""}`}
-      title={lines.join("\n")}
-      onClick={() => useUi.getState().set({ composerPaneId: paneId })}
-    >
-      <span className="effort-bolt" aria-hidden>⚡</span>
-      {level}
-      {auto && safe && <span className="effort-auto">auto</span>}
-    </button>
   );
 }
 
@@ -142,7 +109,6 @@ export function PaneHeader({ paneId }: { paneId: string }) {
         <span className="pane-name" title={dir}>
           {pane.launcher ? "New tab" : basename(dir) || "~"}
         </span>
-        {(agent || pane.account) && <EffortChip paneId={paneId} />}
         {(agent || pane.account) && <UsageChip paneId={paneId} />}
         {git && (
           <span

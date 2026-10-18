@@ -167,6 +167,11 @@ const config = {
   },
   cache: { ttlMinutes: 60 },
   voice: { shellCleanup: false },
+  resumeOnLaunch: true,
+  openFilesInApp: true,
+  subagents: { enabled: true, model: "opencode-go/deepseek-v4.1-flash", timeoutMinutes: 20 },
+  effort: { auto: true, judge: true, floor: "low", ceiling: "max", autoModel: false },
+  remote: { enabled: false, port: 4747, allowLan: false },
 };
 
 const inAnHour = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
@@ -242,6 +247,29 @@ function feed(ch: Channel, text: string) {
   (window as any).__TAURI_INTERNALS__.runCallback(ch.id, { index, message: bytes.buffer });
 }
 
+/** A stand-in for Claude Code's input line and /effort picker, enough to exercise lib/inlineEffort. */
+const channels = new Map<string, Channel>();
+const inputs = new Map<string, string>();
+const writes: { pane: string; data: string }[] = [];
+(window as any).__writes = writes;
+function ptyWrite(pane: string, data: string) {
+  writes.push({ pane, data });
+  const ch = channels.get(pane);
+  if (!ch) return;
+  let cur = inputs.get(pane) ?? "";
+  // A whole command line (the pane's startup "claude\r"): the scripted screen already shows it.
+  if (data.length > 1 && data.endsWith("\r")) return;
+  if (data.startsWith("\x1b[200~")) cur += data.slice(6, -6);
+  else if (data === "\r") {
+    if (cur === "/effort") feed(ch, "\r\n Effort  low  medium  [high]  xhigh  max   (s: this session only)\r\n");
+    else if (cur) feed(ch, `\r\n${ESC}[32m⏺${ESC}[0m submitted: ${cur}\r\n`);
+    cur = "";
+  } else if (/^\x7f+$/.test(data)) cur = [...cur].slice(0, -data.length).join("");
+  else if (!data.startsWith(ESC) && !/^[\x00-\x1f]/.test(data)) cur += data;
+  inputs.set(pane, cur);
+  feed(ch, `\r${ESC}[2K> ${cur}`);
+}
+
 mockWindows("main");
 mockIPC(
   (cmd, args: any) => {
@@ -268,8 +296,14 @@ mockIPC(
         if (args.name === "recents") return { folders: [dev("web"), dev("api-server"), dev("payments"), dev("infra"), dev("docs")] };
         return null;
       case "pty_spawn":
+        channels.set(args.paneId, args.onData);
         setTimeout(() => feed(args.onData, SCREENS[args.paneId] ?? prompt(args.cwd ?? HOME)), 60);
+        return { attached: false };
+      case "pty_write":
+        ptyWrite(args.paneId, args.data);
         return null;
+      case "choose_effort":
+        return /typo/.test(args.prompt ?? args.text ?? "") ? { level: "low", source: "rules", why: "small edit", pending: false } : { level: null, source: "keep", why: "nothing to change", pending: false };
       case "git_info": {
         const name = String(args.cwd).split("/").pop()!;
         return BRANCH[name] ? { root: args.cwd, branch: BRANCH[name], detached: false, worktree: name === "payments" } : null;
@@ -291,6 +325,7 @@ mockIPC(
       case "voice_installed":
         return true;
       case "agent_keys_present":
+      case "take_prompt_links":
         return [];
       case "has_api_key":
         return false;
@@ -333,6 +368,21 @@ ev("p4", "UserPromptSubmit");
 ev("p4", "PreToolUse", { tool_name: "Bash" });
 ev("p5", "UserPromptSubmit");
 ev("p5", "Notification", { notification_type: "elicitation", message: "Which region should the bucket live in?" });
+
+// Status lines, as Claude Code's statusline.sh reports them.
+const live = (pane: string, effort: string, cost: number, ctx: number) =>
+  ev(pane, "StatusLine", {
+    model: { id: "claude-opus-5-5", display_name: "Opus 5.5" },
+    effort: { level: effort },
+    cost: { total_cost_usd: cost },
+    context_window: { context_window_size: 1_000_000, current_usage: { input_tokens: ctx, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+    rate_limits: { five_hour: { used_percentage: 62, resets_at: Date.now() / 1000 + 7900 }, seven_day: { used_percentage: 41, resets_at: Date.now() / 1000 + 288000 } },
+    prompt_cache: { warm: true, expires_at: Date.now() / 1000 + 2400, ttl: "1h", requests: 18, misses: 1, hit_ratio: 0.94 },
+  });
+live("p1", "high", 1.84, 380_000);
+live("p2", "medium", 3.12, 570_000);
+live("p3", "high", 0.71, 220_000);
+live("p4", "xhigh", 7.9, 880_000);
 
 // Spread the timestamps out so ages and the cache timer read like a real afternoon.
 const ages: Record<string, [number, number]> = { p1: [3, 3], p2: [1, 0.5], p3: [7, 8], p4: [2, 0.2], p5: [5, 6], p8: [24, 52] };

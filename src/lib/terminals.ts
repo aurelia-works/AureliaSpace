@@ -10,6 +10,7 @@ import { onPanesClosed, useLayout, type PaneMeta } from "../store/layout";
 import { useRuntime } from "../store/runtime";
 import { useUi } from "../store/ui";
 import { BlockTracker } from "./blocks";
+import { forgetInput, interceptInput } from "./inlineEffort";
 import { ipc } from "./ipc";
 import { installLinks } from "./links";
 import { terminalThemeFor } from "./palettes";
@@ -136,7 +137,7 @@ export function ensureTerminal(pane: PaneMeta): TermEntry {
   };
 
   term.onData((d) => {
-    if (entry.spawned) ipc.ptyWrite(pane.id, d).catch(() => {});
+    if (entry.spawned && !interceptInput(pane.id, d)) ipc.ptyWrite(pane.id, d).catch(() => {});
   });
   term.onBinary((d) => {
     if (entry.spawned) ipc.ptyWriteBinary(pane.id, Array.from(d, (c) => c.charCodeAt(0) & 0xff)).catch(() => {});
@@ -357,4 +358,4 @@ function destroyTerminal(paneId: string) {
   entry.host.remove();
 }
 
-onPanesClosed((ids) => ids.forEach(destroyTerminal));
+onPanesClosed((ids) => ids.forEach((id) => (destroyTerminal(id), forgetInput(id))));

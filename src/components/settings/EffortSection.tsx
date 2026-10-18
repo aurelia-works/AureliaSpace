@@ -20,7 +20,7 @@ export function EffortSection({ draft, update }: SectionProps) {
       <h3>Auto effort</h3>
       <label className="field check">
         <input type="checkbox" checked={eff.auto} onChange={(e) => set({ auto: e.target.checked })} />
-        <span>Pick the effort for each prompt sent from the composer (⌘L) or a reply box</span>
+        <span>Pick the effort for each prompt you send to Claude: typed at its prompt, from the composer (⌘L) or a reply box</span>
       </label>
       <label className="field check">
         <input type="checkbox" checked={eff.judge} disabled={!eff.auto} onChange={(e) => set({ judge: e.target.checked })} />
@@ -43,7 +43,9 @@ export function EffortSection({ draft, update }: SectionProps) {
         what's set, and "ultrathink" asks for max. The level is set through <code>/effort</code>'s session-only choice,
         so your saved default never changes. It only switches on Opus 5.5 and Sonnet 5.5, where changing effort keeps
         the prompt cache; on other models it would rewrite most of it, so it stays put. A task's model is only
-        picked when its pane starts: switching model mid-conversation rewrites the whole cache.
+        picked when its pane starts: switching model mid-conversation rewrites the whole cache. For text typed at
+        Claude's prompt, Enter waits for the pick; prompts it can't read back exactly (history, edited with the
+        arrow keys, large pastes, slash commands) are sent as they are.
       </p>
     </section>
   );
