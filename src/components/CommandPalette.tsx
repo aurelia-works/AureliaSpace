@@ -98,6 +98,7 @@ function actionItems(): Item[] {
     !!pane && { id: "compose", group: "Actions", label: "Compose a prompt (auto effort)", keys: "⌘L", run: () => (ui.set({ mode: "terminals", composerPaneId: pane }), showPane(pane)) },
     { id: "browser", group: "Actions", label: "Open browser pane", keys: "⇧⌘B", run: () => openInBrowserPane(pane, "") },
     !!pane && { id: "clear", group: "Actions", label: "Clear pane", keys: "⌘K", run: () => clearTerminal(pane) },
+    !!pane && !!useAgents.getState().sessions[pane] && { id: "checkpoints", group: "Actions", label: "Checkpoints: restore files to before a prompt", run: () => ui.set({ checkpointsPaneId: pane }) },
     !!pane && !!useAgents.getState().sessions[pane]?.sessionId && { id: "fork", group: "Actions", label: "Fork this conversation into a new pane", run: () => void forkConversation(pane) },
     !!pane && !!useAgents.getState().sessions[pane] && { id: "perm-mode", group: "Actions", label: "Cycle permission mode (ask, auto-edit, plan…)", keys: "⇧⇥", run: () => void cyclePermissionMode(pane) },
     !!pane && !!useAgents.getState().sessions[pane]?.transcriptPath && { id: "handoff", group: "Actions", label: "Hand off this session to a fresh pane", run: () => void handOff(pane) },

@@ -17,6 +17,13 @@ export interface RemoteStatus {
   clients: number;
 }
 
+export interface Checkpoint {
+  sha: string;
+  /** Epoch ms. */
+  at: number;
+  label: string;
+}
+
 export interface Routine {
   id: string;
   name: string;
@@ -224,6 +231,9 @@ export const ipc = {
   remoteSnapshot: (snapshot: unknown) => invoke<void>("remote_snapshot", { snapshot }),
   takePromptLinks: () => invoke<string[]>("take_prompt_links"),
   snapCapture: () => invoke<string | null>("snap_capture"),
+  checkpointCreate: (cwd: string, pane: string, label: string) => invoke<Checkpoint | null>("checkpoint_create", { cwd, pane, label }),
+  checkpointList: (cwd: string, pane: string) => invoke<Checkpoint[]>("checkpoint_list", { cwd, pane }),
+  checkpointRestore: (cwd: string, pane: string, sha: string) => invoke<number>("checkpoint_restore", { cwd, pane, sha }),
   /** The frontend listens for agent events now: start (re)playing them. */
   agentEventsReady: () => invoke<void>("agent_events_ready"),
 

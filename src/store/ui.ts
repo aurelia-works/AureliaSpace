@@ -44,6 +44,8 @@ interface UiState {
   composerDraft: { paneId: string; text: string } | null;
   /** A saved prompt with `{{fields}}` waiting to be filled in before it reaches the composer. */
   promptFill: { paneId: string; text: string } | null;
+  /** Pane whose checkpoints dialog is open. */
+  checkpointsPaneId: string | null;
   fontDelta: number;
   windowFocused: boolean;
 
@@ -67,6 +69,7 @@ export const useUi = create<UiState>((set) => ({
   composerPaneId: null,
   composerDraft: null,
   promptFill: null,
+  checkpointsPaneId: null,
   fontDelta: 0,
   windowFocused: document.hasFocus(),
   set: (patch) => set(patch),

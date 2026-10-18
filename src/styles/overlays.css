@@ -761,3 +761,37 @@
   align-items: center;
   gap: 10px;
 }
+
+/* Checkpoints */
+.checkpoints-body {
+  padding: 0 16px 12px;
+  overflow: auto;
+}
+.checkpoints-body ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.checkpoints-body li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.cp-ago {
+  flex: none;
+  width: 36px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.cp-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cp-label em {
+  color: var(--text-dim);
+}

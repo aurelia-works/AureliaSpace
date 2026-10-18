@@ -5,6 +5,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { DiffReview } from "./components/DiffReview";
 import { GridPicker } from "./components/GridPicker";
 import { PromptFill } from "./components/PromptFill";
+import { Checkpoints } from "./components/Checkpoints";
 import { LayoutView } from "./components/LayoutView";
 import { Navigator } from "./components/Navigator";
 import { NoticeStack } from "./components/Notices";
@@ -81,6 +82,7 @@ export function App() {
       <GridPicker />
       <CommandPalette />
       <PromptFill />
+      <Checkpoints />
       <NoticeStack />
       <Toast />
       <PaneDragGhost />

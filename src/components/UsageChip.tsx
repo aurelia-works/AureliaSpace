@@ -6,6 +6,7 @@ import { formatCost, formatTokens } from "../lib/format";
 import { useInlinePicking } from "../lib/inlineEffort";
 import { useConfig } from "../store/config";
 import { useLive, type LiveStatus } from "../store/live";
+import { useUi } from "../store/ui";
 
 function clock(ms: number) {
   return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -105,6 +106,16 @@ export function UsageChip({ paneId }: { paneId: string }) {
                 title="A new pane resumes this conversation as a separate session"
               >
                 Fork conversation
+              </button>
+              <button
+                className="link-btn"
+                onClick={() => {
+                  setPos(null);
+                  useUi.getState().set({ checkpointsPaneId: paneId });
+                }}
+                title="Put the files back to how they were before an earlier prompt"
+              >
+                Checkpoints
               </button>
             </div>
           </div>,

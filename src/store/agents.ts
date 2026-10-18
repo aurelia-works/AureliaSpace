@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { useConfig } from "./config";
 import { activeTab, useLayout } from "./layout";
+import { takeCheckpoint } from "../lib/checkpoints";
 import { onStopFailure } from "../lib/limits";
 import { answerPermission, permissionOptions } from "../lib/permissions";
 import { alertUser, useNotices, type NoticeAction } from "./notifications";
@@ -50,6 +51,8 @@ export interface AgentEvent {
     model?: string;
     /** "default" | "acceptEdits" | "plan" | "bypassPermissions" */
     permission_mode?: string;
+    /** UserPromptSubmit: the prompt, first 200 characters (labels its checkpoint). */
+    prompt?: string;
     /** StopFailure: "rate_limit", "billing_error", ... */
     error?: string;
     error_details?: string;
@@ -161,6 +164,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     if (ev.replay) return;
 
     if (ev.event === "StopFailure") onStopFailure(ev.pane, ev.payload);
+    if (ev.event === "UserPromptSubmit" && next.cwd) takeCheckpoint(ev.pane, next.cwd, ev.payload.prompt);
 
     // Back at work means whatever it was waiting on got answered.
     if (status === "working") useNotices.getState().resolvePane(ev.pane, ["finished", "needs_input", "permission"]);

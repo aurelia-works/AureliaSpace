@@ -1,5 +1,6 @@
 mod agents;
 mod browser;
+mod checkpoints;
 mod config;
 mod discord;
 mod effort;
@@ -162,6 +163,9 @@ pub fn run() {
             git::git_info,
             git::create_worktree,
             git::git_diff,
+            checkpoints::checkpoint_create,
+            checkpoints::checkpoint_list,
+            checkpoints::checkpoint_restore,
             usage::fetch_usage,
             hud::hud_show,
             hud::hud_hide,
