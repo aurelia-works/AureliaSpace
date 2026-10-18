@@ -102,8 +102,34 @@ they survive rebuilds instead of being asked for again on every launch.
   enabled in Settings (or ⇧⌘H) and AureliaSpace isn't the focused app. The main window
   (`src/lib/hudBridge.ts`) pushes snapshots over events and handles Open / Allow /
   Always / Deny back.
+- **Auto effort**: `src/lib/inlineEffort.ts` mirrors what you type at an idle Claude
+  prompt. On Enter it picks a level (`effort.rs`); if that differs, it erases the input,
+  switches `/effort` for the session and submits the same text. It only acts when Claude's
+  input box on screen shows exactly the mirrored text.
+- **Composer (⌘L)**: while Claude works, Enter queues a message for the end of the turn
+  (`src/lib/outbox.ts`) and ⌘Enter steers it in now. **Save** keeps it in the rail's
+  Prompts (click, or drag onto a pane; `{{fields}}` are asked for). **Snap** attaches a
+  screenshot path.
+- **Prompt links**: `aureliaspace://new?prompt=…[&cwd=…][&account=…]` drafts the prompt;
+  a link naming a folder or account asks before opening a pane (`links.rs`, `store/prompts.ts`).
+- **Pane header**: permission mode chip (pick ask, auto-edit, plan, auto, bypass; Shift+Tab
+  is pressed for you) and an effort · cost chip whose popover shows the status line's
+  numbers, Fork conversation (`--fork-session`) and Checkpoints. Settings → General →
+  Claude panes sets the mode new panes start in.
+- **Checkpoints**: `checkpoints.rs` snapshots the repo before each prompt under
+  `refs/aurelia/checkpoints/<pane>/` (throwaway index; untracked files over 5 MB skipped)
+  and restores one, saving the current state first.
+- **Dispatch with review**: a task started with "Review when it finishes" gets a second
+  Claude, in plan mode, reviewing its changes when it ends its turn (`src/lib/dispatch.ts`).
+- **Routines**: Settings → Routines opens a Claude pane with a prompt daily or every N
+  minutes while the app runs (`src/lib/routines.ts`).
+- **Orchestration**: `aurelia-space mcp` also serves `aurelia_*` tools (list, read and
+  message panes, open a Claude pane, show an HTML page), answered by the app over a
+  user-only socket (`control.rs`, `src/lib/control.ts`).
+- **Phone remote**: permission prompts get Allow / Always / Deny on the phone, showing the
+  command; answers are matched to the request they were for.
 - **State**: `layout.json` (tabs, splits, cwd and account per pane), `tasks.json`,
-  `ui.json`, all in the app support dir.
+  `ui.json`, `prompts.json`, `routines.json`, all in the app support dir.
 
 ## Setup for suggestions
 
