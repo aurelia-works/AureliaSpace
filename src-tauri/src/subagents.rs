@@ -406,12 +406,27 @@ fn send(out: &Out, msg: Value) {
     let _ = o.flush();
 }
 
+fn orchestrator_on() -> bool {
+    config::load().orchestrator
+}
+
+fn instructions() -> String {
+    let mut parts = vec![];
+    if available().is_some() {
+        parts.push(INSTRUCTIONS);
+    }
+    if orchestrator_on() {
+        parts.push(crate::orchestrator::INSTRUCTIONS);
+    }
+    parts.join("\n\n")
+}
+
 fn initialize(params: &Value) -> Value {
     json!({
         "protocolVersion": params["protocolVersion"].as_str().unwrap_or("2025-06-18"),
         "capabilities": { "tools": {} },
         "serverInfo": { "name": "aurelia", "title": "AureliaSpace", "version": env!("CARGO_PKG_VERSION") },
-        "instructions": INSTRUCTIONS
+        "instructions": instructions()
     })
 }
 
@@ -496,14 +511,22 @@ pub fn serve() {
             ("initialize", Some(_)) => send(&out, reply(initialize(&msg["params"]))),
             ("ping", Some(_)) => send(&out, reply(json!({}))),
             ("tools/list", Some(_)) => {
-                let tools = if available().is_some() { vec![tool_schema()] } else { vec![] };
+                let mut tools = if available().is_some() { vec![tool_schema()] } else { vec![] };
+                if orchestrator_on() {
+                    tools.extend(crate::orchestrator::tools());
+                }
                 send(&out, reply(json!({ "tools": tools })));
             }
             ("tools/call", Some(id)) => {
                 let (id, params, out, running) = (id.clone(), msg["params"].clone(), out.clone(), running.clone());
                 // Agents run concurrently: Claude may start several in parallel.
                 std::thread::spawn(move || {
-                    let result = call(&params, &id_key(&id), &running, &out);
+                    let name = params["name"].as_str().unwrap_or("");
+                    let result = if crate::orchestrator::handles(name) && orchestrator_on() {
+                        crate::orchestrator::call(name, &params["arguments"])
+                    } else {
+                        call(&params, &id_key(&id), &running, &out)
+                    };
                     send(&out, json!({ "jsonrpc": "2.0", "id": id, "result": result }));
                 });
             }

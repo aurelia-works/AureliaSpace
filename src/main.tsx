@@ -11,6 +11,7 @@ import { ipc } from "./lib/ipc";
 import { applyPaletteVars } from "./lib/palettes";
 import { primeNotifications } from "./lib/notify";
 import { startHudBridge } from "./lib/hudBridge";
+import { startControl } from "./lib/control";
 import { startDispatchWatch } from "./lib/dispatch";
 import { startOutbox } from "./lib/outbox";
 import { startRoutines } from "./lib/routines";
@@ -99,6 +100,7 @@ async function boot() {
   startOutbox();
   startDispatchWatch();
   startRoutines().catch(() => {});
+  startControl().catch(() => {});
   startDiscord();
   checkFullDiskAccess();
 

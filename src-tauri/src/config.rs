@@ -252,6 +252,8 @@ pub struct Config {
     /// ⌘-clicked paths and the Files view open in an editor pane; off = `editor` above.
     pub open_files_in_app: bool,
     pub subagents: SubagentsConfig,
+    /// `aurelia_*` tools: Claude panes may list, read and message other panes (orchestrator.rs).
+    pub orchestrator: bool,
     /// Scheduled prompts (src/lib/routines.ts); kept as the frontend writes them.
     pub routines: Vec<Value>,
     pub effort: EffortConfig,
@@ -281,6 +283,7 @@ impl Default for Config {
             claude_permission_mode: String::new(),
             open_files_in_app: true,
             subagents: SubagentsConfig::default(),
+            orchestrator: true,
             routines: Vec::new(),
             effort: EffortConfig::default(),
             remote: RemoteConfig::default(),

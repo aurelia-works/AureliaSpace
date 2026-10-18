@@ -2,6 +2,7 @@ mod agents;
 mod browser;
 mod checkpoints;
 mod config;
+mod control;
 mod discord;
 mod effort;
 mod files;
@@ -10,6 +11,7 @@ mod handoff;
 mod hud;
 mod ide;
 mod integration;
+mod orchestrator;
 mod links;
 mod privacy;
 mod pty;
@@ -115,6 +117,7 @@ pub fn run() {
             integration::watch_events(app.handle().clone());
             voice::listen(app.handle().clone());
             remote::init(app.handle());
+            control::start(app.handle().clone());
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| {
                 if event.id() == "settings" {
@@ -148,6 +151,7 @@ pub fn run() {
             remote::remote_reset_token,
             remote::remote_snapshot,
             links::take_prompt_links,
+            control::control_reply,
             integration::agent_events_ready,
             config::get_config,
             config::save_config,

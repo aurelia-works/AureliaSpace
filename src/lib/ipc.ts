@@ -68,6 +68,8 @@ export interface Config {
   claudePermissionMode: string;
   /** ⌘-clicked paths and the Files view open in an editor pane; off = the external `editor`. */
   openFilesInApp: boolean;
+  /** `aurelia_*` tools: Claude panes may list, read and message other panes and show HTML. */
+  orchestrator: boolean;
   /** `deepseek_agent` tool for Claude panes: tasks handed to OpenCode (src-tauri/src/subagents.rs). */
   subagents: { enabled: boolean; model: string; timeoutMinutes: number };
   /** Scheduled prompts that open a Claude pane while the app runs (src/lib/routines.ts). */
