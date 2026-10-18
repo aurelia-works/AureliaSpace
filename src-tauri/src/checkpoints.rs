@@ -13,6 +13,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Checkpoints kept per pane; older refs are dropped (git gc then frees their objects).
 const KEEP: usize = 40;
+/// Untracked files bigger than this (datasets, model weights, build output nobody ignored)
+/// stay out of checkpoints, so they never pile up in `.git/objects`.
+const MAX_UNTRACKED: u64 = 5 * 1024 * 1024;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,7 +64,17 @@ fn worktree_tree(root: &Path) -> Result<String, String> {
         if git(root, None, &["rev-parse", "--verify", "-q", "HEAD"]).is_ok() {
             git(root, Some(&index), &["read-tree", "HEAD"])?;
         }
-        git(root, Some(&index), &["add", "-A", "--", "."])?;
+        git(root, Some(&index), &["add", "-u", "--", "."])?;
+        let untracked = git(root, None, &["ls-files", "-o", "--exclude-standard", "-z"])?;
+        let small: Vec<&str> = untracked
+            .split('\0')
+            .filter(|p| !p.is_empty() && fs::metadata(root.join(p)).map(|m| m.is_file() && m.len() <= MAX_UNTRACKED).unwrap_or(false))
+            .collect();
+        for chunk in small.chunks(500) {
+            let mut args = vec!["add", "--"];
+            args.extend(chunk.iter().copied());
+            git(root, Some(&index), &args)?;
+        }
         git(root, Some(&index), &["write-tree"])
     })();
     let _ = fs::remove_file(&index);
@@ -187,6 +200,7 @@ mod tests {
     fn restores_edits_deletions_and_new_files_without_touching_index_or_ignored() {
         let root = repo();
         fs::write(root.join("untracked.txt"), "keep me").unwrap();
+        fs::write(root.join("huge.bin"), vec![0u8; (MAX_UNTRACKED + 1) as usize]).unwrap();
         let cp = create(&root, "pane-1", "first prompt").unwrap().unwrap();
         // Unchanged tree: no duplicate checkpoint.
         assert!(create(&root, "pane-1", "again").unwrap().is_none());
@@ -203,6 +217,9 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join("untracked.txt")).unwrap(), "keep me");
         assert!(!root.join("new.txt").exists());
         assert_eq!(fs::read_to_string(root.join("ignored.txt")).unwrap(), "local");
+        // Never snapshotted, so a restore leaves it alone too.
+        assert!(root.join("huge.bin").exists());
+        assert!(git(&root, None, &["ls-tree", "-r", "--name-only", &cp.sha]).unwrap().lines().all(|l| l != "huge.bin"));
         assert_eq!(git(&root, None, &["diff", "--cached", "--name-only"]).unwrap(), status_before);
 
         // The restore saved what was there, so it can be undone.
