@@ -43,6 +43,8 @@ export interface Config {
   defaultWorkspace: string;
   /** Claude panes restored at launch reopen the conversation they last ran. */
   resumeOnLaunch: boolean;
+  /** `--permission-mode` for Claude panes started here ("acceptEdits", "plan", …); empty = Claude's default. */
+  claudePermissionMode: string;
   /** ⌘-clicked paths and the Files view open in an editor pane; off = the external `editor`. */
   openFilesInApp: boolean;
   /** `deepseek_agent` tool for Claude panes: tasks handed to OpenCode (src-tauri/src/subagents.rs). */

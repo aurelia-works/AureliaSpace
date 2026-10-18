@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { forkConversation } from "../lib/fork";
+import { cyclePermissionMode } from "../lib/permissionMode";
 import { launchCustomAgent, launchTeam, variantOf } from "../lib/agents";
 import { openInBrowserPane } from "../lib/browser";
 import { basename, shortenPath } from "../lib/format";
@@ -96,6 +98,8 @@ function actionItems(): Item[] {
     !!pane && { id: "compose", group: "Actions", label: "Compose a prompt (auto effort)", keys: "⌘L", run: () => (ui.set({ mode: "terminals", composerPaneId: pane }), showPane(pane)) },
     { id: "browser", group: "Actions", label: "Open browser pane", keys: "⇧⌘B", run: () => openInBrowserPane(pane, "") },
     !!pane && { id: "clear", group: "Actions", label: "Clear pane", keys: "⌘K", run: () => clearTerminal(pane) },
+    !!pane && !!useAgents.getState().sessions[pane]?.sessionId && { id: "fork", group: "Actions", label: "Fork this conversation into a new pane", run: () => void forkConversation(pane) },
+    !!pane && !!useAgents.getState().sessions[pane] && { id: "perm-mode", group: "Actions", label: "Cycle permission mode (ask, auto-edit, plan…)", keys: "⇧⇥", run: () => void cyclePermissionMode(pane) },
     !!pane && !!useAgents.getState().sessions[pane]?.transcriptPath && { id: "handoff", group: "Actions", label: "Hand off this session to a fresh pane", run: () => void handOff(pane) },
     { id: "nav-ws", group: "Actions", label: "Navigator: workspace", keys: "⌘\\", run: () => ui.set({ nav: ui.nav === "projects" ? null : "projects" }) },
     { id: "nav-files", group: "Actions", label: "Navigator: files", keys: "⇧⌘F", run: () => ui.set({ nav: ui.nav === "files" ? null : "files" }) },

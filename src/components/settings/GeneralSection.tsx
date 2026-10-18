@@ -59,6 +59,24 @@ export function GeneralSection({ draft, update }: SectionProps) {
       </section>
 
       <section className="set-group">
+        <h3>Claude panes</h3>
+        <label className="field">
+          <span>Start in</span>
+          <select value={draft.claudePermissionMode ?? ""} onChange={(e) => update((c) => (c.claudePermissionMode = e.target.value))}>
+            <option value="">Claude's default (ask before edits)</option>
+            <option value="acceptEdits">Auto-edit: accept file edits, ask for commands</option>
+            <option value="plan">Plan mode: read and plan, no changes</option>
+            <option value="auto">Auto: Claude decides what's safe to run</option>
+            <option value="bypassPermissions">Bypass: never ask (risky)</option>
+          </select>
+        </label>
+        <p className="hint">
+          Applies to Claude panes AureliaSpace starts, as <code>claude --permission-mode</code>. Each pane's mode chip switches it
+          later (Shift+Tab in Claude).
+        </p>
+      </section>
+
+      <section className="set-group">
         <h3>Restore</h3>
         <label className="field check">
           <input type="checkbox" checked={draft.resumeOnLaunch !== false} onChange={(e) => update((c) => (c.resumeOnLaunch = e.target.checked))} />

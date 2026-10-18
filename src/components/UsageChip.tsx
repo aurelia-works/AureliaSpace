@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cacheSafe, currentEffort, useEffortPicks } from "../lib/effort";
+import { forkConversation } from "../lib/fork";
 import { formatCost, formatTokens } from "../lib/format";
 import { useInlinePicking } from "../lib/inlineEffort";
 import { useConfig } from "../store/config";
@@ -94,6 +95,18 @@ export function UsageChip({ paneId }: { paneId: string }) {
                 </div>
               ))}
             </dl>
+            <div className="usage-actions">
+              <button
+                className="link-btn"
+                onClick={() => {
+                  setPos(null);
+                  forkConversation(paneId);
+                }}
+                title="A new pane resumes this conversation as a separate session"
+              >
+                Fork conversation
+              </button>
+            </div>
           </div>,
           document.body,
         )}

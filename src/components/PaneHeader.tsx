@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { basename } from "../lib/format";
 import { openInBrowserPane } from "../lib/browser";
 import { closePaneSafely, openFile, useEditors } from "../lib/openFile";
 import { useOutbox } from "../lib/outbox";
+import { modeKey, MODES, setPermissionMode } from "../lib/permissionMode";
 import { useUi } from "../store/ui";
 import { toggleVoice, useVoice } from "../lib/voice";
 import { useAgents } from "../store/agents";
@@ -41,6 +44,60 @@ function PaneActions({ paneId, browser, editor }: { paneId: string; browser?: bo
         <CloseIcon width={11} height={11} />
       </button>
     </span>
+  );
+}
+
+/** The pane's permission mode; click to pick another (Claude's own Shift+Tab, pressed for you). */
+function ModeChip({ paneId }: { paneId: string }) {
+  const mode = modeKey(useAgents((s) => s.sessions[paneId]?.permissionMode));
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!pos) return;
+    const close = () => setPos(null);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [pos]);
+  const m = MODES[mode] ?? MODES.default;
+  return (
+    <>
+      <button
+        ref={btn}
+        className={`mode-chip${m.tone ? ` ${m.tone}` : ""}${mode === "default" ? " quiet" : ""}`}
+        title={`${m.label}: ${m.what}. Click to change.`}
+        onClick={() => {
+          const r = btn.current?.getBoundingClientRect();
+          if (r) setPos({ x: Math.min(r.left, window.innerWidth - 270), y: r.bottom + 4 });
+        }}
+      >
+        {m.short}
+      </button>
+      {pos &&
+        createPortal(
+          <div className="account-menu" style={{ left: pos.x, top: pos.y }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="account-menu-head">Permission mode · Shift+Tab in Claude</div>
+            {(["default", "acceptEdits", "plan", "auto", "bypassPermissions"] as const).map((k) => (
+              <button
+                key={k}
+                className={k === mode ? "on" : ""}
+                onClick={() => {
+                  setPos(null);
+                  void setPermissionMode(paneId, k);
+                }}
+              >
+                <span className={MODES[k].tone ? `mode-${MODES[k].tone}` : undefined}>{MODES[k].label}</span>
+                <span className="account-room">{MODES[k].what}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
@@ -109,6 +166,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
         <span className="pane-name" title={dir}>
           {pane.launcher ? "New tab" : basename(dir) || "~"}
         </span>
+        {agent && <ModeChip paneId={paneId} />}
         {(agent || pane.account) && <UsageChip paneId={paneId} />}
         {git && (
           <span

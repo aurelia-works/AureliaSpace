@@ -829,6 +829,7 @@ body.pane-dragging .block-overlay {
 
 /* A narrow pane that is asking for permission gives its header to the answer buttons. */
 @container (max-width: 520px) {
+  .pane-id:has(~ .pane-signals .perm-buttons) .mode-chip.quiet,
   .pane-id:has(~ .pane-signals .perm-buttons) .pane-name,
   .pane-signals:has(.perm-buttons) ~ .pane-end .mic {
     display: none;
@@ -1056,4 +1057,46 @@ body.pane-dragging .block-overlay {
   .usage-chip.picking {
     animation: none;
   }
+}
+
+/* Permission mode chip (PaneHeader ModeChip): only off the default mode */
+.mode-chip {
+  flex: none;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mode-chip.warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.mode-chip.danger {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+}
+.mode-chip.quiet {
+  border-color: var(--border);
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.mode-chip:hover {
+  color: var(--text);
+}
+.mode-warn {
+  color: var(--warn);
+}
+.mode-danger {
+  color: var(--err);
+}
+.usage-actions {
+  display: flex;
+  gap: 12px;
+  padding: 6px 8px 4px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
 }

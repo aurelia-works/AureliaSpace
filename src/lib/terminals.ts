@@ -238,7 +238,14 @@ function flushInit(entry: TermEntry) {
   const cmd = entry.pendingInit;
   if (!cmd || !entry.spawned || !entry.ready) return;
   entry.pendingInit = undefined;
-  ipc.ptyWrite(entry.paneId, cmd + "\r").catch(() => {});
+  ipc.ptyWrite(entry.paneId, withPermissionMode(cmd) + "\r").catch(() => {});
+}
+
+/** Starts Claude in the mode chosen in Settings, unless the command already picks one. */
+function withPermissionMode(cmd: string): string {
+  const mode = getConfig().claudePermissionMode;
+  if (!mode || !/^claude(\s|$)/.test(cmd) || /--permission-mode|--dangerously-skip-permissions/.test(cmd)) return cmd;
+  return cmd.replace(/^claude/, `claude --permission-mode ${mode}`);
 }
 
 /**
