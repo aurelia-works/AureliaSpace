@@ -361,3 +361,43 @@
 .hint.err {
   color: var(--err);
 }
+
+/* Routines */
+.routine {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.routine-head,
+.routine-when,
+.routine-where {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.routine-head .field {
+  flex: 1;
+  margin: 0;
+}
+.routine-name {
+  flex: 1;
+  font-weight: 600;
+}
+.routine-where input {
+  flex: 1;
+  min-width: 180px;
+}
+.routine-when input[type="number"] {
+  width: 72px;
+}
+.routine textarea {
+  width: 100%;
+  resize: vertical;
+}
+.field.check.inline {
+  margin: 0;
+}

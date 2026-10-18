@@ -172,6 +172,10 @@ const config = {
   subagents: { enabled: true, model: "opencode-go/deepseek-v4.1-flash", timeoutMinutes: 20 },
   effort: { auto: true, judge: true, floor: "low", ceiling: "max", autoModel: false },
   remote: { enabled: false, port: 4747, allowLan: false },
+  claudePermissionMode: "",
+  routines: [
+    { id: "r1", name: "Morning triage", enabled: true, kind: "daily", time: "09:00", minutes: 60, weekdaysOnly: true, account: "work", cwd: "~/dev/api-server", prompt: "Check CI on main and the open PRs; summarise what failed and why." },
+  ],
 };
 
 const inAnHour = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
@@ -400,7 +404,7 @@ useMetrics.setState({
 
 if (view === "board") useUi.setState({ mode: "agents" });
 if (view === "review") useUi.setState({ reviewOpen: true });
-if (view === "settings") useUi.setState({ settingsOpen: true });
+if (view === "settings") useUi.setState({ settingsOpen: true, settingsSection: params.get("section") });
 if (view === "palette") useUi.setState({ paletteOpen: true });
 if (view === "files") useUi.setState({ nav: "files" });
 if (view === "start") useLayout.getState().activateTab("t3");

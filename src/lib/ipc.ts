@@ -17,6 +17,20 @@ export interface RemoteStatus {
   clients: number;
 }
 
+export interface Routine {
+  id: string;
+  name: string;
+  enabled: boolean;
+  /** "daily" at `time` (HH:MM, local), or "every" `minutes`. */
+  kind: "daily" | "every";
+  time: string;
+  minutes: number;
+  weekdaysOnly: boolean;
+  account: string;
+  cwd: string;
+  prompt: string;
+}
+
 export interface ProviderConfig {
   baseUrl: string;
   model: string;
@@ -49,6 +63,8 @@ export interface Config {
   openFilesInApp: boolean;
   /** `deepseek_agent` tool for Claude panes: tasks handed to OpenCode (src-tauri/src/subagents.rs). */
   subagents: { enabled: boolean; model: string; timeoutMinutes: number };
+  /** Scheduled prompts that open a Claude pane while the app runs (src/lib/routines.ts). */
+  routines: Routine[];
   /** Composer prompts pick their own effort: rules, then a Haiku 5.5 judge (src-tauri/src/effort.rs). */
   effort: { auto: boolean; judge: boolean; floor: EffortLevel; ceiling: EffortLevel; autoModel: boolean };
   /** Phone remote (src-tauri/src/remote.rs): off by default; LAN off = this Mac and Tailscale only. */
@@ -213,8 +229,8 @@ export const ipc = {
 
   getConfig: () => invoke<Config>("get_config"),
   saveConfig: (config: Config) => invoke<void>("save_config", { config }),
-  loadState: <T>(name: "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts") => invoke<T | null>("load_state", { name }),
-  saveState: (name: "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts", value: unknown) => invoke<void>("save_state", { name, value }),
+  loadState: <T>(name: "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts" | "routines") => invoke<T | null>("load_state", { name }),
+  saveState: (name: "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts" | "routines", value: unknown) => invoke<void>("save_state", { name, value }),
   pickFolder: (start?: string) => invoke<string | null>("pick_folder", { start: start ?? null }),
   revealConfig: (file: boolean) => invoke<void>("reveal_config", { file }),
   browserOpen: (pane: string, url: string, r: { x: number; y: number; w: number; h: number }) =>

@@ -13,6 +13,7 @@ import { primeNotifications } from "./lib/notify";
 import { startHudBridge } from "./lib/hudBridge";
 import { startDispatchWatch } from "./lib/dispatch";
 import { startOutbox } from "./lib/outbox";
+import { startRoutines } from "./lib/routines";
 import { startRemote } from "./lib/remote";
 import { planResume } from "./lib/resume";
 import { installShortcuts } from "./lib/shortcuts";
@@ -97,6 +98,7 @@ async function boot() {
   startRemote().catch(() => {});
   startOutbox();
   startDispatchWatch();
+  startRoutines().catch(() => {});
   startDiscord();
   checkFullDiskAccess();
 

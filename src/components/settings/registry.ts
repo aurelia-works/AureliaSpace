@@ -9,6 +9,7 @@ import { HudSection } from "./HudSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { MyAgentsSection } from "./MyAgentsSection";
 import { RemoteSection } from "./RemoteSection";
+import { RoutinesSection } from "./RoutinesSection";
 import { ShortcutsSection } from "./ShortcutsSection";
 import { SubagentsSection } from "./SubagentsSection";
 import { SuggestionsSection } from "./SuggestionsSection";
@@ -35,6 +36,7 @@ export const SECTIONS: SettingsSection[] = [
   { id: "accounts", label: "Accounts", Component: AccountsSection },
   { id: "my-agents", label: "My agents", Component: MyAgentsSection },
   { id: "agents", label: "Agent keys", Component: AgentsSection },
+  { id: "routines", label: "Routines", Component: RoutinesSection },
   { id: "effort", label: "Auto effort", Component: EffortSection },
   { id: "subagents", label: "Subagents", Component: SubagentsSection },
   { id: "suggestions", label: "Suggestions", Component: SuggestionsSection },

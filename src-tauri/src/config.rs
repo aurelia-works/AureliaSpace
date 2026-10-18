@@ -252,6 +252,8 @@ pub struct Config {
     /// ⌘-clicked paths and the Files view open in an editor pane; off = `editor` above.
     pub open_files_in_app: bool,
     pub subagents: SubagentsConfig,
+    /// Scheduled prompts (src/lib/routines.ts); kept as the frontend writes them.
+    pub routines: Vec<Value>,
     pub effort: EffortConfig,
     pub remote: RemoteConfig,
 }
@@ -279,6 +281,7 @@ impl Default for Config {
             claude_permission_mode: String::new(),
             open_files_in_app: true,
             subagents: SubagentsConfig::default(),
+            routines: Vec::new(),
             effort: EffortConfig::default(),
             remote: RemoteConfig::default(),
         }
@@ -344,7 +347,7 @@ fn write_json(path: &Path, value: &Value) -> Result<(), String> {
 /// Only these state files may be read/written from the frontend.
 fn state_path(name: &str) -> Result<PathBuf, String> {
     match name {
-        "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts" => Ok(app_dir().join(format!("{name}.json"))),
+        "layout" | "tasks" | "ui" | "recents" | "agents" | "prompts" | "routines" => Ok(app_dir().join(format!("{name}.json"))),
         _ => Err(format!("unknown state file: {name}")),
     }
 }
