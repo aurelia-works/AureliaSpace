@@ -4,6 +4,7 @@ import { AgentsBoard } from "./components/AgentsBoard";
 import { CommandPalette } from "./components/CommandPalette";
 import { DiffReview } from "./components/DiffReview";
 import { GridPicker } from "./components/GridPicker";
+import { PromptFill } from "./components/PromptFill";
 import { LayoutView } from "./components/LayoutView";
 import { Navigator } from "./components/Navigator";
 import { NoticeStack } from "./components/Notices";
@@ -79,6 +80,7 @@ export function App() {
       <AccountPicker />
       <GridPicker />
       <CommandPalette />
+      <PromptFill />
       <NoticeStack />
       <Toast />
       <PaneDragGhost />

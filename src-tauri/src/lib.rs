@@ -158,6 +158,7 @@ pub fn run() {
             files::resolve_paths,
             files::open_path,
             files::open_url,
+            files::snap_capture,
             git::git_info,
             git::create_worktree,
             git::git_diff,

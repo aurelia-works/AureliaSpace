@@ -735,3 +735,29 @@
     display: none;
   }
 }
+
+/* Saved prompt fields (PromptFill) */
+.prompt-fill-body {
+  display: grid;
+  gap: 10px;
+  padding: 4px 16px 14px;
+  overflow: auto;
+}
+.prompt-fill-preview {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 160px;
+  overflow: auto;
+  border-radius: var(--r-sm);
+  background: var(--pane-bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.prompt-fill .field {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 10px;
+}

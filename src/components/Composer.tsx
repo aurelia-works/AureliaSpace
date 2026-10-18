@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { sendPrompt } from "../lib/effort";
+import { ipc } from "../lib/ipc";
 import { enqueue, unqueue, useOutbox } from "../lib/outbox";
 import { focusTerminal } from "../lib/terminals";
 import { useAgents } from "../store/agents";
@@ -105,6 +106,18 @@ export function Composer({ paneId }: { paneId: string }) {
           disabled={busy}
           spellCheck={false}
         />
+        <button
+          type="button"
+          className="composer-save"
+          title="SnapShot: drag out part of the screen (Space for a window); its path goes into the message for Claude to look at"
+          onClick={async () => {
+            const path = await ipc.snapCapture().catch((e) => (toast(`Couldn't capture: ${e}`, true), null));
+            if (path) setText((t) => `${t}${t && !t.endsWith(" ") ? " " : ""}${path} `);
+            ref.current?.focus();
+          }}
+        >
+          Snap
+        </button>
         {text.trim() && (
           <button type="button" className="composer-save" onClick={() => usePrompts.getState().save(text)} title="Save to Prompts (right rail, ⌘B) to reuse later">
             Save

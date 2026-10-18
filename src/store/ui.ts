@@ -40,6 +40,8 @@ interface UiState {
   composerPaneId: string | null;
   /** Text for that pane's composer to start from (a saved prompt or a prompt link), taken once. */
   composerDraft: { paneId: string; text: string } | null;
+  /** A saved prompt with `{{fields}}` waiting to be filled in before it reaches the composer. */
+  promptFill: { paneId: string; text: string } | null;
   fontDelta: number;
   windowFocused: boolean;
 
@@ -61,6 +63,7 @@ export const useUi = create<UiState>((set) => ({
   suggestPaneId: null,
   composerPaneId: null,
   composerDraft: null,
+  promptFill: null,
   fontDelta: 0,
   windowFocused: document.hasFocus(),
   set: (patch) => set(patch),

@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { expandPath, shortenPath } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { parsePromptLink } from "../lib/promptLink";
+import { templateFields } from "../lib/template";
 import { showPane } from "../lib/terminals";
 import { useConfig } from "./config";
 import { focusedPaneId, uid, useLayout } from "./layout";
@@ -62,9 +63,15 @@ export function draftInPane(paneId: string, text: string): boolean {
     toast("Drop it on a terminal or Claude pane", true);
     return false;
   }
+  // Fields first: the fill-in dialog hands the result to openDraft.
+  if (templateFields(text).length) useUi.getState().set({ promptFill: { paneId, text } });
+  else openDraft(paneId, text);
+  return true;
+}
+
+export function openDraft(paneId: string, text: string) {
   showPane(paneId);
   useUi.getState().set({ composerPaneId: paneId, composerDraft: { paneId, text } });
-  return true;
 }
 
 /** The focused pane if it can take a draft, else a new terminal tab. */

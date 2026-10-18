@@ -207,6 +207,7 @@ export const ipc = {
   remoteResetToken: () => invoke<RemoteStatus>("remote_reset_token"),
   remoteSnapshot: (snapshot: unknown) => invoke<void>("remote_snapshot", { snapshot }),
   takePromptLinks: () => invoke<string[]>("take_prompt_links"),
+  snapCapture: () => invoke<string | null>("snap_capture"),
   /** The frontend listens for agent events now: start (re)playing them. */
   agentEventsReady: () => invoke<void>("agent_events_ready"),
 

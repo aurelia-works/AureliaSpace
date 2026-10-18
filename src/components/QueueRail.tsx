@@ -260,7 +260,7 @@ function Prompts() {
       </h3>
       {saved.length === 0 ? (
         <p className="empty">
-          Write a prompt in the composer (<kbd>⌘L</kbd>) and press Save. Click one to use it, or drag it onto any pane.
+          Write a prompt or command in the composer (<kbd>⌘L</kbd>) and press Save. Click one to use it, or drag it onto any pane. <code>{"{{name}}"}</code> fields are asked for each time.
         </p>
       ) : (
         saved.map((p) => (

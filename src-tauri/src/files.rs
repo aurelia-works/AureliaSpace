@@ -112,3 +112,19 @@ pub async fn pick_folder(start: Option<String>) -> Option<String> {
     let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
     (!path.is_empty()).then(|| crate::config::expand_path(&path))
 }
+
+/// SnapShot: lets the user drag out part of the screen (or press Space for a window) with
+/// macOS's own `screencapture`, saved under the app folder. None when they cancel.
+#[tauri::command]
+pub async fn snap_capture() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let dir = config::app_dir().join("snaps");
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        let path = dir.join(format!("snap-{stamp}.png"));
+        Command::new("/usr/sbin/screencapture").args(["-i", "-x"]).arg(&path).status().map_err(|e| e.to_string())?;
+        Ok(path.exists().then(|| path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
