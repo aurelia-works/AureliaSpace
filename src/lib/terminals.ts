@@ -7,6 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 import { useAgents } from "../store/agents";
 import { getConfig } from "../store/config";
 import { onPanesClosed, useLayout, type PaneMeta } from "../store/layout";
+import { useRecents } from "../store/recents";
 import { useRuntime } from "../store/runtime";
 import { useUi } from "../store/ui";
 import { BlockTracker } from "./blocks";
@@ -219,8 +220,12 @@ function spawn(entry: TermEntry, cols: number, rows: number) {
   };
   ipc
     .ptySpawn({ paneId: entry.paneId, cwd: pane?.cwd, account: pane?.account, env: pane?.env, secretEnv: pane?.secretEnv, cols, rows, fresh, onData })
-    .then(({ attached }) => {
+    .then(({ attached, missingCwd }) => {
       entry.ready = true;
+      if (missingCwd) {
+        entry.term.write(`\x1b[33m[AureliaSpace] ${missingCwd} no longer exists; started in the default folder instead.\x1b[0m\r\n`);
+        useRecents.getState().remove(missingCwd);
+      }
       // A shell that kept running in the terminal host: whatever it runs is still there
       // (a replayed prompt mark must not type `claude` into a live Claude).
       if (attached) entry.pendingInit = undefined;

@@ -214,7 +214,7 @@ export const ipc = {
     fresh?: boolean;
     onData: Channel<ArrayBuffer>;
   }) {
-    return invoke<{ attached: boolean }>("pty_spawn", args);
+    return invoke<{ attached: boolean; missingCwd?: string | null }>("pty_spawn", args);
   },
   ptyWrite: (paneId: string, data: string) => invoke<void>("pty_write", { paneId, data }),
   ptyWriteBinary: (paneId: string, data: number[]) => invoke<void>("pty_write_binary", { paneId, data }),

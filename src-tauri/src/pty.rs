@@ -124,6 +124,8 @@ pub struct Spawned {
     /// Reattached to a shell that kept running in the terminal host (it got its recent
     /// output replayed and was asked to redraw): don't type a startup command into it.
     attached: bool,
+    /// The requested folder, when it doesn't exist and the shell started elsewhere.
+    missing_cwd: Option<String>,
 }
 
 fn default_shell(cfg: &config::Config) -> String {
@@ -142,10 +144,14 @@ fn build_spec(
     secret_env: Option<HashMap<String, String>>,
 ) -> Result<SpawnSpec, String> {
     let shell = default_shell(cfg);
-    let dir = cwd
-        .or_else(|| Some(cfg.default_workspace.clone()).filter(|w| !w.is_empty()))
+    // A folder that no longer exists (e.g. moved since it was saved in recents) falls back
+    // to the default workspace, then home; pty_spawn tells the frontend.
+    let dir = [cwd, Some(cfg.default_workspace.clone())]
+        .into_iter()
+        .flatten()
+        .filter(|c| !c.is_empty())
         .map(|c| config::expand_path(&c))
-        .filter(|c| Path::new(c).is_dir())
+        .find(|c| Path::new(c).is_dir())
         .unwrap_or_else(|| config::home_dir().to_string_lossy().into_owned());
 
     let mut vars: BTreeMap<String, String> = std::env::vars().collect();
@@ -222,6 +228,7 @@ pub fn pty_spawn(
     }
 
     let cfg = config::load();
+    let missing_cwd = cwd.clone().filter(|c| !c.is_empty() && !Path::new(&config::expand_path(c)).is_dir());
     let spec = build_spec(&cfg, &pane_id, cwd, account, env, secret_env)?;
     // Bounded: when the batcher waits on the frontend, the reader blocks here and stops reading.
     let (tx, rx) = mpsc::sync_channel::<Vec<u8>>(READ_QUEUE);
@@ -294,7 +301,7 @@ pub fn pty_spawn(
         }
     });
 
-    Ok(Spawned { attached })
+    Ok(Spawned { attached, missing_cwd: if attached { None } else { missing_cwd } })
 }
 
 /// The in-process path: the shell is this app's child and dies with it.
@@ -465,6 +472,14 @@ pub fn kill_all(state: &PtyState) {
 mod tests {
     use super::*;
     use portable_pty::CommandBuilder;
+
+    #[test]
+    fn a_folder_that_no_longer_exists_falls_back_to_the_workspace() {
+        let mut cfg = config::Config::default();
+        cfg.default_workspace = "/tmp".into();
+        let spec = build_spec(&cfg, "pane-1", Some("/no/such/folder".into()), None, None, None).unwrap();
+        assert_eq!(spec.cwd, "/tmp");
+    }
 
     #[test]
     fn the_spawn_spec_carries_the_whole_environment() {

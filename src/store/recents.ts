@@ -27,7 +27,12 @@ export const useRecents = create<RecentsState>((set) => ({
 /** Loads saved folders, then records every pane cwd that settles for a couple of seconds. */
 export async function loadRecents() {
   const saved = await ipc.loadState<{ folders: string[] }>("recents").catch(() => null);
-  if (Array.isArray(saved?.folders)) useRecents.setState({ folders: saved.folders.filter((f) => typeof f === "string").slice(0, MAX) });
+  if (Array.isArray(saved?.folders)) {
+    const folders = saved.folders.filter((f) => typeof f === "string").slice(0, MAX);
+    // Drop folders that were moved or deleted: starting a pane there would land in ~.
+    const found = await ipc.resolvePaths("~", folders).catch(() => folders);
+    useRecents.setState({ folders: folders.filter((_, i) => found[i]) });
+  }
 
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   useRecents.subscribe((s, prev) => {
