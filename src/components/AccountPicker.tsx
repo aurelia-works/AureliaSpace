@@ -30,6 +30,7 @@ export function AccountPicker() {
   const accounts = useConfig((s) => s.config?.accounts ?? []);
   const workspace = useConfig((s) => s.config?.defaultWorkspace);
   const worktree = useUi((s) => s.useWorktree);
+  const reviewWhenDone = useUi((s) => s.reviewWhenDone);
   const recents = useRecents((s) => s.folders);
   const usage = useUsage((s) => s.usage);
   const fetchedAt = useUsage((s) => s.fetchedAt);
@@ -106,7 +107,7 @@ export function AccountPicker() {
     setBusy(true);
     close();
     if (task) {
-      launchClaude({ account: items[0].variant.account!, where, worktree, task });
+      launchClaude({ account: items[0].variant.account!, where, worktree, task, review: useUi.getState().reviewWhenDone });
       return;
     }
     if (custom.trim()) {
@@ -219,6 +220,14 @@ export function AccountPicker() {
             Own git worktree <span className="hint inline">new branch from HEAD, so parallel agents don't collide · W</span>
           </span>
         </label>
+        {task && (
+          <label className="picker-option">
+            <input type="checkbox" checked={reviewWhenDone} onChange={() => useUi.getState().set({ reviewWhenDone: !reviewWhenDone })} />
+            <span>
+              Review when it finishes <span className="hint inline">a second Claude reads the changes in plan mode and reports, without editing</span>
+            </span>
+          </label>
+        )}
         <ul className="picker-list launch-list">
           {variants.map((x, i) => {
             const n = counts[x.id] ?? 0;

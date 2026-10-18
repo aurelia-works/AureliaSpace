@@ -10,6 +10,8 @@ export interface Task {
   status: TaskStatus;
   /** Pane this task is attached to, if any. */
   paneId?: string;
+  /** Dispatched with review: a read-only reviewer opens when its agent finishes (lib/dispatch.ts). */
+  review?: "pending" | "started";
   createdAt: number;
 }
 
@@ -22,6 +24,7 @@ interface TasksState {
   remove(project: string, id: string): void;
   attach(project: string, id: string, paneId: string | undefined): void;
   rename(project: string, id: string, title: string): void;
+  setReview(project: string, id: string, review: Task["review"]): void;
 }
 
 const order: TaskStatus[] = ["todo", "doing", "done"];
@@ -49,6 +52,7 @@ export const useTasks = create<TasksState>((set, get) => {
     remove: (project, id) =>
       set((s) => ({ projects: { ...s.projects, [project]: (s.projects[project] ?? []).filter((t) => t.id !== id) } })),
     attach: (project, id, paneId) => update(project, id, (t) => ({ ...t, paneId })),
+    setReview: (project, id, review) => update(project, id, (t) => ({ ...t, review })),
     rename: (project, id, title) => update(project, id, (t) => ({ ...t, title: title.trim() || t.title })),
   };
 });

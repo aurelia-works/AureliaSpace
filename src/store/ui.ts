@@ -33,6 +33,8 @@ interface UiState {
   accountPicker: null | { target: "split" | "tab"; task?: PickerTask };
   /** Give new Claude panes their own git worktree. */
   useWorktree: boolean;
+  /** Tasks started from the picker get a read-only reviewer when their agent finishes. */
+  reviewWhenDone: boolean;
   toast: null | { text: string; error?: boolean; at: number };
   /** Pane whose command-suggestion bar is open. */
   suggestPaneId: string | null;
@@ -59,6 +61,7 @@ export const useUi = create<UiState>((set) => ({
   reviewOpen: false,
   accountPicker: null,
   useWorktree: false,
+  reviewWhenDone: false,
   toast: null,
   suggestPaneId: null,
   composerPaneId: null,
@@ -77,6 +80,7 @@ interface SavedUi {
   filesOpen?: boolean;
   sidebarOpen?: boolean;
   useWorktree?: boolean;
+  reviewWhenDone?: boolean;
   fontDelta?: number;
 }
 
@@ -95,6 +99,7 @@ export async function loadUiState() {
               ? null
               : "projects",
       useWorktree: saved.useWorktree ?? false,
+      reviewWhenDone: saved.reviewWhenDone ?? false,
       fontDelta: saved.fontDelta ?? 0,
     });
   }
@@ -105,6 +110,7 @@ export async function loadUiState() {
       agentPanelOpen: s.agentPanelOpen,
       nav: s.nav,
       useWorktree: s.useWorktree,
+      reviewWhenDone: s.reviewWhenDone,
       fontDelta: s.fontDelta,
     });
     if (next !== last) {
