@@ -10,6 +10,7 @@ import { setHome } from "./lib/format";
 import { ipc } from "./lib/ipc";
 import { applyPaletteVars } from "./lib/palettes";
 import { primeNotifications } from "./lib/notify";
+import { primeSounds } from "./lib/sounds";
 import { startHudBridge } from "./lib/hudBridge";
 import { startControl } from "./lib/control";
 import { startDispatchWatch } from "./lib/dispatch";
@@ -95,6 +96,7 @@ async function boot() {
   startMetrics();
   startVoice().catch(() => {});
   primeNotifications();
+  primeSounds();
   startHudBridge().catch(() => {});
   startRemote().catch(() => {});
   startOutbox();

@@ -11,6 +11,7 @@ import { MyAgentsSection } from "./MyAgentsSection";
 import { RemoteSection } from "./RemoteSection";
 import { RoutinesSection } from "./RoutinesSection";
 import { ShortcutsSection } from "./ShortcutsSection";
+import { SoundsSection } from "./SoundsSection";
 import { SubagentsSection } from "./SubagentsSection";
 import { SuggestionsSection } from "./SuggestionsSection";
 import { VoiceSection } from "./VoiceSection";
@@ -32,6 +33,7 @@ export interface SettingsSection {
 /** Adding a settings section = one entry here plus its component file. */
 export const SECTIONS: SettingsSection[] = [
   { id: "general", label: "General", Component: GeneralSection },
+  { id: "sounds", label: "Sounds", Component: SoundsSection },
   { id: "appearance", label: "Appearance", Component: AppearanceSection },
   { id: "accounts", label: "Accounts", Component: AccountsSection },
   { id: "my-agents", label: "My agents", Component: MyAgentsSection },

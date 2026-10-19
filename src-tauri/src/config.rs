@@ -150,6 +150,54 @@ pub struct HudConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct SoundsConfig {
+    /// Alert sounds play from inside the app, so macOS Focus doesn't mute them.
+    pub enabled: bool,
+    /// 0-100.
+    pub volume: u8,
+    /// Event -> sound id ("glass" | "marimba" | "lantern" | "hourglass" | "pebble" | "off"); see src/lib/sounds.ts.
+    pub events: std::collections::HashMap<String, String>,
+    /// Folder -> (event -> sound id); wins over `events` for panes in that folder.
+    pub projects: std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+}
+
+impl Default for SoundsConfig {
+    fn default() -> Self {
+        let events = [
+            ("needsHelp", "glass"),
+            ("yourTurn", "lantern"),
+            ("finished", "marimba"),
+            ("cacheWarning", "hourglass"),
+            ("cacheExpired", "pebble"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        Self { enabled: true, volume: 70, events, projects: Default::default() }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PushConfig {
+    /// Send alerts to the phone through an ntfy topic while the window isn't focused.
+    pub enabled: bool,
+    /// ntfy server; the public one unless self-hosted.
+    pub server: String,
+    /// Private topic the phone subscribes to; anyone who knows it can read the alerts.
+    pub topic: String,
+    /// Include the project and message; off = a generic "Claude needs you".
+    pub detail: bool,
+}
+
+impl Default for PushConfig {
+    fn default() -> Self {
+        Self { enabled: false, server: "https://ntfy.sh".into(), topic: String::new(), detail: false }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct EffortConfig {
     /// Prompts sent from the composer pick their own effort (effort.rs, lib/effort.ts).
     pub auto: bool,
@@ -230,6 +278,8 @@ pub struct Config {
     /// Named color palette: "aurelia" | "midnight" | "nord" | "solarized" | "rose-pine" | "catppuccin"
     pub palette: String,
     pub notifications: bool,
+    pub sounds: SoundsConfig,
+    pub push: PushConfig,
     /// Command used to open files (receives `path[:line[:col]]`); empty = Cursor, then
     /// VS Code, then the default app.
     pub editor: String,
@@ -269,6 +319,8 @@ impl Default for Config {
             theme: "system".into(),
             palette: "aurelia".into(),
             notifications: true,
+            sounds: SoundsConfig::default(),
+            push: PushConfig::default(),
             editor: String::new(),
             default_workspace: "~".into(),
             terminal: TerminalConfig::default(),

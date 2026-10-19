@@ -401,3 +401,14 @@
 .field.check.inline {
   margin: 0;
 }
+
+/* A project's own sound choices (Settings → Sounds). */
+.set-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}

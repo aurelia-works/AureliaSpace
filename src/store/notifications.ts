@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { notify } from "../lib/notify";
+import { pushAlert } from "../lib/push";
+import { playAlert, type SoundEvent } from "../lib/sounds";
 import { useConfig } from "./config";
 import { activeTab, useLayout } from "./layout";
 import { useUi } from "./ui";
@@ -32,7 +34,19 @@ export interface Notice {
   key?: string;
 }
 
-export type NoticeInput = Omit<Notice, "id" | "at" | "live" | "read" | "sticky"> & { sticky?: boolean };
+export type NoticeInput = Omit<Notice, "id" | "at" | "live" | "read" | "sticky"> & {
+  sticky?: boolean;
+  /** Which alert sound to play; defaults from `kind`. */
+  sound?: SoundEvent;
+};
+
+/** Kinds with a sound of their own unless the caller picks one. */
+const KIND_SOUND: Partial<Record<NoticeKind, SoundEvent>> = {
+  permission: "needsHelp",
+  needs_input: "yourTurn",
+  finished: "finished",
+  cache: "cacheWarning",
+};
 
 const HISTORY = 60;
 const FADE_MS = 6000;
@@ -101,12 +115,15 @@ export function isWatching(paneId?: string): boolean {
  * at the pane; macOS notification too when the window is in the background.
  */
 export function alertUser(input: NoticeInput & { desktop?: boolean }) {
-  const { desktop = true, ...notice } = input;
+  const { desktop = true, sound, ...notice } = input;
   if (isWatching(notice.paneId)) return;
   useNotices.getState().push(notice);
-  if (desktop && !useUi.getState().windowFocused && useConfig.getState().config?.notifications !== false) {
-    void notify(notice.title, notice.body ?? "");
-  }
+  const away = desktop && !useUi.getState().windowFocused;
+  // Sounds and phone alerts don't depend on macOS banners, so Focus can't swallow them.
+  const event = sound ?? KIND_SOUND[notice.kind];
+  if (desktop && event) playAlert(event, notice.paneId ? useLayout.getState().panes[notice.paneId]?.cwd : undefined);
+  if (away) pushAlert(notice.kind, notice.title, notice.body);
+  if (away && useConfig.getState().config?.notifications !== false) void notify(notice.title, notice.body ?? "");
 }
 
 /** Focusing a pane (with the window focused) clears its cards. */

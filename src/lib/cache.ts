@@ -5,8 +5,10 @@ import { useLive, type LiveStatus } from "../store/live";
 import { useMetrics } from "../store/metrics";
 import { alertUser } from "../store/notifications";
 
-/** Amber (and the one-time notification) once this fraction of the TTL is left. */
+/** Amber (and the one-time notification) once this fraction of the TTL is left... */
 export const WARN_FRACTION = 0.15;
+/** ...but never earlier than this long before it cools, so a 1-hour cache warns at 5 minutes. */
+export const WARN_MAX_MS = 5 * 60_000;
 
 export const cacheTtlMs = () => (useConfig.getState().config?.cache?.ttlMinutes === 5 ? 5 : 60) * 60_000;
 
@@ -39,7 +41,7 @@ export function cacheState(s: AgentSession | undefined, now: number, ttl = cache
   const expires = exact ?? s!.lastRequestAt! + ttl;
   const remainingMs = expires - now;
   if (remainingMs <= 0) return { kind: "cold" };
-  return { kind: remainingMs < ttl * WARN_FRACTION ? "warn" : "warm", remainingMs };
+  return { kind: remainingMs < Math.min(ttl * WARN_FRACTION, WARN_MAX_MS) ? "warn" : "warm", remainingMs };
 }
 
 export function formatRemaining(ms: number): string {
@@ -76,9 +78,10 @@ export function useNow(): number {
   return useSyncExternalStore(subscribe, () => now);
 }
 
-/** Desktop notification, once per session per cache window, when an idle agent's cache is about to cool. */
+/** Desktop notification, once per session per cache window, when an idle agent's cache is about to cool, and again when it has. */
 export function startCacheWatch() {
   const notified = new Map<string, number>();
+  const cooled = new Map<string, number>();
   setInterval(() => {
     const cfg = useConfig.getState().config;
     if (!cfg) return;
@@ -87,10 +90,24 @@ export function startCacheWatch() {
     const live = useLive.getState().byPane;
     const metrics = useMetrics.getState().byPane;
     for (const id of notified.keys()) if (!sessions[id]) notified.delete(id);
+    for (const id of cooled.keys()) if (!sessions[id]) cooled.delete(id);
     for (const s of Object.values(sessions)) {
       if (s.status !== "idle" && s.status !== "needs_input") continue;
       const c = cacheState(s, t, cacheTtlFor(s.paneId), live[s.paneId]);
       const stamp = live[s.paneId]?.cache?.expiresAt ?? s.lastRequestAt!;
+      // It went cold after we warned about this same window (so a session restored cold stays quiet).
+      if (c.kind === "cold" && notified.get(s.paneId) === stamp && cooled.get(s.paneId) !== stamp) {
+        cooled.set(s.paneId, stamp);
+        alertUser({
+          kind: "cache",
+          key: `cache:${s.paneId}`,
+          paneId: s.paneId,
+          sound: "cacheExpired",
+          title: `${label(s)}: cache went cold`,
+          body: "The next message will re-write the whole context at a higher cost.",
+        });
+        continue;
+      }
       if (c.kind !== "warn" || notified.get(s.paneId) === stamp) continue;
       // Re-writing a small context is cheap; only a big one is worth an interruption.
       const tokens = live[s.paneId]?.contextTokens ?? metrics[s.paneId]?.contextTokens ?? 0;

@@ -52,6 +52,10 @@ export interface Config {
   theme: "system" | "light" | "dark";
   palette: string;
   notifications: boolean;
+  /** Alert sounds, played in-app so macOS Focus can't mute them (src/lib/sounds.ts). */
+  sounds: { enabled: boolean; volume: number; events: Record<string, string>; projects: Record<string, Record<string, string>> };
+  /** Phone alerts through an ntfy topic (src/lib/push.ts). */
+  push: { enabled: boolean; server: string; topic: string; detail: boolean };
   hud: { enabled: boolean };
   discord: { enabled: boolean; clientId: string; hideProject: boolean };
   /** Account new Claude panes use when none is chosen; empty = ask. */
