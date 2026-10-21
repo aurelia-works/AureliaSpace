@@ -102,6 +102,35 @@ pub fn serve_pty_host() {
     ptyhost::main_entry()
 }
 
+/// macOS 27 starts apps with a soft limit of 256 open files, which every shell in a pane
+/// inherits and which Claude Code refuses to start under. Raise it to what the kernel allows.
+pub fn raise_fd_limit() {
+    #[cfg(unix)]
+    unsafe {
+        let mut lim = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut lim) != 0 {
+            return;
+        }
+        let mut target: libc::rlim_t = 1 << 20;
+        #[cfg(target_os = "macos")]
+        {
+            // setrlimit rejects a soft limit above kern.maxfilesperproc.
+            let mut per_proc: libc::c_int = 0;
+            let mut len = std::mem::size_of::<libc::c_int>();
+            if libc::sysctlbyname(c"kern.maxfilesperproc".as_ptr(), &mut per_proc as *mut _ as *mut _, &mut len, std::ptr::null_mut(), 0) == 0
+                && per_proc > 0
+            {
+                target = target.min(per_proc as libc::rlim_t);
+            }
+        }
+        target = target.min(lim.rlim_max);
+        if target > lim.rlim_cur {
+            lim.rlim_cur = target;
+            libc::setrlimit(libc::RLIMIT_NOFILE, &lim);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()

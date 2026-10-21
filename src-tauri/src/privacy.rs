@@ -4,12 +4,15 @@
 
 use std::process::Command;
 
-/// TCC.db is readable only by processes with Full Disk Access, and the attempt never prompts.
+/// The system TCC folder is readable only by processes with Full Disk Access, and the attempt
+/// never prompts. Only "not permitted" counts as missing: macOS 27 dropped the per-user TCC.db,
+/// so a missing file says nothing about the grant.
 #[tauri::command]
 pub fn has_full_disk_access() -> bool {
-    let Some(home) = std::env::var_os("HOME") else { return true };
-    let db = std::path::Path::new(&home).join("Library/Application Support/com.apple.TCC/TCC.db");
-    std::fs::File::open(db).is_ok()
+    match std::fs::read_dir("/Library/Application Support/com.apple.TCC") {
+        Err(e) => e.kind() != std::io::ErrorKind::PermissionDenied,
+        Ok(_) => true,
+    }
 }
 
 #[tauri::command]
