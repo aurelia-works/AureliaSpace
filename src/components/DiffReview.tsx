@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { sendChat } from "../lib/chat";
 import { parseDiff, type DiffFile, type DiffLine } from "../lib/diff";
 import { basename } from "../lib/format";
 import { ipc, type ReviewResult } from "../lib/ipc";
@@ -204,9 +205,12 @@ export function DiffReview() {
 
   const send = () => {
     if (!target || (!list.length && !note.trim())) return;
-    insertAtPrompt(target, composeMessage(list, note));
-    // Let the bracketed paste land before submitting it.
-    setTimeout(() => writeToPane(target, "\r"), 120);
+    if (useLayout.getState().panes[target]?.mode === "chat") void sendChat(target, composeMessage(list, note));
+    else {
+      insertAtPrompt(target, composeMessage(list, note));
+      // Let the bracketed paste land before submitting it.
+      setTimeout(() => writeToPane(target, "\r"), 120);
+    }
     close();
     useUi.getState().set({ mode: "terminals" });
     useLayout.getState().focusPane(target);

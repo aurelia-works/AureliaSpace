@@ -1,7 +1,7 @@
 import { useAgents } from "../store/agents";
 import { useLayout } from "../store/layout";
 import { toast } from "../store/ui";
-import { setChatMode } from "./chat";
+import { setChatMode, useChat } from "./chat";
 import { screenText, writeToPane } from "./terminals";
 
 export interface ModeInfo {
@@ -48,8 +48,17 @@ function record(paneId: string, mode: string) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Shift+Tab's order in a chat. Bypass stays a deliberate pick in the mode menu. */
+export const CHAT_CYCLE = ["default", "acceptEdits", "plan", "auto"];
+
 /** Presses Shift+Tab in the pane (Claude Code's own mode switch) and records where it landed. */
 export async function cyclePermissionMode(paneId: string): Promise<string> {
+  if (useLayout.getState().panes[paneId]?.mode === "chat") {
+    const mode = CHAT_CYCLE[(CHAT_CYCLE.indexOf(modeKey(useChat.getState().byPane[paneId]?.mode)) + 1) % CHAT_CYCLE.length];
+    await setChatMode(paneId, mode);
+    record(paneId, mode);
+    return mode;
+  }
   writeToPane(paneId, "\x1b[Z");
   await sleep(250);
   const mode = modeFromScreen(paneId);

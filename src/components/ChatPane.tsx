@@ -4,11 +4,11 @@ import type { ChatItem, Segment } from "../lib/chatModel";
 import { fileStats, latestTodos, segments, toolSummary, turnEdits } from "../lib/chatModel";
 import { isLocalUrl, openInBrowserPane } from "../lib/browser";
 import { basename, formatCost, formatDuration, formatTokens } from "../lib/format";
-import { CHAT_DROP } from "../lib/filedrop";
+import { appendText, drafts, registerComposer } from "../lib/chatComposer";
 import { ipc, type ChatImage, type CliModel, type RuleFile, type RuleKind, type SlashCommand } from "../lib/ipc";
 import { renderMarkdown } from "../lib/markdown";
 import { openFile } from "../lib/openFile";
-import { MODES, modeKey } from "../lib/permissionMode";
+import { cyclePermissionMode, MODES, modeKey } from "../lib/permissionMode";
 import { riskOf } from "../lib/risk";
 import { CHAT_FIND } from "../lib/shortcuts";
 import { focusedPaneId, useLayout } from "../store/layout";
@@ -1019,9 +1019,6 @@ function modelName(id?: string): string | undefined {
 
 const cap = (s?: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-/** Unsent text and images per chat, so switching tabs or panes keeps them. */
-const drafts = new Map<string, { text: string; images: ChatImage[] }>();
-
 function ChatComposer({ paneId, busy }: { paneId: string; busy: boolean }) {
   const [text, setText] = useState(() => drafts.get(paneId)?.text ?? "");
   const [images, setImages] = useState<ChatImage[]>(() => drafts.get(paneId)?.images ?? []);
@@ -1101,18 +1098,15 @@ function ChatComposer({ paneId, busy }: { paneId: string; busy: boolean }) {
     ref.current?.focus();
   };
 
-  // Files dropped from Finder go in as paths: Claude reads them, images included.
-  useEffect(() => {
-    const onDrop = (e: Event) => {
-      const { paneId: target, paths } = (e as CustomEvent<{ paneId: string; paths: string[] }>).detail;
-      if (target !== paneId) return;
-      const quoted = paths.map((p) => (/\s/.test(p) ? `"${p}"` : p)).join(" ");
-      setText((t) => (t && !/\s$/.test(t) ? `${t} ` : t) + quoted + " ");
-      ref.current?.focus();
-    };
-    window.addEventListener(CHAT_DROP, onDrop);
-    return () => window.removeEventListener(CHAT_DROP, onDrop);
-  }, [paneId]);
+  // Dictation, dropped files, the files panel and review comments type in here (lib/chatComposer.ts).
+  useEffect(
+    () =>
+      registerComposer(paneId, {
+        insert: (t) => setText((cur) => appendText(cur, t)),
+        focus: () => ref.current?.focus(),
+      }),
+    [paneId],
+  );
 
   // Only the focused pane takes the keyboard (a restored layout may hold several chats).
   useEffect(() => {
@@ -1180,10 +1174,9 @@ function ChatComposer({ paneId, busy }: { paneId: string; busy: boolean }) {
             e.preventDefault();
             send();
           } else if (e.key === "Tab" && e.shiftKey && e.target === ref.current) {
-            // Claude Code's own mode cycle. Bypass stays a deliberate pick in the mode menu.
+            // Claude Code's own mode cycle.
             e.preventDefault();
-            const cycle = ["default", "acceptEdits", "plan", "auto"];
-            void setChatMode(paneId, cycle[(cycle.indexOf(mode) + 1) % cycle.length]);
+            void cyclePermissionMode(paneId);
           } else if (e.key === "Escape" && busy && e.target === ref.current) {
             e.preventDefault();
             interruptChat(paneId);

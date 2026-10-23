@@ -292,6 +292,8 @@ export const ipc = {
     resume?: string;
     /** With `resume`: continue a copy cut at this entry (editing an earlier message). */
     resumeAt?: string;
+    /** With `resume`: continue a copy of the whole conversation as a new session. */
+    fork?: boolean;
     /** "opus", "sonnet", "haiku" or "default"; effort "low" … "max" or "default". */
     model?: string;
     effort?: string;

@@ -11,6 +11,8 @@ import { useRecents } from "../store/recents";
 import { useRuntime } from "../store/runtime";
 import { useUi } from "../store/ui";
 import { BlockTracker } from "./blocks";
+import { sendChat, useChat } from "./chat";
+import { focusChat, insertIntoChat } from "./chatComposer";
 import { forgetInput, interceptInput } from "./inlineEffort";
 import { ipc } from "./ipc";
 import { installLinks } from "./links";
@@ -275,8 +277,12 @@ export function fitAllTerminals() {
   for (const id of entries.keys()) fitTerminal(id);
 }
 
+const isChat = (paneId: string) => useLayout.getState().panes[paneId]?.mode === "chat";
+
+/** Keyboard focus to the pane: its terminal, or a chat's composer. */
 export function focusTerminal(paneId: string) {
-  entries.get(paneId)?.term.focus();
+  if (isChat(paneId)) focusChat(paneId);
+  else entries.get(paneId)?.term.focus();
 }
 
 export function writeToPane(paneId: string, data: string) {
@@ -292,6 +298,11 @@ export function showPane(paneId: string) {
 
 /** Types a message into a pane as one paste and submits it, without moving focus. */
 export function submitToPane(paneId: string, text: string) {
+  if (isChat(paneId)) {
+    if (useChat.getState().byPane[paneId]?.status === "exited") return false;
+    void sendChat(paneId, text);
+    return true;
+  }
   const entry = entries.get(paneId);
   if (!entry?.spawned) return false;
   const body = entry.term.modes.bracketedPasteMode ? `\x1b[200~${text}\x1b[201~` : text.replace(/\s*\n\s*/g, " ");
@@ -313,6 +324,11 @@ export function screenText(paneId: string): string {
 
 /** Inserts text at the prompt without running it (bracketed paste when available). */
 export function insertAtPrompt(paneId: string, text: string) {
+  if (isChat(paneId)) {
+    insertIntoChat(paneId, text);
+    focusChat(paneId);
+    return;
+  }
   const entry = entries.get(paneId);
   if (!entry) return;
   const safe = entry.term.modes.bracketedPasteMode ? text : text.replace(/\s*\n\s*/g, " ");

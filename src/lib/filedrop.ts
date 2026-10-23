@@ -1,13 +1,12 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useLayout } from "../store/layout";
+import { focusChat, insertIntoChat } from "./chatComposer";
 import { insertAtPrompt } from "./terminals";
 
 /** Backslash-escapes a path for zsh, the way Terminal.app and iTerm do on drop. */
 export function shellEscape(path: string) {
   return path.replace(/[^A-Za-z0-9_\-.,:/@+=%~]/g, "\\$&");
 }
-
-export const CHAT_DROP = "aurelia-chat-drop";
 
 let hovered: HTMLElement | null = null;
 
@@ -42,9 +41,11 @@ export async function installFileDrop() {
       const paneId = paneAt(p.position)?.dataset.paneId;
       if (!paneId || p.paths.length === 0) return;
       useLayout.getState().focusPane(paneId);
-      // A chat's composer takes the paths itself (ChatPane listens).
-      if (useLayout.getState().panes[paneId]?.mode === "chat") window.dispatchEvent(new CustomEvent(CHAT_DROP, { detail: { paneId, paths: p.paths } }));
-      else insertAtPrompt(paneId, p.paths.map(shellEscape).join(" ") + " ");
+      // A chat takes them quoted, not escaped: Claude reads them, images included.
+      if (useLayout.getState().panes[paneId]?.mode === "chat") {
+        insertIntoChat(paneId, p.paths.map((f) => (/\s/.test(f) ? `"${f}"` : f)).join(" ") + " ");
+        focusChat(paneId);
+      } else insertAtPrompt(paneId, p.paths.map(shellEscape).join(" ") + " ");
     }
   });
 }

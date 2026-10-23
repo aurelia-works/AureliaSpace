@@ -1,6 +1,7 @@
 import { useAgents } from "../store/agents";
 import { useLayout } from "../store/layout";
 import { toast } from "../store/ui";
+import { forkChat } from "./chat";
 import { shellQuote } from "./launch";
 import { queueInit } from "./terminals";
 
@@ -12,6 +13,11 @@ export function forkConversation(paneId: string): string | null {
   const layout = useLayout.getState();
   const pane = layout.panes[paneId];
   const agent = useAgents.getState().sessions[paneId];
+  if (pane?.mode === "chat") {
+    const id = forkChat(paneId);
+    if (!id) toast("No conversation to fork in this chat yet", true);
+    return id;
+  }
   if (!pane || !agent?.sessionId) {
     toast("No Claude conversation to fork in this pane yet", true);
     return null;

@@ -79,6 +79,9 @@ function flush() {
   for (const [paneId, events] of batch) patch(paneId, (s) => events.reduce((acc, ev) => reduce(paneId, acc, ev), s));
 }
 
+/** A fork's new session id, held until its first turn ends. */
+const forkIds = new Map<string, string>();
+
 function reduce(paneId: string, s: ChatSession, ev: ChatEvent): ChatSession {
   switch (ev.type) {
     case "raw":
@@ -106,6 +109,11 @@ function reduce(paneId: string, s: ChatSession, ev: ChatEvent): ChatSession {
       return { ...s, approvals: [...s.approvals, { id: ev.id, tool: ev.tool, input: ev.input, description: ev.description }] };
     case "turnEnd": {
       void refreshContext(paneId);
+      const forked = forkIds.get(paneId);
+      if (forked) {
+        forkIds.delete(paneId);
+        queueMicrotask(() => useLayout.getState().updatePane(paneId, { claudeSession: forked, chatFork: undefined }));
+      }
       const u = ev.usage;
       const tokens = u ? u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheWriteTokens : 0;
       const [next, ...queued] = s.queued;
@@ -126,9 +134,13 @@ function reduce(paneId: string, s: ChatSession, ev: ChatEvent): ChatSession {
       useAgents.getState().remove(paneId);
       return { ...s, status: "exited", approvals: [], queued: [], transcript: addNotice(endStreaming(s.transcript), why, !!ev.code) };
     }
-    case "session":
-      if (useLayout.getState().panes[paneId]?.claudeSession !== ev.id) useLayout.getState().updatePane(paneId, { claudeSession: ev.id });
+    case "session": {
+      const pane = useLayout.getState().panes[paneId];
+      // A fork's own transcript exists only once its first turn is saved; until then a restart resumes the original as a copy again.
+      if (pane?.chatFork) forkIds.set(paneId, ev.id);
+      else if (pane && pane.claudeSession !== ev.id) useLayout.getState().updatePane(paneId, { claudeSession: ev.id });
       return s;
+    }
   }
 }
 
@@ -144,6 +156,10 @@ function reportedMode(paneId: string, m: Record<string, any>): string | undefine
   const mode = m.type === "system" ? m.permissionMode : m.type === "control_response" ? m.response?.response?.mode : undefined;
   if (typeof mode !== "string") return undefined;
   if (useLayout.getState().panes[paneId]?.chatPermission !== mode) useLayout.getState().updatePane(paneId, { chatPermission: mode });
+  // The ⌘J board and HUD read the agent's mode; hooks only report it on their next event.
+  const agent = useAgents.getState().sessions[paneId];
+  if (agent && agent.permissionMode !== mode)
+    queueMicrotask(() => useAgents.setState((st) => (st.sessions[paneId] ? { sessions: { ...st.sessions, [paneId]: { ...st.sessions[paneId], permissionMode: mode } } } : st)));
   return mode;
 }
 
@@ -180,6 +196,7 @@ export async function ensureChat(pane: PaneMeta) {
   let resume = pane.claudeSession;
   const branch = branches.get(pane.id);
   branches.delete(pane.id);
+  const fork = !!pane.chatFork;
   if (resume) {
     let lines = await ipc.chatHistory(pane.account, pane.cwd ?? "~", resume).catch(() => null);
     // A branch shows the conversation up to the edited message.
@@ -203,7 +220,7 @@ export async function ensureChat(pane: PaneMeta) {
   const ch = new Channel<ChatEvent>();
   ch.onmessage = (ev) => onEvent(pane.id, token, ev);
   try {
-    const r = await ipc.chatSpawn({ paneId: pane.id, cwd: pane.cwd, account: pane.account, env: pane.env, secretEnv: pane.secretEnv, resume, resumeAt: resume ? branch?.at : undefined, model: real(chatPicks(pane).model),
+    const r = await ipc.chatSpawn({ paneId: pane.id, cwd: pane.cwd, account: pane.account, env: pane.env, secretEnv: pane.secretEnv, resume, resumeAt: resume ? branch?.at : undefined, fork: !!resume && fork, model: real(chatPicks(pane).model),
       effort: real(chatPicks(pane).effort),
       permissionMode: pane.chatPermission || getConfig().claudePermissionMode || undefined,
       onEvent: ch,
@@ -232,7 +249,19 @@ export async function ensureChat(pane: PaneMeta) {
   }
 }
 
-/** Starts the chat again after Claude stopped; `fresh` drops the old conversation. */
+/**
+ * Forks a chat (T3 Chat style): a new chat beside it continues a copy of the same
+ * conversation (`--fork-session`), so both can go different ways.
+ */
+export function forkChat(paneId: string): string | null {
+  const layout = useLayout.getState();
+  const pane = layout.panes[paneId];
+  if (!pane?.claudeSession) return null;
+  const id = layout.splitPane(paneId, "row", { account: pane.account, cwd: pane.cwd, mode: "chat" });
+  layout.updatePane(id, { claudeSession: pane.claudeSession, chatFork: true, chatUsed: true, chatModel: pane.chatModel, chatEffort: pane.chatEffort, chatPermission: pane.chatPermission });
+  return id;
+}
+
 /** Chats about to restart as a branch: cut at `at` (the entry before message `before`). */
 const branches = new Map<string, { at: string; before: string }>();
 
@@ -256,9 +285,15 @@ export async function branchChat(paneId: string, uuid: string, text: string, und
   }
 }
 
-export function restartChat(paneId: string, fresh = false) {
-  ipc.chatKill(paneId).catch(() => {});
+/** Starts the chat again after Claude stopped; `fresh` drops the old conversation. */
+/** Stops the pane's Claude and ignores anything it still says; ensureChat starts it again. */
+export function stopChat(paneId: string) {
   spawns.delete(paneId);
+  return ipc.chatKill(paneId).catch(() => {});
+}
+
+export function restartChat(paneId: string, fresh = false) {
+  void stopChat(paneId);
   if (fresh) useLayout.getState().updatePane(paneId, { claudeSession: undefined });
   const pane = useLayout.getState().panes[paneId];
   if (pane) ensureChat(pane);
@@ -456,6 +491,7 @@ onPanesClosed((ids) =>
     configPending.delete(id);
     appliedEffort.delete(id);
     sending.delete(id);
+    forkIds.delete(id);
     useChat.setState((st) => {
       const byPane = { ...st.byPane };
       delete byPane[id];

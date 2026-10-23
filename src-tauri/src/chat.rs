@@ -340,7 +340,7 @@ fn chat(state: &ChatState, pane_id: &str) -> Result<Arc<Chat>, String> {
 
 /// The CLI's command line, run through the login shell so it gets the user's PATH (an app
 /// started from Finder has launchd's minimal one) just like in a terminal pane.
-fn command(cfg: &config::Config, resume: Option<&str>, resume_at: Option<&str>, model: Option<&str>, effort: Option<&str>, mode: Option<&str>) -> Vec<String> {
+fn command(cfg: &config::Config, resume: Option<&str>, resume_at: Option<&str>, fork: bool, model: Option<&str>, effort: Option<&str>, mode: Option<&str>) -> Vec<String> {
     let paths = integration::paths();
     let bin = crate::which::locate("claude").map_or("claude".into(), |p| p.to_string_lossy().into_owned());
     let mut cmd = vec![crate::pty::default_shell(cfg), "-l".into(), "-c".into(), "exec \"$0\" \"$@\"".into(), bin];
@@ -365,6 +365,9 @@ fn command(cfg: &config::Config, resume: Option<&str>, resume_at: Option<&str>, 
         // Editing an earlier message: a copy of the conversation cut just before it.
         if let Some(at) = resume_at {
             cmd.extend(["--resume-session-at".into(), at.into(), "--fork-session".into()]);
+        } else if fork {
+            // Forking a chat: the whole conversation, as a new session beside the old one.
+            cmd.push("--fork-session".into());
         }
     }
     if let Some(m) = model.filter(|m| *m != "default") {
@@ -398,6 +401,7 @@ pub fn chat_spawn(
     secret_env: Option<HashMap<String, String>>,
     resume: Option<String>,
     resume_at: Option<String>,
+    fork: Option<bool>,
     model: Option<String>,
     effort: Option<String>,
     permission_mode: Option<String>,
@@ -413,7 +417,7 @@ pub fn chat_spawn(
     let dir = crate::pty::pane_dir(&cfg, cwd);
     let vars = crate::pty::pane_env(&cfg, &pane_id, account, env, secret_env)?;
     let resume = resume.filter(|r| !r.is_empty());
-    let argv = command(&cfg, resume.as_deref(), resume_at.as_deref().filter(|a| !a.is_empty()), model.as_deref(), effort.as_deref(), permission_mode.as_deref());
+    let argv = command(&cfg, resume.as_deref(), resume_at.as_deref().filter(|a| !a.is_empty()), fork.unwrap_or(false), model.as_deref(), effort.as_deref(), permission_mode.as_deref());
     let mut child: Child = Command::new(&argv[0])
         .args(&argv[1..])
         .current_dir(&dir)
@@ -747,10 +751,12 @@ mod tests {
         assert_eq!(parent_of(&text, "u1").unwrap(), None);
         assert!(parent_of(&text, "nope").is_err());
         let cfg = config::Config::default();
-        let argv = command(&cfg, Some("s1"), Some("a1"), None, None, None);
+        let argv = command(&cfg, Some("s1"), Some("a1"), false, None, None, None);
         assert!(argv.windows(4).any(|w| w == ["--resume", "s1", "--resume-session-at", "a1"]));
         assert!(argv.contains(&"--fork-session".to_string()));
-        assert!(!command(&cfg, None, Some("a1"), None, None, None).contains(&"--fork-session".to_string()), "nothing to fork without a session");
+        assert!(!command(&cfg, None, Some("a1"), true, None, None, None).contains(&"--fork-session".to_string()), "nothing to fork without a session");
+        let forked = command(&cfg, Some("s1"), None, true, None, None, None);
+        assert!(forked.windows(3).any(|w| w == ["--resume", "s1", "--fork-session"]));
     }
 
     #[test]
@@ -824,7 +830,7 @@ mod tests {
     #[ignore]
     fn live_claude_turn() {
         let cfg = config::Config::default();
-        let argv = command(&cfg, None, None, None, None, None);
+        let argv = command(&cfg, None, None, false, None, None, None);
         let mut vars = crate::pty::pane_env(&cfg, "pane-smoke", None, None, None).unwrap();
         // Launched from Finder, the app only has launchd's PATH; the login shell must fix it.
         vars.insert("PATH".into(), "/usr/bin:/bin:/usr/sbin:/sbin".into());

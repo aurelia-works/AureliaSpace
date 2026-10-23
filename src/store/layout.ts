@@ -34,6 +34,8 @@ export interface PaneMeta {
   chatStyle?: string;
   /** A message was sent here, so a missing transcript on restart means it was lost (not just never written). */
   chatUsed?: boolean;
+  /** A forked chat: `claudeSession` is the original's, resumed as a copy until the fork's first turn is saved. */
+  chatFork?: boolean;
   /** A chat pane's permission mode, so a restarted chat comes back in it. */
   chatPermission?: string;
   /** A file editor pane (components/EditorPane.tsx) instead of a terminal; line:col is where it opened. */

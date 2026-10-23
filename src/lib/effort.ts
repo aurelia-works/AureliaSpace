@@ -88,7 +88,8 @@ export function recordPick(paneId: string, pick: EffortPick, switched: boolean) 
 
 export async function sendPrompt(paneId: string, text: string, override?: EffortLevel): Promise<SendResult> {
   const pane = useLayout.getState().panes[paneId];
-  if (!canPickEffort(paneId, !!override)) return { sent: submitToPane(paneId, text) };
+  // A chat picks its own effort when it sends (lib/chat.ts); key presses would go nowhere.
+  if (pane?.mode === "chat" || !canPickEffort(paneId, !!override)) return { sent: submitToPane(paneId, text) };
 
   const pick: EffortPick = override
     ? { level: override, source: "rules", why: "your choice", pending: false }
