@@ -97,6 +97,35 @@ export const ReplyIcon = (p: SVGProps<SVGSVGElement>) => (
 export const ArrowIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M3 8h10M9 4l4 4-4 4" /></svg>
 );
+export const ChevronIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M6 4l4 4-4 4" /></svg>
+);
+export const ArrowUpIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M8 13V3M4 7l4-4 4 4" /></svg>
+);
+export const StopIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" stroke="none" /></svg>
+);
+export const FileIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 2.5h5l3 3v8H4z" /><path d="M9 2.5v3h3" /></svg>
+);
+export const CheckIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M3.5 8.5l3 3 6-7" /></svg>
+);
+export const PenIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M10.5 3l2.5 2.5L6 12.5H3.5V10z" /><path d="M9 4.5l2.5 2.5" /></svg>
+);
+export const ShieldIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M8 1.8l5 1.9v4c0 3.1-2.1 5.4-5 6.5-2.9-1.1-5-3.4-5-6.5v-4z" /></svg>
+);
+/** Effort: bars filled up to `level` (0 = the account's default). */
+export const GaugeIcon = ({ level = 0, ...p }: SVGProps<SVGSVGElement> & { level?: number }) => (
+  <svg {...base(p)} stroke="none" fill="currentColor">
+    {[0, 1, 2, 3, 4].map((i) => (
+      <rect key={i} x={1.5 + i * 2.8} y={11 - i * 2} width={2} height={3 + i * 2} rx={0.6} opacity={level === 0 ? 0.55 : i < level ? 1 : 0.25} />
+    ))}
+  </svg>
+);
 
 /** The Aurelia jellyfish from assets/logo.svg, simplified for 16-20px. */
 export const AureliaMark = (p: SVGProps<SVGSVGElement>) => (

@@ -87,6 +87,13 @@ export function StartScreen({ paneId }: { paneId: string }) {
       logo: "more",
       run: () => void launchTeam(t),
     })),
+    {
+      key: "chat",
+      label: `Claude chat · ${preferred}`,
+      hint: "a conversation view, no terminal",
+      logo: "claude",
+      run: () => updatePane(paneId, { account: preferred, mode: "chat", launcher: undefined }),
+    },
     // The folder's preferred account (workspace override, else the default) comes first.
     ...[...accounts].sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred)).map((a) => ({
       key: `acct-${a.name}`,

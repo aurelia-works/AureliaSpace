@@ -7,6 +7,8 @@ export function shellEscape(path: string) {
   return path.replace(/[^A-Za-z0-9_\-.,:/@+=%~]/g, "\\$&");
 }
 
+export const CHAT_DROP = "aurelia-chat-drop";
+
 let hovered: HTMLElement | null = null;
 
 function setHovered(el: HTMLElement | null) {
@@ -25,7 +27,8 @@ function paneAt(position: { x: number; y: number }): HTMLElement | null {
 
 /**
  * Tauri's native drag-drop handler swallows file drops before the webview sees them,
- * so files dropped on a pane are turned into escaped paths typed at its prompt.
+ * so files dropped on a pane are turned into escaped paths typed at its prompt, or put
+ * in a chat's message.
  */
 export async function installFileDrop() {
   await getCurrentWebview().onDragDropEvent((event) => {
@@ -39,7 +42,9 @@ export async function installFileDrop() {
       const paneId = paneAt(p.position)?.dataset.paneId;
       if (!paneId || p.paths.length === 0) return;
       useLayout.getState().focusPane(paneId);
-      insertAtPrompt(paneId, p.paths.map(shellEscape).join(" ") + " ");
+      // A chat's composer takes the paths itself (ChatPane listens).
+      if (useLayout.getState().panes[paneId]?.mode === "chat") window.dispatchEvent(new CustomEvent(CHAT_DROP, { detail: { paneId, paths: p.paths } }));
+      else insertAtPrompt(paneId, p.paths.map(shellEscape).join(" ") + " ");
     }
   });
 }

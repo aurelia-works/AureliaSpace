@@ -56,7 +56,8 @@ pub fn tools() -> Vec<Value> {
                 "properties": {
                     "prompt": { "type": "string" },
                     "cwd": { "type": "string" },
-                    "account": { "type": "string" }
+                    "account": { "type": "string" },
+                    "view": { "type": "string", "enum": ["chat", "terminal"], "description": "chat (default): Claude drawn as a conversation; terminal: Claude's own TUI" }
                 },
                 "required": ["prompt"]
             }

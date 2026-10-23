@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-dev="%VITE_AURELIA_DEV%">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -86,6 +86,50 @@
         opacity: 0;
         animation: mote linear infinite;
       }
+      /* Dev build (VITE_AURELIA_DEV=1): binary rain behind the mark, a DEV sash, "Dev" in the name. */
+      #splash .rain {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.45;
+        display: none;
+      }
+      html[data-dev="1"] #splash .rain { display: block; }
+      html[data-dev="1"] #splash .mote { display: none; }
+      #splash .jelly-wrap {
+        position: relative;
+      }
+      #splash .sash {
+        display: none;
+        position: absolute;
+        top: 2px;
+        right: -12px;
+        width: 64px;
+        height: 64px;
+        overflow: hidden;
+        animation: letter 0.4s ease-out 0.9s both;
+      }
+      html[data-dev="1"] #splash .sash { display: block; }
+      #splash .sash span {
+        position: absolute;
+        top: 15px;
+        right: -24px;
+        width: 100px;
+        rotate: 45deg;
+        background: #62c6de;
+        color: #0d0c11;
+        font: 800 11px/17px -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+        letter-spacing: 0.16em;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      }
+      #splash .name .dev {
+        color: #62c6de;
+      }
+      #splash .stage-fg {
+        position: relative;
+      }
       @keyframes jelly-rise {
         from { opacity: 0; transform: translateY(40px) scale(0.85); }
         to { opacity: 1; transform: none; }
@@ -122,7 +166,9 @@
   </head>
   <body>
     <div id="splash" aria-hidden="true">
-      <div class="splash-stage">
+      <canvas class="rain"></canvas>
+      <div class="splash-stage stage-fg">
+        <div class="jelly-wrap">
         <svg class="jelly" viewBox="0 0 120 120">
           <defs>
             <linearGradient id="sp-gold" x1="0" y1="0" x2="1" y2="1">
@@ -147,19 +193,84 @@
             <path class="tentacle" d="M86 68c3 10-4 17 0 30" />
           </g>
         </svg>
+        <div class="sash"><span>DEV</span></div>
+        </div>
         <div class="name"></div>
       </div>
     </div>
     <script>
+      /** Columns of falling 0s and 1s, a shade lighter than the splash; still frame under reduced motion. */
+      function rain(canvas) {
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const size = 14;
+        const light = matchMedia("(prefers-color-scheme: light)").matches;
+        const ink = light ? "#b9b1a2" : "#3a3546";
+        const head = light ? "#8f8676" : "#6b6380";
+        let cols = [];
+        let rows = 0;
+        let bits = new Uint8Array(0);
+        const fit = () => {
+          canvas.width = innerWidth * dpr;
+          canvas.height = innerHeight * dpr;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.font = `600 ${size - 2}px ui-monospace, "SF Mono", Menlo, monospace`;
+          rows = Math.ceil(innerHeight / size) + 2;
+          bits = Uint8Array.from({ length: Math.ceil(innerWidth / size) * rows }, () => Math.random() < 0.5);
+          cols = Array.from({ length: Math.ceil(innerWidth / size) }, () => ({
+            y: Math.random() * innerHeight,
+            speed: 0.6 + Math.random() * 1.6,
+            len: 8 + Math.floor(Math.random() * 22),
+          }));
+        };
+        const draw = () => {
+          ctx.clearRect(0, 0, innerWidth, innerHeight);
+          cols.forEach((c, i) => {
+            for (let k = 0; k < c.len; k++) {
+              const y = c.y - k * size;
+              if (y < -size || y > innerHeight + size) continue;
+              ctx.globalAlpha = k === 0 ? 1 : 1 - k / c.len;
+              ctx.fillStyle = k === 0 ? head : ink;
+              ctx.fillText(bits[i * rows + Math.max(0, Math.floor(y / size))] ? "1" : "0", i * size, y);
+            }
+          });
+          ctx.globalAlpha = 1;
+        };
+        fit();
+        addEventListener("resize", fit);
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches) return draw();
+        let last = 0;
+        const tick = (t) => {
+          if (!canvas.isConnected) return removeEventListener("resize", fit);
+          if (t - last > 50) {
+            last = t;
+            for (let n = 0; n < bits.length / 40; n++) bits[(Math.random() * bits.length) | 0] ^= 1;
+            cols.forEach((c) => {
+              c.y += c.speed * size * 0.5;
+              if (c.y - c.len * size > innerHeight) {
+                c.y = -Math.random() * innerHeight * 0.3;
+                c.speed = 0.6 + Math.random() * 1.6;
+              }
+            });
+            draw();
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
       (() => {
+        const dev = document.documentElement.dataset.dev === "1";
+        if (dev) document.title = "AureliaSpace Dev";
         const name = document.querySelector("#splash .name");
-        "AureliaSpace".split("").forEach((ch, i) => {
+        (dev ? "AureliaSpace Dev" : "AureliaSpace").split("").forEach((ch, i) => {
           const s = document.createElement("span");
-          s.textContent = ch;
+          s.textContent = ch === " " ? "\u00a0" : ch;
           s.style.setProperty("--i", i);
-          if (i >= 7) s.className = "gold";
+          if (i >= 13) s.className = "dev";
+          else if (i >= 7) s.className = "gold";
           name.appendChild(s);
         });
+        if (dev) rain(document.querySelector("#splash .rain"));
         const splash = document.getElementById("splash");
         for (let i = 0; i < 14; i++) {
           const m = document.createElement("div");

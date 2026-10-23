@@ -17,6 +17,53 @@ pub struct Entry {
     dir: bool,
 }
 
+/// Files a chat's @ menu offers.
+const MAX_PROJECT_FILES: usize = 20_000;
+/// Folders a plain walk (no git) never enters.
+const WALK_SKIP: [&str; 8] = [".git", "node_modules", "target", "build", "dist", ".next", "DerivedData", ".venv"];
+
+/// A project's files, relative to `cwd`, for @ mentions: git's own list (tracked plus
+/// untracked, minus ignored) in a repo, otherwise a bounded walk.
+#[tauri::command]
+pub async fn project_files(cwd: String) -> Vec<String> {
+    let root = PathBuf::from(expand_path(&cwd));
+    tauri::async_runtime::spawn_blocking(move || git_files(&root).unwrap_or_else(|| walk_files(&root)))
+        .await
+        .unwrap_or_default()
+}
+
+fn git_files(root: &Path) -> Option<Vec<String>> {
+    let out = Command::new("git").args(["ls-files", "-co", "--exclude-standard", "-z"]).current_dir(root).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    Some(text.split('\0').filter(|f| !f.is_empty()).take(MAX_PROJECT_FILES).map(String::from).collect())
+}
+
+fn walk_files(root: &Path) -> Vec<String> {
+    let mut out = vec![];
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        for e in entries.filter_map(|e| e.ok()) {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let Ok(kind) = e.file_type() else { continue };
+            if kind.is_dir() {
+                if !WALK_SKIP.contains(&name.as_str()) && !name.starts_with('.') {
+                    stack.push(e.path());
+                }
+            } else if let Ok(rel) = e.path().strip_prefix(root) {
+                out.push(rel.to_string_lossy().into_owned());
+                if out.len() >= MAX_PROJECT_FILES {
+                    return out;
+                }
+            }
+        }
+    }
+    out
+}
+
 #[tauri::command]
 pub fn list_dir(path: String) -> Result<Vec<Entry>, String> {
     let dir = PathBuf::from(expand_path(&path));
@@ -127,4 +174,25 @@ pub async fn snap_capture() -> Result<Option<String>, String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_plain_walk_skips_build_folders_and_dot_folders() {
+        let root = std::env::temp_dir().join(format!("aurelia-walk-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        for d in ["src", "node_modules/x", ".cache"] {
+            fs::create_dir_all(root.join(d)).unwrap();
+        }
+        for f in ["src/a.ts", "node_modules/x/b.js", ".cache/c", "README.md"] {
+            fs::write(root.join(f), "").unwrap();
+        }
+        let mut got = walk_files(&root);
+        got.sort();
+        assert_eq!(got, ["README.md", "src/a.ts"]);
+        let _ = fs::remove_dir_all(&root);
+    }
 }

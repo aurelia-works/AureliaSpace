@@ -27,8 +27,19 @@ export interface PaneMeta {
   browser?: { url: string };
   /** The Claude conversation this pane last ran, reopened when the app restores the layout. */
   claudeSession?: string;
+  /** A chat pane's model and effort picks ("default" or unset: the account's settings). */
+  chatModel?: string;
+  chatEffort?: string;
+  /** Claude Code output style for this chat (Concise, Explanatory…); unset keeps the account's. */
+  chatStyle?: string;
+  /** A message was sent here, so a missing transcript on restart means it was lost (not just never written). */
+  chatUsed?: boolean;
+  /** A chat pane's permission mode, so a restarted chat comes back in it. */
+  chatPermission?: string;
   /** A file editor pane (components/EditorPane.tsx) instead of a terminal; line:col is where it opened. */
   editor?: EditorTarget;
+  /** "chat": Claude Code drawn as a conversation (components/ChatPane.tsx) instead of a terminal. */
+  mode?: "chat" | "terminal";
 }
 
 export interface EditorTarget {
@@ -55,6 +66,8 @@ export interface NewPaneOpts {
   browserUrl?: string;
   /** Opens a file in an editor pane instead of a terminal. */
   editor?: EditorTarget;
+  /** "chat" opens a Claude chat pane instead of a terminal. */
+  mode?: "chat" | "terminal";
 }
 
 interface LayoutState {
@@ -133,6 +146,7 @@ function makePane(opts?: NewPaneOpts): PaneMeta {
     launcher: opts?.launcher || undefined,
     browser: opts?.browserUrl !== undefined ? { url: opts.browserUrl } : undefined,
     editor: opts?.editor,
+    mode: opts?.mode === "chat" ? "chat" : undefined,
   };
 }
 

@@ -10,8 +10,20 @@ pub fn home_dir() -> PathBuf {
     PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into()))
 }
 
-pub fn app_dir() -> PathBuf {
+/// The installed app's folder. Dev builds (`tauri dev`, and "AureliaSpace Dev" from
+/// `npm run app:build:dev`) keep their layout, sockets, hooks and checkpoints in their own
+/// folder, so they run next to the installed app without taking its voice socket or
+/// overwriting its saved layout. Only config.json (accounts, settings) is shared.
+fn installed_dir() -> PathBuf {
     home_dir().join("Library/Application Support/AureliaSpace")
+}
+
+pub fn app_dir() -> PathBuf {
+    if cfg!(debug_assertions) {
+        home_dir().join("Library/Application Support/AureliaSpace Dev")
+    } else {
+        installed_dir()
+    }
 }
 
 /// Expands a leading `~` and strips trailing slashes, so the result matches the
@@ -369,7 +381,7 @@ fn detect_accounts() -> Vec<Account> {
 }
 
 pub fn config_path() -> PathBuf {
-    app_dir().join("config.json")
+    installed_dir().join("config.json")
 }
 
 /// Loads config, writing the default file on first run. A malformed file falls back

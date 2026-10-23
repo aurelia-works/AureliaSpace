@@ -5,6 +5,7 @@ import { useUi } from "../store/ui";
 import { useAgents } from "../store/agents";
 import { BlockOverlay } from "./BlockOverlay";
 import { BrowserPane } from "./BrowserPane";
+import { ChatPane } from "./ChatPane";
 import { Composer } from "./Composer";
 import { EditorPane } from "./EditorPane";
 import { DropIndicator, usePaneDrag } from "./PaneDrag";
@@ -20,6 +21,7 @@ export function PaneView({ paneId }: { paneId: string }) {
   const launcher = useLayout((s) => !!s.panes[paneId]?.launcher);
   const isBrowser = useLayout((s) => !!s.panes[paneId]?.browser);
   const isEditor = useLayout((s) => !!s.panes[paneId]?.editor);
+  const isChat = useLayout((s) => s.panes[paneId]?.mode === "chat");
   const suggestOpen = useUi((s) => s.suggestPaneId === paneId);
   const composerOpen = useUi((s) => s.composerPaneId === paneId);
   const dragging = usePaneDrag((s) => s.paneId === paneId);
@@ -32,7 +34,7 @@ export function PaneView({ paneId }: { paneId: string }) {
   useLayoutEffect(() => {
     const el = bodyRef.current;
     const pane = useLayout.getState().panes[paneId];
-    if (!el || !pane || pane.launcher || pane.browser || pane.editor) return;
+    if (!el || !pane || pane.launcher || pane.browser || pane.editor || pane.mode === "chat") return;
     ensureTerminal(pane);
     attachTerminal(paneId, el);
     let frame = 0;
@@ -65,6 +67,8 @@ export function PaneView({ paneId }: { paneId: string }) {
           <EditorPane paneId={paneId} />
         ) : launcher ? (
           <StartScreen paneId={paneId} />
+        ) : isChat ? (
+          <ChatPane paneId={paneId} />
         ) : (
           <>
             <div className="term-wrap">

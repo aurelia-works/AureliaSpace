@@ -203,6 +203,67 @@ export interface SuggestRequest {
   lastOutput?: string;
 }
 
+/** What src-tauri/src/chat.rs sends a chat pane. */
+export type ChatEvent =
+  | { type: "raw"; msg: Record<string, unknown> }
+  | { type: "session"; id: string }
+  | { type: "status"; status: "working" | "waiting" | "idle" }
+  | { type: "approval"; id: string; tool: string; input: Record<string, unknown>; description?: string | null }
+  | { type: "turnEnd"; outcome: "completed" | "interrupted" | "failed"; error?: string | null; usage?: ChatUsage | null; durationMs?: number | null }
+  | { type: "controlError"; error: string }
+  | { type: "exit"; code?: number | null; stderr: string };
+
+/** A slash command the chat's CLI knows: built-in, custom command or skill. */
+export type RuleKind = "allow" | "ask" | "deny";
+
+/** One settings file's saved permission rules (src-tauri/src/rules.rs). */
+export interface RuleFile {
+  scope: "local" | "project" | "user";
+  path: string;
+  allow: string[];
+  ask: string[];
+  deny: string[];
+}
+
+/** A pasted image, sent to Claude as a base64 block. */
+export interface ChatImage {
+  mediaType: string;
+  data: string;
+}
+
+/** A model Claude Code offers, from its `initialize` answer. */
+export interface CliModel {
+  value: string;
+  displayName: string;
+  description?: string;
+  supportedEffortLevels?: string[];
+}
+
+export interface SlashCommand {
+  name: string;
+  description?: string;
+  argumentHint?: string;
+  builtin?: boolean;
+}
+
+/** Claude Code's `/context` for a chat: what fills its window. */
+export interface ContextUsage {
+  categories: { id?: string; name: string; tokens: number; kind?: "used" | "deferred" | "buffer" | "free"; isDeferred?: boolean }[];
+  totalTokens: number;
+  maxTokens: number;
+  percentage: number;
+}
+
+export interface ChatUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costUsd: number;
+  contextTokens?: number | null;
+  contextWindow?: number | null;
+}
+
 export const ipc = {
   ptySpawn(args: {
     paneId: string;
@@ -220,6 +281,51 @@ export const ipc = {
   }) {
     return invoke<{ attached: boolean; missingCwd?: string | null }>("pty_spawn", args);
   },
+  /** Starts Claude Code headless for a chat pane (src-tauri/src/chat.rs); events arrive on `onEvent`. */
+  chatSpawn(args: {
+    paneId: string;
+    cwd?: string;
+    account?: string;
+    env?: Record<string, string>;
+    secretEnv?: Record<string, string>;
+    /** Session id to continue. */
+    resume?: string;
+    /** With `resume`: continue a copy cut at this entry (editing an earlier message). */
+    resumeAt?: string;
+    /** "opus", "sonnet", "haiku" or "default"; effort "low" … "max" or "default". */
+    model?: string;
+    effort?: string;
+    /** Claude Code's `--permission-mode`; unset = its own default (ask). */
+    permissionMode?: string;
+    onEvent: Channel<ChatEvent>;
+  }) {
+    return invoke<{ missingCwd?: string | null }>("chat_spawn", args);
+  },
+  permissionRules: (cwd: string, account: string | null) => invoke<RuleFile[]>("permission_rules", { cwd, account }),
+  removePermissionRule: (cwd: string, account: string | null, path: string, kind: RuleKind, rule: string) =>
+    invoke<void>("remove_permission_rule", { cwd, account, path, kind, rule }),
+  chatSend: (paneId: string, text: string, images?: ChatImage[], uuid?: string) => invoke<void>("chat_send", { paneId, text, images, uuid }),
+  chatRewind: (paneId: string, uuid: string, dryRun: boolean) =>
+    invoke<{ canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number }>("chat_rewind", { paneId, uuid, dryRun }),
+  /** Switches a running chat's model and/or effort for its next turns. */
+  chatConfigure: (paneId: string, model?: string, effort?: string, style?: string) => invoke<void>("chat_configure", { paneId, model, effort, style }),
+  /** Switches the chat's permission mode now (Shift+Tab in the CLI). */
+  chatSetMode: (paneId: string, mode: string) => invoke<void>("chat_set_mode", { paneId, mode }),
+  chatCommands: (paneId: string) => invoke<{ commands: SlashCommand[]; models?: CliModel[]; styles?: string[]; style?: string }>("chat_commands", { paneId }),
+  chatContextUsage: (paneId: string) => invoke<ContextUsage>("chat_context_usage", { paneId }),
+  chatInterrupt: (paneId: string) => invoke<void>("chat_interrupt", { paneId }),
+  /**
+   * `input` replaces the tool's input, e.g. AskUserQuestion's `answers`; `permissions` are
+   * Claude Code permission updates to apply with it; `message` says why it was denied.
+   */
+  chatAnswer: (paneId: string, id: string, allow: boolean, always = false, input?: Record<string, unknown>, permissions?: unknown[], message?: string) =>
+    invoke<void>("chat_answer", { paneId, id, allow, always, input, permissions, message }),
+  chatKill: (paneId: string) => invoke<void>("chat_kill", { paneId }),
+  /** Transcript lines of a session the chat resumes, oldest first. */
+  chatParent: (account: string | undefined, cwd: string, session: string, uuid: string) =>
+    invoke<string | null>("chat_parent", { account, cwd, session, uuid }),
+  chatHistory: (account: string | undefined, cwd: string, session: string) =>
+    invoke<Record<string, unknown>[]>("chat_history", { account, cwd, session }),
   ptyWrite: (paneId: string, data: string) => invoke<void>("pty_write", { paneId, data }),
   ptyWriteBinary: (paneId: string, data: number[]) => invoke<void>("pty_write_binary", { paneId, data }),
   ptyResize: (paneId: string, cols: number, rows: number) => invoke<void>("pty_resize", { paneId, cols, rows }),
@@ -260,6 +366,7 @@ export const ipc = {
     invoke<void>("discord_set", { presence }),
   projectRoot: (cwd: string) => invoke<string>("project_root", { cwd }),
 
+  projectFiles: (cwd: string) => invoke<string[]>("project_files", { cwd }),
   listDir: (path: string) => invoke<DirEntry[]>("list_dir", { path }),
   resolvePaths: (cwd: string, candidates: string[]) => invoke<(string | null)[]>("resolve_paths", { cwd, candidates }),
   openPath: (path: string, line?: number, col?: number) => invoke<void>("open_path", { path, line, col }),

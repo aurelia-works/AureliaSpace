@@ -11,6 +11,8 @@ import { sendPrompt } from "./effort";
 import { expandPath } from "./format";
 import { shellQuote } from "./launch";
 import { enqueue } from "./outbox";
+import { useUi } from "../store/ui";
+import { chatText, queueFirstMessage, sendChat, useChat } from "./chat";
 import { getEntry, queueInit, submitToPane } from "./terminals";
 
 /**
@@ -54,6 +56,7 @@ function listPanes(from: string) {
 }
 
 function readPane(paneId: string, lines: number): string {
+  if (useLayout.getState().panes[paneId]?.mode === "chat") return chatText(paneId, lines);
   const term = getEntry(paneId)?.term;
   if (!term) throw new Error(`no terminal pane ${paneId}`);
   const buf = term.buffer.active;
@@ -69,6 +72,14 @@ async function sendToPane(from: string, paneId: string, text: string): Promise<s
   if (!pane || pane.browser || pane.editor || pane.launcher) throw new Error(`no terminal pane ${paneId}`);
   if (paneId === from) throw new Error("that is your own pane");
   if (!text.trim()) throw new Error("text is empty");
+  if (pane.mode === "chat") {
+    const chat = useChat.getState().byPane[paneId];
+    if (chat?.approvals.length) throw new Error("that pane is waiting on its human; try again after they answer");
+    if (chat?.status === "exited") throw new Error("that chat has stopped");
+    const busy = chat?.status === "working" || chat?.status === "waiting";
+    await sendChat(paneId, text.trim());
+    return busy ? "queued: it goes in when that agent finishes its turn" : "sent";
+  }
   const s = useAgents.getState().sessions[paneId];
   // A permission prompt or question is for the human: typing into it could answer it.
   if (s?.status === "needs_input") throw new Error("that pane is waiting on its human; try again after they answer");
@@ -89,9 +100,12 @@ function openPane(from: string, params: Record<string, unknown>): string {
   const cwd = str(params.cwd) ? expandPath(str(params.cwd)) : (useAgents.getState().sessions[from]?.cwd ?? caller?.cwd);
   const prompt = str(params.prompt).trim();
   if (!prompt) throw new Error("prompt is required");
-  const opts = { account: account || undefined, cwd };
+  // `view` from the MCP tool; unset follows the agent picker's "Open as chat".
+  const chat = params.mode === "chat" || params.view === "chat" || (params.view !== "terminal" && params.mode !== "terminal" && useUi.getState().claudeAsChat);
+  const opts = { account: account || undefined, cwd, mode: chat ? ("chat" as const) : undefined };
   const id = caller ? layout.splitPane(from, "row", opts) : layout.newTab(opts);
-  queueInit(id, `claude ${shellQuote(prompt)}`);
+  if (chat) queueFirstMessage(id, prompt);
+  else queueInit(id, `claude ${shellQuote(prompt)}`);
   return id;
 }
 

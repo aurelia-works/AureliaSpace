@@ -1,7 +1,8 @@
 import { useConfig } from "../store/config";
 import { focusedPaneId, useLayout, type NewPaneOpts } from "../store/layout";
 import { useTasks } from "../store/tasks";
-import { toast, type PickerTask } from "../store/ui";
+import { toast, useUi, type PickerTask } from "../store/ui";
+import { queueFirstMessage } from "./chat";
 import { ipc } from "./ipc";
 import { queueInit } from "./terminals";
 
@@ -52,10 +53,13 @@ export async function launchClaude({ account, where, worktree, task, review }: L
   const from = focusedPaneId();
   const base = from ? layout.panes[from]?.cwd : undefined;
   const cwd = await startDir(base, worktree, task?.title ?? account);
-  const opts: NewPaneOpts = { account, cwd };
+  const chat = useUi.getState().claudeAsChat;
+  const opts: NewPaneOpts = { account, cwd, ...(chat && { mode: "chat" as const }) };
   const paneId = where === "split" && from && layout.panes[from] ? layout.splitPane(from, "row", opts) : layout.newTab(opts);
   if (task) {
-    queueInit(paneId, `claude ${await startFlags(account, task.title)}${shellQuote(task.title)}`);
+    // A chat picks its own model and effort on the first message (lib/chat.ts autoPicks).
+    if (chat) queueFirstMessage(paneId, task.title);
+    else queueInit(paneId, `claude ${await startFlags(account, task.title)}${shellQuote(task.title)}`);
     const tasks = useTasks.getState();
     tasks.attach(task.project, task.id, paneId);
     tasks.setStatus(task.project, task.id, "doing");

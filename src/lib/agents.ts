@@ -2,7 +2,7 @@ import { useConfig } from "../store/config";
 import { customAgentById, type AgentTeam, type CustomAgent } from "../store/customAgents";
 import { useLayout, focusedPaneId, type NewPaneOpts } from "../store/layout";
 import { useRecents } from "../store/recents";
-import { toast } from "../store/ui";
+import { toast, useUi } from "../store/ui";
 import { expandPath } from "./format";
 import type { Account } from "./ipc";
 import { shellQuote, startDir } from "./launch";
@@ -160,6 +160,8 @@ export async function launchAgents(plan: LaunchPlanItem[], where: "split" | "tab
   const base = folder ?? (from ? layout.panes[from]?.cwd : undefined);
   const jobs: { opts: NewPaneOpts; command?: string }[] = [];
   let worktreeFailed = false;
+  // Claude accounts open as chats when the picker's "Claude as chat" is on (like launchClaude).
+  const asChat = useUi.getState().claudeAsChat;
   for (const { variant, count, custom } of plan) {
     for (let i = 0; i < count; i++) {
       // One at a time: concurrent `git worktree add` calls fight over the repo lock.
@@ -170,6 +172,7 @@ export async function launchAgents(plan: LaunchPlanItem[], where: "split" | "tab
           account: variant.account,
           cwd,
           agent: variant.id,
+          ...(asChat && variant.account && { mode: "chat" as const }),
           env: Object.keys(variant.env).length ? variant.env : undefined,
           secretEnv: variant.secrets.length ? Object.fromEntries(variant.secrets.map((x) => [x.env, x.key.id])) : undefined,
         },
@@ -219,6 +222,8 @@ export async function prepareCustomAgent(agent: CustomAgent, base: string | unde
   // Account panes run plain `claude` by default; only override when there are instructions.
   if (variant.account) {
     const instructions = agent.instructions?.trim();
+    // Chats can't take extra system instructions yet, so an agent with some stays a terminal.
+    if (!instructions && useUi.getState().claudeAsChat) return { opts: { ...opts, mode: "chat" } };
     return { opts, command: instructions ? `claude --append-system-prompt ${shellQuote(instructions)}` : undefined };
   }
   const extra = variant.custom ? "" : (agent.args ?? "").trim();

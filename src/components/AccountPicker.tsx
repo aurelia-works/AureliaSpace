@@ -31,6 +31,7 @@ export function AccountPicker() {
   const workspace = useConfig((s) => s.config?.defaultWorkspace);
   const worktree = useUi((s) => s.useWorktree);
   const reviewWhenDone = useUi((s) => s.reviewWhenDone);
+  const asChat = useUi((s) => s.claudeAsChat);
   const recents = useRecents((s) => s.folders);
   const usage = useUsage((s) => s.usage);
   const fetchedAt = useUsage((s) => s.fetchedAt);
@@ -214,6 +215,12 @@ export function AccountPicker() {
             )}
           </div>
         )}
+        <label className="picker-option">
+          <input type="checkbox" checked={asChat} onChange={() => useUi.getState().set({ claudeAsChat: !asChat })} />
+          <span>
+            Claude as chat <span className="hint inline">a conversation view instead of Claude's terminal</span>
+          </span>
+        </label>
         <label className="picker-option">
           <input type="checkbox" checked={worktree} onChange={toggleWorktree} />
           <span>

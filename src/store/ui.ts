@@ -35,6 +35,8 @@ interface UiState {
   useWorktree: boolean;
   /** Tasks started from the picker get a read-only reviewer when their agent finishes. */
   reviewWhenDone: boolean;
+  /** Claude panes from the agent picker and from other agents (aurelia_open_pane) open as chats. */
+  claudeAsChat: boolean;
   toast: null | { text: string; error?: boolean; at: number };
   /** Pane whose command-suggestion bar is open. */
   suggestPaneId: string | null;
@@ -64,6 +66,7 @@ export const useUi = create<UiState>((set) => ({
   accountPicker: null,
   useWorktree: false,
   reviewWhenDone: false,
+  claudeAsChat: true,
   toast: null,
   suggestPaneId: null,
   composerPaneId: null,
@@ -84,6 +87,7 @@ interface SavedUi {
   sidebarOpen?: boolean;
   useWorktree?: boolean;
   reviewWhenDone?: boolean;
+  claudeAsChat?: boolean;
   fontDelta?: number;
 }
 
@@ -103,6 +107,7 @@ export async function loadUiState() {
               : "projects",
       useWorktree: saved.useWorktree ?? false,
       reviewWhenDone: saved.reviewWhenDone ?? false,
+      claudeAsChat: saved.claudeAsChat ?? true,
       fontDelta: saved.fontDelta ?? 0,
     });
   }
@@ -114,6 +119,7 @@ export async function loadUiState() {
       nav: s.nav,
       useWorktree: s.useWorktree,
       reviewWhenDone: s.reviewWhenDone,
+      claudeAsChat: s.claudeAsChat,
       fontDelta: s.fontDelta,
     });
     if (next !== last) {

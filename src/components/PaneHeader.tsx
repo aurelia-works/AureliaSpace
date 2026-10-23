@@ -4,6 +4,7 @@ import { basename } from "../lib/format";
 import { openInBrowserPane } from "../lib/browser";
 import { closePaneSafely, openFile, useEditors } from "../lib/openFile";
 import { useOutbox } from "../lib/outbox";
+import { useChat } from "../lib/chat";
 import { modeKey, MODES, setPermissionMode } from "../lib/permissionMode";
 import { useUi } from "../store/ui";
 import { toggleVoice, useVoice } from "../lib/voice";
@@ -49,7 +50,9 @@ function PaneActions({ paneId, browser, editor }: { paneId: string; browser?: bo
 
 /** The pane's permission mode; click to pick another (Claude's own Shift+Tab, pressed for you). */
 function ModeChip({ paneId }: { paneId: string }) {
-  const mode = modeKey(useAgents((s) => s.sessions[paneId]?.permissionMode));
+  const hooked = useAgents((s) => s.sessions[paneId]?.permissionMode);
+  // A chat pane hears its mode from the CLI itself, right when it changes.
+  const mode = modeKey(useChat((s) => s.byPane[paneId]?.mode) ?? hooked);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const btn = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -166,7 +169,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
         <span className="pane-name" title={dir}>
           {pane.launcher ? "New tab" : basename(dir) || "~"}
         </span>
-        {agent && <ModeChip paneId={paneId} />}
+        {agent && pane.mode !== "chat" && <ModeChip paneId={paneId} />}
         {(agent || pane.account) && <UsageChip paneId={paneId} />}
         {git && (
           <span

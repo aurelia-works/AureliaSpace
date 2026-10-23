@@ -18,6 +18,7 @@ mod privacy;
 mod pty;
 mod ptyhost;
 mod remote;
+mod rules;
 mod review;
 mod subagents;
 mod suggest;
@@ -171,8 +172,17 @@ pub fn run() {
             chat::chat_spawn,
             chat::chat_send,
             chat::chat_interrupt,
+            chat::chat_configure,
+            chat::chat_set_mode,
+            chat::chat_context_usage,
+            chat::chat_commands,
+            chat::chat_rewind,
+            chat::chat_parent,
+            rules::permission_rules,
+            rules::remove_permission_rule,
             chat::chat_answer,
             chat::chat_kill,
+            chat::chat_history,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_write_binary,
@@ -196,6 +206,7 @@ pub fn run() {
             config::reveal_config,
             config::project_root,
             files::list_dir,
+            files::project_files,
             files::resolve_paths,
             files::open_path,
             files::open_url,

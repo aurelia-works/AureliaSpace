@@ -1,5 +1,7 @@
 import { useAgents } from "../store/agents";
+import { useLayout } from "../store/layout";
 import { toast } from "../store/ui";
+import { setChatMode } from "./chat";
 import { screenText, writeToPane } from "./terminals";
 
 export interface ModeInfo {
@@ -57,6 +59,11 @@ export async function cyclePermissionMode(paneId: string): Promise<string> {
 
 /** Shift+Tabs until the pane is in `target`; gives up after a full cycle (the mode isn't offered). */
 export async function setPermissionMode(paneId: string, target: string): Promise<boolean> {
+  // A chat pane switches through Claude Code's control channel: every mode, no key presses.
+  if (useLayout.getState().panes[paneId]?.mode === "chat") {
+    await setChatMode(paneId, target);
+    return true;
+  }
   const start = modeFromScreen(paneId);
   if (start === target) return record(paneId, start), true;
   for (let i = 0; i < 6; i++) {

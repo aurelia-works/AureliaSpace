@@ -138,6 +138,7 @@ export function TitleBar() {
         <span className="brand-name" data-tauri-drag-region>
           Aurelia<span>Space</span>
         </span>
+        <DevMark />
       </div>
       <button
         className={`icon-btn${nav ? " on" : ""}`}
@@ -176,4 +177,13 @@ export function TitleBar() {
       </div>
     </header>
   );
+}
+
+/** "AureliaSpace Dev" (npm run app:build:dev) runs next to the installed app: a tilted DEV sash on the brand's corner says which one this is. */
+function DevMark() {
+  return import.meta.env.VITE_AURELIA_DEV ? (
+    <span className="brand-dev" aria-label="Dev build">
+      <span>DEV</span>
+    </span>
+  ) : null;
 }

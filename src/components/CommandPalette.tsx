@@ -87,6 +87,18 @@ function actionItems(): Item[] {
     { id: "review", group: "Actions", label: "Review uncommitted changes", keys: "⇧⌘3", run: () => ui.set({ reviewOpen: true }) },
     { id: "jump", group: "Actions", label: "Jump to the agent waiting longest", keys: "⌘J", run: () => void jumpToWaiting() },
     { id: "launch", group: "Actions", label: "Launch agents…", hint: "Claude accounts, Codex, Gemini, more", keys: "⇧⌘E", run: () => ui.set({ accountPicker: { target: "tab" } }) },
+    {
+      id: "chat-split",
+      group: "Actions",
+      label: "New Claude chat (split)",
+      hint: "same account and folder as this pane",
+      run: () => {
+        const from = pane ? layout.panes[pane] : undefined;
+        const opts = { mode: "chat" as const, account: from?.account ?? cfg?.accounts[0]?.name, cwd: from?.cwd };
+        if (pane) layout.splitPane(pane, "row", opts);
+        else layout.newTab(opts);
+      },
+    },
     { id: "claude-split", group: "Actions", label: "New Claude pane as account (split)", keys: "⌘E", run: () => ui.set({ accountPicker: { target: "split" } }) },
     { id: "tab", group: "Actions", label: "New tab", keys: "⌘T", run: () => layout.newTab({ cwd: pane ? layout.panes[pane]?.cwd : undefined, launcher: true }) },
     { id: "grid", group: "Actions", label: "New grid tab (2–16 panes)", keys: "⌘G", run: () => ui.set({ gridOpen: true }) },

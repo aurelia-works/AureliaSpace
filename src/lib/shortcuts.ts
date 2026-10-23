@@ -7,6 +7,9 @@ import { toggleHud } from "./hudBridge";
 import { clearTerminal, getEntry, jumpBlock, showPane } from "./terminals";
 import { toggleVoice } from "./voice";
 
+/** ⌘F in a chat pane: ChatPane opens its find bar. */
+export const CHAT_FIND = "aurelia-chat-find";
+
 /** Focuses the agent that has waited longest for you (needs input first). */
 export function jumpToWaiting() {
   const current = focusedPaneId();
@@ -161,7 +164,8 @@ export function installShortcuts(): () => void {
         if (shift && !alt) action = () => ui.set({ reviewOpen: true });
         break;
       case "KeyF":
-        if (shift && !alt) action = () => toggleNav("files");
+        if (!shift && !alt && pane && useLayout.getState().panes[pane]?.mode === "chat") action = () => window.dispatchEvent(new CustomEvent(CHAT_FIND, { detail: pane }));
+        else if (shift && !alt) action = () => toggleNav("files");
         else if (alt && !shift) action = () => toggleNav("search", true);
         break;
       case "KeyB":

@@ -1,0 +1,31 @@
+{
+  "productName": "AureliaSpace Dev",
+  "identifier": "space.aurelia.terminal.dev",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "AureliaSpace Dev",
+        "width": 1320,
+        "height": 840,
+        "minWidth": 640,
+        "minHeight": 400,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 14,
+          "y": 20
+        }
+      }
+    ]
+  },
+  "bundle": {
+    "icon": [
+      "icons-dev/32x32.png",
+      "icons-dev/128x128.png",
+      "icons-dev/128x128@2x.png",
+      "icons-dev/icon.icns",
+      "icons-dev/icon.png"
+    ]
+  }
+}

@@ -1050,3 +1050,33 @@ body.prompt-dragging * {
   cursor: grabbing !important;
   user-select: none;
 }
+.brand:has(.brand-dev) {
+  align-self: stretch;
+  position: relative;
+  padding-right: 30px;
+}
+/* A corner sash, 45 degrees across the brand's top-right, like a ribbon on a box. */
+.brand-dev {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.brand-dev span {
+  position: absolute;
+  top: 7px;
+  right: -16px;
+  width: 58px;
+  rotate: 45deg;
+  background: var(--work);
+  color: var(--bg);
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 12px;
+  letter-spacing: 0.1em;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
