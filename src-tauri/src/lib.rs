@@ -1,5 +1,6 @@
 mod agents;
 mod browser;
+mod chat;
 mod checkpoints;
 mod config;
 mod control;
@@ -137,6 +138,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(no_webview_context_menu())
         .manage(pty::PtyState::default())
+        .manage(chat::ChatState::default())
         .manage(discord::DiscordState::default())
         .setup(|app| {
             if let Err(e) = integration::install() {
@@ -166,6 +168,11 @@ pub fn run() {
             files::pick_folder,
             privacy::has_full_disk_access,
             privacy::open_full_disk_access_settings,
+            chat::chat_spawn,
+            chat::chat_send,
+            chat::chat_interrupt,
+            chat::chat_answer,
+            chat::chat_kill,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_write_binary,
@@ -241,6 +248,7 @@ pub fn run() {
         }
         if let RunEvent::Exit = event {
             pty::kill_all(&handle.state::<pty::PtyState>());
+            chat::kill_all(&handle.state::<chat::ChatState>());
             voice::cleanup();
         }
     });

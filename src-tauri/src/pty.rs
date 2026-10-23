@@ -128,7 +128,7 @@ pub struct Spawned {
     missing_cwd: Option<String>,
 }
 
-fn default_shell(cfg: &config::Config) -> String {
+pub(crate) fn default_shell(cfg: &config::Config) -> String {
     if !cfg.terminal.shell.is_empty() {
         return config::expand_path(&cfg.terminal.shell);
     }
@@ -144,16 +144,45 @@ fn build_spec(
     secret_env: Option<HashMap<String, String>>,
 ) -> Result<SpawnSpec, String> {
     let shell = default_shell(cfg);
-    // A folder that no longer exists (e.g. moved since it was saved in recents) falls back
-    // to the default workspace, then home; pty_spawn tells the frontend.
-    let dir = [cwd, Some(cfg.default_workspace.clone())]
+    let dir = pane_dir(cfg, cwd);
+    let mut vars = pane_env(cfg, pane_id, account, env, secret_env)?;
+    vars.insert("TERM".into(), "xterm-256color".into());
+    vars.insert("COLORTERM".into(), "truecolor".into());
+
+    // Shell integration via ZDOTDIR (zsh only; other shells run without blocks).
+    if Path::new(&shell).file_name().is_some_and(|n| n == "zsh") {
+        let paths = integration::paths();
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+        if let Ok(orig) = std::env::var("ZDOTDIR") {
+            vars.insert("AURELIA_ORIG_ZDOTDIR".into(), orig);
+        }
+        vars.insert("ZDOTDIR".into(), s(&paths.zdotdir));
+        vars.insert("AURELIA_ZSH_INTEGRATION".into(), s(&paths.zsh_integration));
+    }
+    Ok(SpawnSpec { argv: vec![shell, "-l".into()], cwd: dir, env: vars.into_iter().collect() })
+}
+
+/// The folder a pane starts in. One that no longer exists (e.g. moved since it was saved in
+/// recents) falls back to the default workspace, then home; pty_spawn tells the frontend.
+pub(crate) fn pane_dir(cfg: &config::Config, cwd: Option<String>) -> String {
+    [cwd, Some(cfg.default_workspace.clone())]
         .into_iter()
         .flatten()
         .filter(|c| !c.is_empty())
         .map(|c| config::expand_path(&c))
         .find(|c| Path::new(c).is_dir())
-        .unwrap_or_else(|| config::home_dir().to_string_lossy().into_owned());
+        .unwrap_or_else(|| config::home_dir().to_string_lossy().into_owned())
+}
 
+/// The environment shared by terminal and chat panes: the app's own, minus what would
+/// leak from whatever launched it, plus the pane id, hook paths, account and agent env.
+pub(crate) fn pane_env(
+    cfg: &config::Config,
+    pane_id: &str,
+    account: Option<String>,
+    env: Option<HashMap<String, String>>,
+    secret_env: Option<HashMap<String, String>>,
+) -> Result<BTreeMap<String, String>, String> {
     let mut vars: BTreeMap<String, String> = std::env::vars().collect();
     // Don't leak the environment of whatever launched the app (e.g. a Claude Code
     // session during development) into the panes.
@@ -163,8 +192,6 @@ fn build_spec(
     let mut set = |k: &str, v: &str| {
         vars.insert(k.to_string(), v.to_string());
     };
-    set("TERM", "xterm-256color");
-    set("COLORTERM", "truecolor");
     set("TERM_PROGRAM", "AureliaSpace");
     if std::env::var("LANG").map(|v| v.is_empty()).unwrap_or(true) {
         set("LANG", "en_US.UTF-8");
@@ -176,15 +203,6 @@ fn build_spec(
     set("AURELIA_EVENTS_FILE", &s(&paths.events_file));
     set("AURELIA_CLAUDE_SETTINGS", &s(&paths.claude_settings));
     set("AURELIA_CLAUDE_MCP", &s(&paths.claude_mcp));
-
-    // Shell integration via ZDOTDIR (zsh only; other shells run without blocks).
-    if Path::new(&shell).file_name().is_some_and(|n| n == "zsh") {
-        if let Ok(orig) = std::env::var("ZDOTDIR") {
-            set("AURELIA_ORIG_ZDOTDIR", &orig);
-        }
-        set("ZDOTDIR", &s(&paths.zdotdir));
-        set("AURELIA_ZSH_INTEGRATION", &s(&paths.zsh_integration));
-    }
 
     if let Some(name) = account {
         let acct = cfg
@@ -201,7 +219,7 @@ fn build_spec(
     for (k, v) in crate::agents::resolve_env(env, secret_env)? {
         set(&k, &v);
     }
-    Ok(SpawnSpec { argv: vec![shell, "-l".into()], cwd: dir, env: vars.into_iter().collect() })
+    Ok(vars)
 }
 
 #[tauri::command]
