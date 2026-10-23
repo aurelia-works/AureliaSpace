@@ -1,14 +1,11 @@
-//! Chat panes: Claude Code and Codex run in their headless protocol modes and the
-//! frontend draws the conversation itself, with no terminal. Each pane's CLI is a child
-//! process speaking JSON lines on stdin/stdout:
-//! - Claude Code: `claude -p --input-format stream-json --output-format stream-json`.
-//!   Approvals arrive as `can_use_tool` control requests, and `interrupt` stops a turn.
-//! - Codex: `codex app-server` (JSON-RPC). `thread/start` or `thread/resume`, then one
-//!   `turn/start` per message, and `turn/interrupt` stops it.
+//! Chat panes: Claude Code runs in its headless protocol mode and the frontend draws the
+//! conversation itself, with no terminal. Each pane's CLI is a child process speaking
+//! JSON lines: `claude -p --input-format stream-json --output-format stream-json`.
+//! Approvals arrive as `can_use_tool` control requests, and `interrupt` stops a turn.
 //!
 //! Every line goes to the frontend as `Raw`, which the chat view draws from. The facts
 //! other features need (session id, status, approvals, turn end with usage) are pulled
-//! out here into typed events, so they don't have to understand two protocols.
+//! out here into typed events.
 
 use crate::config;
 use crate::integration;
@@ -25,12 +22,6 @@ use tauri::{AppHandle, Manager, State};
 
 /// How much of the CLI's stderr to keep for the exit event.
 const STDERR_TAIL: usize = 4 * 1024;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Agent {
-    Claude,
-    Codex,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,7 +40,7 @@ pub enum Outcome {
     Failed,
 }
 
-/// One turn's tokens and cost. Codex reports no cost.
+/// One turn's tokens and cost.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
@@ -57,7 +48,7 @@ pub struct Usage {
     output_tokens: u64,
     cache_read_tokens: u64,
     cache_write_tokens: u64,
-    cost_usd: Option<f64>,
+    cost_usd: f64,
     /// Tokens in the context after this turn, and the model's window.
     context_tokens: Option<u64>,
     context_window: Option<u64>,
@@ -68,7 +59,7 @@ pub struct Usage {
 pub enum ChatEvent {
     /// One message from the CLI, as sent.
     Raw { msg: Value },
-    /// The conversation to resume after a restart: Claude's session id, Codex's thread id.
+    /// Claude's session id: the conversation to resume after a restart.
     Session { id: String },
     Status { status: Status },
     /// A tool wants permission; answer with `chat_answer(id)`.
@@ -90,165 +81,60 @@ enum Step {
 
 /// An approval the CLI is blocked on.
 #[derive(Debug)]
-enum Pending {
-    Claude { input: Value, suggestions: Option<Value> },
-    Codex { rpc_id: Value, method: String },
+struct Pending {
+    input: Value,
+    suggestions: Option<Value>,
 }
 
 /// One pane's protocol state; no I/O, so it can be tested on recorded lines.
+#[derive(Default)]
 struct Protocol {
-    agent: Agent,
     session: Option<String>,
     pending: HashMap<String, Pending>,
-    /// Claude: messages sent and not yet answered by a `result`.
+    /// Messages sent and not yet answered by a `result`.
     turns: usize,
     interrupting: bool,
-    // Codex
-    next_id: u64,
-    /// Our requests awaiting a response, by id: the method.
-    calls: HashMap<u64, String>,
-    turn: Option<String>,
-    cwd: String,
-    /// `thread/start` or `thread/resume` has answered; until then messages are queued.
-    ready: bool,
-    /// Messages typed before the thread was ready.
-    queued: Vec<String>,
-    usage: Option<Usage>,
 }
 
 impl Protocol {
-    fn new(agent: Agent, resume: Option<String>) -> Self {
-        Protocol {
-            agent,
-            session: resume,
-            pending: HashMap::new(),
-            turns: 0,
-            interrupting: false,
-            next_id: 0,
-            calls: HashMap::new(),
-            turn: None,
-            cwd: String::new(),
-            ready: false,
-            queued: Vec::new(),
-            usage: None,
-        }
-    }
-
-    fn call(&mut self, method: &str, params: Value) -> Value {
-        self.next_id += 1;
-        self.calls.insert(self.next_id, method.to_string());
-        json!({ "jsonrpc": "2.0", "id": self.next_id, "method": method, "params": params })
-    }
-
-    /// Lines to send as soon as the process starts.
-    fn start(&mut self, cwd: &str) -> Vec<Value> {
-        match self.agent {
-            Agent::Claude => vec![],
-            Agent::Codex => {
-                self.cwd = cwd.to_string();
-                let init = self.call("initialize", json!({ "clientInfo": { "name": "aureliaspace", "version": env!("CARGO_PKG_VERSION") } }));
-                let thread = match self.session.clone() {
-                    Some(id) => self.call("thread/resume", json!({ "threadId": id, "cwd": cwd })),
-                    None => self.call("thread/start", json!({ "cwd": cwd })),
-                };
-                vec![init, json!({ "jsonrpc": "2.0", "method": "initialized" }), thread]
-            }
-        }
+    fn new(resume: Option<String>) -> Self {
+        Protocol { session: resume, ..Protocol::default() }
     }
 
     fn send_message(&mut self, text: &str) -> Vec<Step> {
-        let status = Step::Emit(ChatEvent::Status { status: Status::Working });
-        match self.agent {
-            Agent::Claude => {
-                self.turns += 1;
-                let msg = json!({ "type": "user", "message": { "role": "user", "content": text } });
-                vec![status, Step::Send(msg)]
-            }
-            Agent::Codex => match (self.ready, self.session.clone()) {
-                // Starting or resuming the thread is still in flight; sent when it answers.
-                (false, _) => {
-                    self.queued.push(text.to_string());
-                    vec![status]
-                }
-                (true, Some(thread)) => {
-                    let msg = self.call("turn/start", json!({ "threadId": thread, "input": [{ "type": "text", "text": text }] }));
-                    vec![status, Step::Send(msg)]
-                }
-                // `thread/start` failed: there is no conversation to send to.
-                (true, None) => vec![
-                    Step::Emit(ChatEvent::TurnEnd { outcome: Outcome::Failed, error: Some("Codex couldn't start a conversation".into()), usage: None }),
-                    Step::Emit(ChatEvent::Status { status: Status::Idle }),
-                ],
-            },
-        }
+        self.turns += 1;
+        let msg = json!({ "type": "user", "message": { "role": "user", "content": text } });
+        vec![Step::Emit(ChatEvent::Status { status: Status::Working }), Step::Send(msg)]
     }
 
     fn interrupt(&mut self) -> Option<Value> {
-        match self.agent {
-            Agent::Claude => {
-                if self.turns == 0 {
-                    return None;
-                }
-                self.interrupting = true;
-                Some(json!({ "type": "control_request", "request_id": format!("interrupt-{}", self.turns), "request": { "subtype": "interrupt" } }))
-            }
-            Agent::Codex => {
-                let (thread, turn) = (self.session.clone()?, self.turn.clone()?);
-                Some(self.call("turn/interrupt", json!({ "threadId": thread, "turnId": turn })))
-            }
+        if self.turns == 0 {
+            return None;
         }
+        self.interrupting = true;
+        Some(json!({ "type": "control_request", "request_id": format!("interrupt-{}", self.turns), "request": { "subtype": "interrupt" } }))
     }
 
-    /// Answers approval `id`. `always` also allows what the CLI suggested for the rest of
-    /// the session (Claude's permission suggestions, Codex's "for session").
+    /// Answers approval `id`. `always` also applies the CLI's permission suggestions, so
+    /// the same thing isn't asked again.
     fn answer(&mut self, id: &str, allow: bool, always: bool) -> Result<Vec<Step>, String> {
-        let pending = self.pending.remove(id).ok_or_else(|| format!("no approval {id} waiting"))?;
-        let reply = match pending {
-            Pending::Claude { input, suggestions } => {
-                let response = match (allow, suggestions) {
-                    (true, Some(s)) if always => json!({ "behavior": "allow", "updatedInput": input, "updatedPermissions": s }),
-                    (true, _) => json!({ "behavior": "allow", "updatedInput": input }),
-                    (false, _) => json!({ "behavior": "deny", "message": "The user declined this." }),
-                };
-                json!({ "type": "control_response", "response": { "subtype": "success", "request_id": id, "response": response } })
-            }
-            Pending::Codex { rpc_id, method } => {
-                let decision = match (method.as_str(), allow, always) {
-                    // The pre-v2 methods take the older decision names.
-                    ("execCommandApproval" | "applyPatchApproval", true, false) => "approved",
-                    ("execCommandApproval" | "applyPatchApproval", true, true) => "approved_for_session",
-                    ("execCommandApproval" | "applyPatchApproval", false, _) => "denied",
-                    (_, true, false) => "accept",
-                    (_, true, true) => "acceptForSession",
-                    (_, false, _) => "decline",
-                };
-                json!({ "jsonrpc": "2.0", "id": rpc_id, "result": { "decision": decision } })
-            }
+        let Pending { input, suggestions } = self.pending.remove(id).ok_or_else(|| format!("no approval {id} waiting"))?;
+        let response = match (allow, suggestions) {
+            (true, Some(s)) if always => json!({ "behavior": "allow", "updatedInput": input, "updatedPermissions": s }),
+            (true, _) => json!({ "behavior": "allow", "updatedInput": input }),
+            (false, _) => json!({ "behavior": "deny", "message": "The user declined this." }),
         };
+        let reply = json!({ "type": "control_response", "response": { "subtype": "success", "request_id": id, "response": response } });
         let status = if self.pending.is_empty() { Status::Working } else { Status::Waiting };
         Ok(vec![Step::Send(reply), Step::Emit(ChatEvent::Status { status })])
     }
 
-    fn on_line(&mut self, msg: Value) -> Vec<Step> {
-        let mut steps = match self.agent {
-            Agent::Claude => self.on_claude(&msg),
-            Agent::Codex => self.on_codex(&msg),
-        };
-        steps.insert(0, Step::Emit(ChatEvent::Raw { msg }));
-        steps
-    }
-
-    fn set_session(&mut self, id: Option<&str>) -> Option<Step> {
-        let id = id.filter(|id| !id.is_empty())?;
-        if self.session.as_deref() == Some(id) {
-            return None;
+    fn on_line(&mut self, m: Value) -> Vec<Step> {
+        let mut steps = vec![];
+        if let Some(id) = m["session_id"].as_str().filter(|id| !id.is_empty() && self.session.as_deref() != Some(*id)) {
+            self.session = Some(id.to_string());
+            steps.push(Step::Emit(ChatEvent::Session { id: id.to_string() }));
         }
-        self.session = Some(id.to_string());
-        Some(Step::Emit(ChatEvent::Session { id: id.to_string() }))
-    }
-
-    fn on_claude(&mut self, m: &Value) -> Vec<Step> {
-        let mut steps: Vec<Step> = self.set_session(m["session_id"].as_str()).into_iter().collect();
         match m["type"].as_str() {
             Some("control_request") => {
                 let id = m["request_id"].as_str().unwrap_or_default().to_string();
@@ -256,7 +142,7 @@ impl Protocol {
                 if req["subtype"] == "can_use_tool" {
                     let input = req["input"].clone();
                     let suggestions = req.get("permission_suggestions").filter(|s| s.is_array()).cloned();
-                    self.pending.insert(id.clone(), Pending::Claude { input: input.clone(), suggestions });
+                    self.pending.insert(id.clone(), Pending { input: input.clone(), suggestions });
                     steps.push(Step::Emit(ChatEvent::Approval {
                         id,
                         tool: req["tool_name"].as_str().unwrap_or_default().to_string(),
@@ -279,8 +165,8 @@ impl Protocol {
                     (false, true) => Outcome::Failed,
                     (false, false) => Outcome::Completed,
                 };
-                let error = (outcome == Outcome::Failed).then(|| claude_error(m));
-                steps.push(Step::Emit(ChatEvent::TurnEnd { outcome, error, usage: claude_usage(m) }));
+                let error = (outcome == Outcome::Failed).then(|| claude_error(&m));
+                steps.push(Step::Emit(ChatEvent::TurnEnd { outcome, error, usage: claude_usage(&m) }));
                 if self.turns == 0 {
                     // The CLI has nothing left to ask about.
                     self.pending.clear();
@@ -289,91 +175,7 @@ impl Protocol {
             }
             _ => {}
         }
-        steps
-    }
-
-    fn on_codex(&mut self, m: &Value) -> Vec<Step> {
-        let mut steps = Vec::new();
-        let method = m["method"].as_str();
-        match (m.get("id"), method) {
-            // A response to one of our calls.
-            (Some(id), None) => {
-                let call = id.as_u64().and_then(|id| self.calls.remove(&id)).unwrap_or_default();
-                if let Some(err) = m.get("error") {
-                    let error = err["message"].as_str().unwrap_or("request failed").to_string();
-                    if call == "thread/resume" {
-                        // E.g. a thread id from before a restart that Codex no longer has:
-                        // say so, and carry on in a new thread with the queued messages.
-                        steps.push(Step::Emit(ChatEvent::TurnEnd {
-                            outcome: Outcome::Failed,
-                            error: Some(format!("couldn't resume the conversation ({error}); starting a new one")),
-                            usage: None,
-                        }));
-                        self.session = None;
-                        let start = self.call("thread/start", json!({ "cwd": self.cwd }));
-                        steps.push(Step::Send(start));
-                    } else if call != "turn/interrupt" {
-                        if call == "thread/start" {
-                            self.ready = true;
-                            self.queued.clear();
-                        }
-                        steps.push(Step::Emit(ChatEvent::TurnEnd { outcome: Outcome::Failed, error: Some(format!("{call}: {error}")), usage: None }));
-                        steps.push(Step::Emit(ChatEvent::Status { status: Status::Idle }));
-                    }
-                } else if call == "thread/start" || call == "thread/resume" {
-                    self.ready = true;
-                    steps.extend(self.set_session(m["result"]["thread"]["id"].as_str()));
-                    for text in std::mem::take(&mut self.queued) {
-                        steps.extend(self.send_message(&text).into_iter().filter(|s| matches!(s, Step::Send(_))));
-                    }
-                }
-            }
-            // A request from Codex: approvals wait for the user, anything else is refused.
-            (Some(id), Some(method)) => {
-                let p = &m["params"];
-                let approval = match method {
-                    "item/commandExecution/requestApproval" | "execCommandApproval" => Some(("Bash", p["reason"].as_str())),
-                    "item/fileChange/requestApproval" | "applyPatchApproval" => Some(("Edit", p["reason"].as_str())),
-                    _ => None,
-                };
-                match approval {
-                    Some((tool, reason)) => {
-                        let key = id.to_string();
-                        self.pending.insert(key.clone(), Pending::Codex { rpc_id: id.clone(), method: method.to_string() });
-                        steps.push(Step::Emit(ChatEvent::Approval { id: key, tool: tool.into(), input: p.clone(), description: reason.map(String::from) }));
-                        steps.push(Step::Emit(ChatEvent::Status { status: Status::Waiting }));
-                    }
-                    None => steps.push(Step::Send(json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601, "message": format!("{method} is not supported") } }))),
-                }
-            }
-            (None, Some("thread/started")) => steps.extend(self.set_session(m["params"]["thread"]["id"].as_str())),
-            (None, Some("turn/started")) => {
-                self.turn = m["params"]["turn"]["id"].as_str().map(String::from);
-                self.usage = None;
-                steps.push(Step::Emit(ChatEvent::Status { status: Status::Working }));
-            }
-            (None, Some("thread/tokenUsage/updated")) => self.usage = codex_usage(&m["params"]["tokenUsage"]),
-            (None, Some("serverRequest/resolved")) => {
-                // Codex settled an approval itself (e.g. the turn was interrupted).
-                if let Some(id) = m["params"].get("requestId").map(Value::to_string) {
-                    self.pending.remove(&id);
-                }
-            }
-            (None, Some("turn/completed")) => {
-                let turn = &m["params"]["turn"];
-                let outcome = match turn["status"].as_str() {
-                    Some("interrupted") => Outcome::Interrupted,
-                    Some("failed") => Outcome::Failed,
-                    _ => Outcome::Completed,
-                };
-                let error = turn["error"]["message"].as_str().map(String::from);
-                self.turn = None;
-                self.pending.clear();
-                steps.push(Step::Emit(ChatEvent::TurnEnd { outcome, error, usage: self.usage.take() }));
-                steps.push(Step::Emit(ChatEvent::Status { status: Status::Idle }));
-            }
-            _ => {}
-        }
+        steps.insert(0, Step::Emit(ChatEvent::Raw { msg: m }));
         steps
     }
 }
@@ -391,14 +193,14 @@ fn claude_error(m: &Value) -> String {
 /// (`usage` and `total_cost_usd` add up over the whole process).
 fn claude_usage(m: &Value) -> Option<Usage> {
     let models = m["model_usage_since_last_result"].as_object().filter(|o| !o.is_empty())?;
-    let mut u = Usage { cost_usd: Some(0.0), ..Usage::default() };
+    let mut u = Usage::default();
     for v in models.values() {
         let n = |k: &str| v[k].as_u64().unwrap_or(0);
         u.input_tokens += n("inputTokens");
         u.output_tokens += n("outputTokens");
         u.cache_read_tokens += n("cacheReadInputTokens");
         u.cache_write_tokens += n("cacheCreationInputTokens");
-        u.cost_usd = u.cost_usd.map(|c| c + v["costUSD"].as_f64().unwrap_or(0.0));
+        u.cost_usd += v["costUSD"].as_f64().unwrap_or(0.0);
         u.context_window = u.context_window.max(v["contextWindow"].as_u64());
     }
     // The context is what the last model call read.
@@ -409,20 +211,6 @@ fn claude_usage(m: &Value) -> Option<Usage> {
             .sum()
     });
     Some(u)
-}
-
-fn codex_usage(t: &Value) -> Option<Usage> {
-    let last = t.get("last")?;
-    let n = |k: &str| last[k].as_u64().unwrap_or(0);
-    Some(Usage {
-        input_tokens: n("inputTokens").saturating_sub(n("cachedInputTokens")),
-        output_tokens: n("outputTokens"),
-        cache_read_tokens: n("cachedInputTokens"),
-        cache_write_tokens: 0,
-        cost_usd: None,
-        context_tokens: Some(n("totalTokens")),
-        context_window: t["modelContextWindow"].as_u64(),
-    })
 }
 
 struct Chat {
@@ -471,36 +259,27 @@ fn chat(state: &ChatState, pane_id: &str) -> Result<Arc<Chat>, String> {
 
 /// The CLI's command line, run through the login shell so it gets the user's PATH (an app
 /// started from Finder has launchd's minimal one) just like in a terminal pane.
-fn command(cfg: &config::Config, agent: Agent, resume: Option<&str>) -> Vec<String> {
-    let mut argv: Vec<String> = match agent {
-        Agent::Claude => {
-            let paths = integration::paths();
-            let mut a: Vec<String> = [
-                "claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json",
-                "--include-partial-messages", "--verbose",
-                // Hidden from `claude --help` (2.1.309) but needed: without it approvals are
-                // denied instead of being sent to us as `can_use_tool` requests.
-                "--permission-prompt-tool", "stdio",
-            ]
-            .map(String::from)
-            .into();
-            // Same hooks and MCP servers as `claude` in a terminal pane (integration.zsh).
-            a.extend(["--settings".into(), paths.claude_settings.to_string_lossy().into_owned()]);
-            if paths.claude_mcp.is_file() {
-                a.push(format!("--mcp-config={}", paths.claude_mcp.to_string_lossy()));
-            }
-            if let Some(id) = resume {
-                a.extend(["--resume".into(), id.into()]);
-            }
-            a
-        }
-        Agent::Codex => vec!["codex".into(), "app-server".into()],
-    };
-    if let Some(bin) = crate::which::locate(&argv[0]) {
-        argv[0] = bin.to_string_lossy().into_owned();
+fn command(cfg: &config::Config, resume: Option<&str>) -> Vec<String> {
+    let paths = integration::paths();
+    let bin = crate::which::locate("claude").map_or("claude".into(), |p| p.to_string_lossy().into_owned());
+    let mut cmd = vec![crate::pty::default_shell(cfg), "-l".into(), "-c".into(), "exec \"$0\" \"$@\"".into(), bin];
+    cmd.extend(
+        [
+            "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--include-partial-messages", "--verbose",
+            // Hidden from `claude --help` (2.1.309) but needed: without it approvals are
+            // denied instead of being sent to us as `can_use_tool` requests.
+            "--permission-prompt-tool", "stdio",
+        ]
+        .map(String::from),
+    );
+    // Same hooks and MCP servers as `claude` in a terminal pane (integration.zsh).
+    cmd.extend(["--settings".into(), paths.claude_settings.to_string_lossy().into_owned()]);
+    if paths.claude_mcp.is_file() {
+        cmd.push(format!("--mcp-config={}", paths.claude_mcp.to_string_lossy()));
     }
-    let mut cmd = vec![crate::pty::default_shell(cfg), "-l".into(), "-c".into(), "exec \"$0\" \"$@\"".into()];
-    cmd.extend(argv);
+    if let Some(id) = resume {
+        cmd.extend(["--resume".into(), id.into()]);
+    }
     cmd
 }
 
@@ -517,7 +296,6 @@ pub fn chat_spawn(
     app: AppHandle,
     state: State<'_, ChatState>,
     pane_id: String,
-    agent: String,
     cwd: Option<String>,
     account: Option<String>,
     env: Option<HashMap<String, String>>,
@@ -525,11 +303,6 @@ pub fn chat_spawn(
     resume: Option<String>,
     on_event: Channel<ChatEvent>,
 ) -> Result<ChatSpawned, String> {
-    let agent = match agent.as_str() {
-        "claude" => Agent::Claude,
-        "codex" => Agent::Codex,
-        other => return Err(format!("no chat mode for '{other}'")),
-    };
     // A webview reload opens existing panes again: stop the old process.
     if let Some(old) = state.chats.lock().unwrap().remove(&pane_id) {
         old.kill();
@@ -540,7 +313,7 @@ pub fn chat_spawn(
     let dir = crate::pty::pane_dir(&cfg, cwd);
     let vars = crate::pty::pane_env(&cfg, &pane_id, account, env, secret_env)?;
     let resume = resume.filter(|r| !r.is_empty());
-    let argv = command(&cfg, agent, resume.as_deref());
+    let argv = command(&cfg, resume.as_deref());
     let mut child: Child = Command::new(&argv[0])
         .args(&argv[1..])
         .current_dir(&dir)
@@ -561,12 +334,7 @@ pub fn chat_spawn(
         *g += 1;
         *g
     };
-    let mut proto = Protocol::new(agent, resume);
-    let start = proto.start(&dir);
-    let chat = Arc::new(Chat { proto: Mutex::new(proto), stdin: Mutex::new(stdin), pid: child.id(), generation, events: on_event });
-    for line in start {
-        chat.write(&line)?;
-    }
+    let chat = Arc::new(Chat { proto: Mutex::new(Protocol::new(resume)), stdin: Mutex::new(stdin), pid: child.id(), generation, events: on_event });
     state.chats.lock().unwrap().insert(pane_id.clone(), chat.clone());
 
     // Drained on its own so a chatty CLI never blocks on a full pipe.
@@ -657,11 +425,6 @@ pub fn kill_all(state: &ChatState) {
 mod tests {
     use super::*;
 
-    fn ready(mut p: Protocol) -> Protocol {
-        p.ready = true;
-        p
-    }
-
     fn line(s: &str) -> Value {
         serde_json::from_str(s).unwrap()
     }
@@ -681,11 +444,11 @@ mod tests {
         steps.iter().filter_map(|s| if let Step::Send(v) = s { Some(v) } else { None }).collect()
     }
 
-    // Lines below are trimmed from claude 2.1.309 and codex 0.159.2 runs.
+    // Lines below are trimmed from claude 2.1.309 runs.
 
     #[test]
     fn claude_session_id_is_reported_once() {
-        let mut p = Protocol::new(Agent::Claude, None);
+        let mut p = Protocol::new(None);
         let init = line(r#"{"type":"system","subtype":"init","session_id":"s-1","model":"claude-haiku-5-5"}"#);
         assert_eq!(events(&p.on_line(init.clone())), vec![&ChatEvent::Session { id: "s-1".into() }]);
         assert!(events(&p.on_line(init)).is_empty());
@@ -693,7 +456,7 @@ mod tests {
 
     #[test]
     fn claude_approval_waits_and_is_answered() {
-        let mut p = Protocol::new(Agent::Claude, None);
+        let mut p = Protocol::new(None);
         p.send_message("hi");
         let req = line(r#"{"type":"control_request","request_id":"r-1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"echo hi > out.txt"},"description":"Write hi","permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"echo hi *"}],"behavior":"allow","destination":"localSettings"}]}}"#);
         let steps = p.on_line(req);
@@ -711,7 +474,7 @@ mod tests {
 
     #[test]
     fn claude_unknown_control_requests_get_an_error() {
-        let mut p = Protocol::new(Agent::Claude, None);
+        let mut p = Protocol::new(None);
         let steps = p.on_line(line(r#"{"type":"control_request","request_id":"r-2","request":{"subtype":"elicitation"}}"#));
         assert_eq!(sent(&steps)[0]["response"]["subtype"], "error");
         assert_eq!(sent(&steps)[0]["response"]["request_id"], "r-2");
@@ -719,7 +482,7 @@ mod tests {
 
     #[test]
     fn claude_result_ends_the_turn_with_its_own_usage() {
-        let mut p = Protocol::new(Agent::Claude, None);
+        let mut p = Protocol::new(None);
         p.send_message("hi");
         let result = line(r#"{"type":"result","subtype":"success","is_error":false,"terminal_reason":"completed","queued_turn_count":0,"session_id":"s-1","total_cost_usd":0.0034,"usage":{"iterations":[{"input_tokens":2,"output_tokens":7,"cache_read_input_tokens":24401,"cache_creation_input_tokens":3907}]},"model_usage_since_last_result":{"claude-haiku-5-5":{"inputTokens":2,"outputTokens":7,"cacheReadInputTokens":24401,"cacheCreationInputTokens":3907,"costUSD":0.001,"contextWindow":1000000}}}"#);
         let steps = p.on_line(result);
@@ -728,14 +491,14 @@ mod tests {
         assert_eq!((*outcome, error), (Outcome::Completed, &None));
         let u = usage.as_ref().unwrap();
         assert_eq!((u.input_tokens, u.output_tokens, u.cache_read_tokens, u.cache_write_tokens), (2, 7, 24401, 3907));
-        assert_eq!(u.cost_usd, Some(0.001));
+        assert_eq!(u.cost_usd, 0.001);
         assert_eq!((u.context_tokens, u.context_window), (Some(28317), Some(1000000)));
         assert_eq!(ev[2], &ChatEvent::Status { status: Status::Idle });
     }
 
     #[test]
     fn claude_interrupt_ends_the_turn_as_interrupted() {
-        let mut p = Protocol::new(Agent::Claude, None);
+        let mut p = Protocol::new(None);
         assert!(p.interrupt().is_none(), "nothing to stop before a message");
         p.send_message("count to 200");
         assert_eq!(p.interrupt().unwrap()["request"]["subtype"], "interrupt");
@@ -744,67 +507,10 @@ mod tests {
     }
 
     #[test]
-    fn codex_handshake_then_queued_message_goes_out_once_the_thread_exists() {
-        let mut p = Protocol::new(Agent::Codex, None);
-        let start = p.start("/tmp");
-        let methods: Vec<_> = start.iter().map(|v| v["method"].as_str().unwrap()).collect();
-        assert_eq!(methods, ["initialize", "initialized", "thread/start"]);
-        assert!(sent(&p.send_message("hi")).is_empty());
-
-        let steps = p.on_line(line(r#"{"id":2,"result":{"thread":{"id":"t-1","sessionId":"t-1"},"model":"gpt-6.1-sol"}}"#));
-        assert_eq!(events(&steps), vec![&ChatEvent::Session { id: "t-1".into() }]);
-        let turn = sent(&steps)[0];
-        assert_eq!(turn["method"], "turn/start");
-        assert_eq!(turn["params"]["threadId"], "t-1");
-        assert_eq!(turn["params"]["input"][0]["text"], "hi");
-    }
-
-    #[test]
-    fn codex_resume_skips_thread_start() {
-        let mut p = Protocol::new(Agent::Codex, Some("t-9".into()));
-        assert_eq!(p.start("/tmp")[2]["method"], "thread/resume");
-        assert!(sent(&p.send_message("again")).is_empty(), "waits for the resume to answer");
-        let steps = p.on_line(line(r#"{"id":2,"result":{"thread":{"id":"t-9"}}}"#));
-        assert_eq!(sent(&steps)[0]["params"]["threadId"], "t-9");
-    }
-
-    #[test]
-    fn codex_approval_round_trip_and_unknown_requests() {
-        let mut p = ready(Protocol::new(Agent::Codex, Some("t-1".into())));
-        let steps = p.on_line(line(r#"{"id":7,"method":"item/commandExecution/requestApproval","params":{"threadId":"t-1","turnId":"u-1","itemId":"i-1","startedAtMs":1,"command":"echo hi","reason":"needs write"}}"#));
-        assert!(matches!(events(&steps)[0], ChatEvent::Approval { id, tool, description: Some(d), .. } if id == "7" && tool == "Bash" && d == "needs write"));
-        let reply = p.answer("7", true, true).unwrap();
-        assert_eq!(sent(&reply)[0], &json!({ "jsonrpc": "2.0", "id": 7, "result": { "decision": "acceptForSession" } }));
-
-        p.on_line(line(r#"{"id":8,"method":"applyPatchApproval","params":{"callId":"c","conversationId":"t-1","fileChanges":{}}}"#));
-        assert_eq!(sent(&p.answer("8", false, false).unwrap())[0]["result"]["decision"], "denied");
-
-        let steps = p.on_line(line(r#"{"id":9,"method":"item/tool/requestUserInput","params":{}}"#));
-        assert_eq!(sent(&steps)[0]["error"]["code"], -32601);
-    }
-
-    #[test]
-    fn codex_turn_lifecycle_with_usage_and_interrupt() {
-        let mut p = ready(Protocol::new(Agent::Codex, Some("t-1".into())));
-        p.on_line(line(r#"{"method":"turn/started","params":{"threadId":"t-1","turn":{"id":"u-1","items":[],"status":"inProgress"}}}"#));
-        let stop = p.interrupt().unwrap();
-        assert_eq!((stop["method"].as_str(), stop["params"]["turnId"].as_str()), (Some("turn/interrupt"), Some("u-1")));
-        p.on_line(line(r#"{"method":"thread/tokenUsage/updated","params":{"threadId":"t-1","turnId":"u-1","tokenUsage":{"last":{"inputTokens":1200,"cachedInputTokens":1000,"outputTokens":50,"reasoningOutputTokens":10,"totalTokens":1250},"total":{"inputTokens":1200,"cachedInputTokens":1000,"outputTokens":50,"reasoningOutputTokens":10,"totalTokens":1250},"modelContextWindow":272000}}}"#));
-        let steps = p.on_line(line(r#"{"method":"turn/completed","params":{"threadId":"t-1","turn":{"id":"u-1","items":[],"status":"interrupted"}}}"#));
-        let ev = events(&steps);
-        let ChatEvent::TurnEnd { outcome: Outcome::Interrupted, usage: Some(u), .. } = ev[0] else { panic!("{ev:?}") };
-        assert_eq!((u.input_tokens, u.cache_read_tokens, u.output_tokens, u.context_window), (200, 1000, 50, Some(272000)));
-        assert_eq!(ev[1], &ChatEvent::Status { status: Status::Idle });
-        assert!(p.interrupt().is_none());
-    }
-
-    /// Runs one real Claude turn through the same command line as a chat pane (costs a few
-    /// cents): `cargo test --lib chat::tests::live_claude_turn -- --ignored`.
-    #[test]
     #[ignore]
     fn live_claude_turn() {
         let cfg = config::Config::default();
-        let argv = command(&cfg, Agent::Claude, None);
+        let argv = command(&cfg, None);
         let mut vars = crate::pty::pane_env(&cfg, "pane-smoke", None, None, None).unwrap();
         // Launched from Finder, the app only has launchd's PATH; the login shell must fix it.
         vars.insert("PATH".into(), "/usr/bin:/bin:/usr/sbin:/sbin".into());
@@ -823,7 +529,7 @@ mod tests {
             .spawn()
             .unwrap();
         let mut stdin = child.stdin.take().unwrap();
-        let mut p = Protocol::new(Agent::Claude, None);
+        let mut p = Protocol::new(None);
         for s in p.send_message("Reply with just the word OK.") {
             if let Step::Send(v) = s {
                 writeln!(stdin, "{v}").unwrap();
@@ -847,41 +553,6 @@ mod tests {
         let _ = child.wait();
         assert!(session.is_some());
         let Some(ChatEvent::TurnEnd { outcome: Outcome::Completed, usage: Some(u), .. }) = end else { panic!("{end:?}") };
-        assert!(u.output_tokens > 0 && u.cost_usd.unwrap() > 0.0, "{u:?}");
-    }
-
-    #[test]
-    fn codex_failed_resume_starts_a_new_thread_and_keeps_the_message() {
-        let mut p = Protocol::new(Agent::Codex, Some("t-old".into()));
-        p.start("/tmp");
-        p.send_message("hi");
-        let steps = p.on_line(line(r#"{"id":2,"error":{"code":-32600,"message":"thread not found"}}"#));
-        assert!(matches!(events(&steps)[0], ChatEvent::TurnEnd { outcome: Outcome::Failed, .. }));
-        assert_eq!(sent(&steps)[0]["method"], "thread/start");
-        assert_eq!(sent(&steps)[0]["params"]["cwd"], "/tmp");
-        let steps = p.on_line(line(r#"{"id":3,"result":{"thread":{"id":"t-new"}}}"#));
-        assert_eq!(events(&steps), vec![&ChatEvent::Session { id: "t-new".into() }]);
-        assert_eq!(sent(&steps)[0]["params"]["threadId"], "t-new");
-    }
-
-    #[test]
-    fn codex_failed_thread_start_fails_later_messages_instead_of_queueing() {
-        let mut p = Protocol::new(Agent::Codex, None);
-        p.start("/tmp");
-        p.send_message("hi");
-        let steps = p.on_line(line(r#"{"id":2,"error":{"code":-32603,"message":"no auth"}}"#));
-        assert!(sent(&steps).is_empty());
-        let steps = p.send_message("again");
-        assert!(sent(&steps).is_empty());
-        assert!(matches!(events(&steps)[0], ChatEvent::TurnEnd { outcome: Outcome::Failed, .. }));
-        assert_eq!(events(&steps)[1], &ChatEvent::Status { status: Status::Idle });
-    }
-
-    #[test]
-    fn codex_failed_turn_start_reports_the_error() {
-        let mut p = ready(Protocol::new(Agent::Codex, Some("t-1".into())));
-        p.send_message("hi");
-        let steps = p.on_line(line(r#"{"id":1,"error":{"code":-32600,"message":"thread not found"}}"#));
-        assert!(matches!(events(&steps)[0], ChatEvent::TurnEnd { outcome: Outcome::Failed, error: Some(e), .. } if e == "turn/start: thread not found"));
+        assert!(u.output_tokens > 0 && u.cost_usd > 0.0, "{u:?}");
     }
 }
