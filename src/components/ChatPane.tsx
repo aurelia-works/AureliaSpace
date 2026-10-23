@@ -43,11 +43,37 @@ export function ChatPane({ paneId }: { paneId: string }) {
 
   const items = session?.transcript.items ?? [];
   const segs = useMemo(() => segments(items), [items]);
-  // Follow new output while the user is at the bottom; leave them be when they scrolled up.
+  // A message you send brings the view back down to it.
+  const sentCount = items.filter((i) => i.kind === "user").length;
   useLayoutEffect(() => {
+    stick.current = true;
+  }, [sentCount]);
+  const toBottom = () => {
     const el = logRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [items, session?.approvals]);
+  };
+  // Scrolling the browser does by itself (scroll anchoring as messages get their real
+  // height, a hidden tab) isn't the user leaving: only their wheel, keys or scrollbar drag is.
+  const userScroll = useRef(false);
+  const userTimer = useRef(0);
+  const byUser = () => {
+    userScroll.current = true;
+    clearTimeout(userTimer.current);
+    userTimer.current = window.setTimeout(() => (userScroll.current = false), 250);
+  };
+  // Follow new output while the user is at the bottom; leave them be when they scrolled up.
+  useLayoutEffect(toBottom, [items, session?.approvals]);
+  // Messages off screen get their real height late (content-visibility), so growth is followed too.
+  useEffect(() => {
+    const el = logRef.current;
+    const col = el?.firstElementChild;
+    if (!el || !col) return;
+    const ro = new ResizeObserver(toBottom);
+    ro.observe(col);
+    // A chat restored in a hidden tab has no size until it's shown.
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const status = session?.status ?? "starting";
   const busy = status === "working" || status === "waiting";
@@ -71,8 +97,14 @@ export function ChatPane({ paneId }: { paneId: string }) {
         ref={logRef}
         onScroll={(e) => {
           const el = e.currentTarget;
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) stick.current = true;
+          else if (userScroll.current) stick.current = false;
         }}
+        onWheel={byUser}
+        onKeyDown={byUser}
+        // Dragging the scrollbar: held until the button comes up.
+        onPointerDown={() => (userScroll.current = true)}
+        onPointerUp={byUser}
         onClick={(e) => openLink(e, paneId)}
       >
         <div className="chat-col">
