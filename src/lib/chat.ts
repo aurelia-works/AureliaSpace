@@ -200,7 +200,7 @@ export async function ensureChat(pane: PaneMeta) {
   branches.delete(pane.id);
   const fork = !!pane.chatFork;
   if (resume) {
-    let lines = await ipc.chatHistory(pane.account, pane.cwd ?? "~", resume).catch(() => null);
+    let lines = await ipc.chatHistory(pane.account, pane.cwd ?? "", resume).catch(() => null);
     // A branch shows the conversation up to the edited message.
     const cut = branch ? (lines?.findIndex((l) => l.uuid === branch.before) ?? -1) : -1;
     if (lines && cut >= 0) lines = lines.slice(0, cut);
@@ -277,7 +277,7 @@ export async function branchChat(paneId: string, uuid: string, text: string, und
   if (!pane) return;
   try {
     if (undoFiles) await rewindChat(paneId, uuid, false);
-    const parent = pane.claudeSession ? await ipc.chatParent(pane.account, pane.cwd ?? "~", pane.claudeSession, uuid) : null;
+    const parent = pane.claudeSession ? await ipc.chatParent(pane.account, pane.cwd ?? "", pane.claudeSession, uuid) : null;
     if (parent) branches.set(paneId, { at: parent, before: uuid });
     firstMessage.set(paneId, text);
     // No parent: it was the first message, so the branch is a new chat.
