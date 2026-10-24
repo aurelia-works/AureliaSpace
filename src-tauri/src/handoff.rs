@@ -156,7 +156,7 @@ pub fn resumable_session(account: String, cwd: String, prefer: Option<String>) -
     let acct = cfg.accounts.iter().find(|a| a.name == account)?;
     let dir = PathBuf::from(acct.resolved_dir())
         .join("projects")
-        .join(project_slug(&config::expand_path(&cwd)));
+        .join(project_slug(&crate::pty::pane_dir(&cfg, Some(cwd))));
     let valid = |id: &str| !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
     if let Some(id) = prefer.filter(|id| valid(id)) {
         if dir.join(format!("{id}.jsonl")).is_file() {

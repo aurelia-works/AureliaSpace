@@ -96,7 +96,7 @@ export function ChatPane({ paneId }: { paneId: string }) {
       style={{ outline: "none" }}
       onKeyDown={(e) => {
         // Shift+Tab cycles the permission mode from anywhere in the pane that isn't a control (the composer has its own handler).
-        if (e.key === "Tab" && e.shiftKey && !(e.target as HTMLElement).closest("button, input, textarea, select, a, [role=dialog]")) {
+        if (e.key === "Tab" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target as HTMLElement).closest("button, input, textarea, select, a, [role=dialog]")) {
           e.preventDefault();
           void cyclePermissionMode(paneId);
         }
@@ -1216,7 +1216,7 @@ function ChatComposer({ paneId, busy }: { paneId: string; busy: boolean }) {
           } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.target === ref.current) {
             e.preventDefault();
             send();
-          } else if (e.key === "Tab" && e.shiftKey && e.target === ref.current) {
+          } else if (e.key === "Tab" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && e.target === ref.current) {
             // Claude Code's own mode cycle.
             e.preventDefault();
             void cyclePermissionMode(paneId);

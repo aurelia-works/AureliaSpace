@@ -24,7 +24,7 @@ export async function planResume(saved: SavedLayout | null) {
   const plans = await Promise.all(
     panes.map(async (p) => {
       const prefer = p.claudeSession && SESSION_ID.test(p.claudeSession) ? p.claudeSession : null;
-      const id = await ipc.resumableSession(p.account!, p.cwd ?? "~", prefer).catch(() => null);
+      const id = await ipc.resumableSession(p.account!, p.cwd ?? "", prefer).catch(() => null);
       return { pane: p, id, own: !!prefer && id === prefer };
     }),
   );

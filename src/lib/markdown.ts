@@ -6,7 +6,8 @@ import { Marked } from "marked";
  */
 const md = new Marked({
   gfm: true,
-  breaks: false,
+  // Claude Code shows single newlines as line breaks; "one per line" answers must too.
+  breaks: true,
   renderer: {
     html({ text }) {
       return escapeHtml(text);

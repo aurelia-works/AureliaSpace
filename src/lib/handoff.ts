@@ -117,7 +117,7 @@ async function switchChatAccount(paneId: string, to: string, transcriptPath?: st
   // No hook has reported the path yet (e.g. a chat restored at launch): it's where Claude Code keeps it.
   const dir = useConfig.getState().config?.accounts.find((a) => a.name === pane.account)?.configDir;
   transcriptPath ??=
-    pane.claudeSession && dir ? `${expandPath(dir)}/projects/${expandPath(pane.cwd ?? "~").replace(/[^A-Za-z0-9]/g, "-")}/${pane.claudeSession}.jsonl` : undefined;
+    pane.claudeSession && dir ? `${expandPath(dir)}/projects/${expandPath(pane.cwd || useConfig.getState().config?.defaultWorkspace || "~").replace(/[^A-Za-z0-9]/g, "-")}/${pane.claudeSession}.jsonl` : undefined;
   // Stopped first, so a turn in progress doesn't leave half a transcript to copy.
   await stopChat(paneId);
   if (pane.claudeSession && transcriptPath) {
