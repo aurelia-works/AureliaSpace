@@ -4,6 +4,7 @@ import { cacheSafe, currentEffort, useEffortPicks } from "../lib/effort";
 import { forkConversation } from "../lib/fork";
 import { formatCost, formatTokens } from "../lib/format";
 import { useInlinePicking } from "../lib/inlineEffort";
+import { useChat } from "../lib/chat";
 import { useConfig } from "../store/config";
 import { useLive, type LiveStatus } from "../store/live";
 import { useUi } from "../store/ui";
@@ -122,5 +123,27 @@ export function UsageChip({ paneId }: { paneId: string }) {
           document.body,
         )}
     </>
+  );
+}
+
+/**
+ * A chat's cost in the header. Chats get exact numbers from each turn's `result` event
+ * (the status line that feeds UsageChip never runs headless); the hover has the rest. The
+ * context fill stays with the ring by the send button, so it isn't shown twice.
+ */
+export function ChatUsageChip({ paneId }: { paneId: string }) {
+  const s = useChat((st) => st.byPane[paneId]);
+  if (!s || (!s.tokens && !s.costUsd)) return null;
+  const u = s.last;
+  const lines = [
+    `This chat: ${formatTokens(s.tokens)} tokens · ${formatCost(s.costUsd)} at API prices`,
+    u && `Last turn: ${formatTokens(u.inputTokens + u.cacheReadTokens + u.cacheWriteTokens)} in · ${formatTokens(u.outputTokens)} out · ${formatCost(u.costUsd)}`,
+    u && u.cacheReadTokens + u.cacheWriteTokens + u.inputTokens > 0 && `Cache: ${Math.round((u.cacheReadTokens / (u.inputTokens + u.cacheReadTokens + u.cacheWriteTokens)) * 100)}% of the last turn's input was read from it`,
+    s.model && `Model: ${s.model}`,
+  ];
+  return (
+    <span className="usage-chip hide-tight" title={lines.filter(Boolean).join("\n")}>
+      {formatCost(s.costUsd)}
+    </span>
   );
 }

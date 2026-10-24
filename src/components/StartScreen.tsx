@@ -30,7 +30,8 @@ interface Choice {
   /** AgentLogo key; "terminal" and "more" use built-in icons, "agent" the saved agent's avatar. */
   logo: string;
   agent?: CustomAgent;
-  run(): void;
+  /** `alt` (⌥) opens the other kind: a terminal when Claude opens as chat, a chat when it doesn't. */
+  run(alt?: boolean): void;
 }
 
 /** Shown in a new empty tab: pick what to run here. The PTY is only created after a choice. */
@@ -58,6 +59,9 @@ export function StartScreen({ paneId }: { paneId: string }) {
   const folder = cwd || workspace || "~";
   const preferred = accountForFolder(cwd || workspace);
   const { updatePane } = useLayout.getState();
+  const asChat = useUi((s) => s.claudeAsChat);
+  const openClaude = (account: string | undefined, alt?: boolean) =>
+    updatePane(paneId, { account, launcher: undefined, ...(asChat !== !!alt && { mode: "chat" as const }) });
   const start = (patch: { account?: string }, command?: string) => {
     if (command) queueInit(paneId, command);
     updatePane(paneId, { ...patch, launcher: undefined });
@@ -87,20 +91,13 @@ export function StartScreen({ paneId }: { paneId: string }) {
       logo: "more",
       run: () => void launchTeam(t),
     })),
-    {
-      key: "chat",
-      label: `Claude chat · ${preferred}`,
-      hint: "a conversation view, no terminal",
-      logo: "claude",
-      run: () => updatePane(paneId, { account: preferred, mode: "chat", launcher: undefined }),
-    },
     // The folder's preferred account (workspace override, else the default) comes first.
     ...[...accounts].sort((a, b) => Number(b.name === preferred) - Number(a.name === preferred)).map((a) => ({
       key: `acct-${a.name}`,
       label: `Claude · ${a.name}${a.name === preferred ? " (default)" : ""}`,
-      hint: shortenPath(a.configDir),
+      hint: `${asChat ? "chat" : "terminal"} · ${shortenPath(a.configDir)}`,
       logo: "claude",
-      run: () => start({ account: a.name }),
+      run: (alt?: boolean) => openClaude(a.name, alt),
     })),
     { key: "terminal", label: "Terminal", hint: "plain zsh with command blocks", logo: "terminal", run: () => start({}) },
     ...(tools.codex ? [{ key: "codex", label: "Codex", hint: "codex", logo: "codex", run: () => start({}, "codex") }] : []),
@@ -129,7 +126,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
   };
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.metaKey || e.ctrlKey) return;
     if (e.target instanceof HTMLInputElement) {
       if (e.key === "Escape") {
         setEditing(false);
@@ -138,8 +135,10 @@ export function StartScreen({ paneId }: { paneId: string }) {
       }
       return;
     }
-    if (e.key === "Enter") start({});
-    else if (/^[1-9]$/.test(e.key) && choices[Number(e.key) - 1]) choices[Number(e.key) - 1].run();
+    // Option turns a digit into another character, so the key code says which number it was.
+    const digit = /^Digit([1-9])$/.exec(e.code)?.[1];
+    if (e.key === "Enter") openClaude(preferred, e.altKey);
+    else if (digit && choices[Number(digit) - 1]) choices[Number(digit) - 1].run(e.altKey);
     else return;
     e.preventDefault();
   };
@@ -187,7 +186,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
         </div>
         <div className="start-list" role="list">
           {choices.map((c, i) => (
-            <button key={c.key} role="listitem" className={`start-row ${c.logo}`} onClick={c.run}>
+            <button key={c.key} role="listitem" className={`start-row ${c.logo}`} onClick={(e) => c.run(e.altKey)}>
               <span className="start-logo">
                 {c.agent ? <AgentAvatar agent={c.agent} size={14} /> : c.logo === "terminal" ? <TerminalIcon width={16} height={16} /> : c.logo === "more" ? <SparkIcon width={16} height={16} /> : <AgentLogo logo={c.logo} size={16} />}
               </span>
@@ -214,7 +213,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
           </div>
         )}
         <div className="start-foot">
-          <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>↵</kbd> terminal · <kbd>⌘P</kbd> go anywhere
+          <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>↵</kbd> Claude · <kbd>⌥</kbd> the other kind · <kbd>⌘P</kbd> go anywhere
         </div>
       </div>
     </div>

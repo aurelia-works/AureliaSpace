@@ -90,7 +90,18 @@ export function ChatPane({ paneId }: { paneId: string }) {
   }, [paneId]);
 
   return (
-    <div className="chat">
+    <div
+      className="chat"
+      tabIndex={-1}
+      style={{ outline: "none" }}
+      onKeyDown={(e) => {
+        // Shift+Tab cycles the permission mode from anywhere in the pane that isn't a control (the composer has its own handler).
+        if (e.key === "Tab" && e.shiftKey && !(e.target as HTMLElement).closest("button, input, textarea, select, a, [role=dialog]")) {
+          e.preventDefault();
+          void cyclePermissionMode(paneId);
+        }
+      }}
+    >
       {finding > 0 && <FindBar logRef={logRef} items={items} focusKey={finding} onClose={() => setFinding(0)} />}
       <div
         className="chat-log"
@@ -1735,9 +1746,6 @@ function ContextRing({ paneId }: { paneId: string }) {
                   </li>
                 ))}
               </ul>
-              <div className="chat-ctx-foot num">
-                This chat so far: {formatTokens(s?.tokens ?? 0)} tokens · {formatCost(s?.costUsd ?? 0)}
-              </div>
             </>
           ) : (
             <div className="chat-ctx-foot">Asking Claude Code…</div>

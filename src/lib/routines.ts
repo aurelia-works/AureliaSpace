@@ -2,6 +2,8 @@ import { useAgents } from "../store/agents";
 import { useConfig } from "../store/config";
 import { useLayout } from "../store/layout";
 import { useNotices } from "../store/notifications";
+import { useUi } from "../store/ui";
+import { queueFirstMessage } from "./chat";
 import { expandPath } from "./format";
 import { ipc, type Routine } from "./ipc";
 import { shellQuote } from "./launch";
@@ -20,8 +22,10 @@ const save = () => ipc.saveState("routines", { lastRun }).catch(() => {});
 
 /** Opens the routine's pane now, whatever the schedule says. */
 export function runRoutine(r: Routine): string {
-  const paneId = useLayout.getState().newTab({ account: r.account || undefined, cwd: r.cwd ? expandPath(r.cwd) : undefined });
-  queueInit(paneId, `claude ${shellQuote(r.prompt)}`);
+  const chat = useUi.getState().claudeAsChat;
+  const paneId = useLayout.getState().newTab({ account: r.account || undefined, cwd: r.cwd ? expandPath(r.cwd) : undefined, ...(chat && { mode: "chat" as const }) });
+  if (chat) queueFirstMessage(paneId, r.prompt);
+  else queueInit(paneId, `claude ${shellQuote(r.prompt)}`);
   lastPane.set(r.id, paneId);
   lastRun = { ...lastRun, [r.id]: Date.now() };
   void save();

@@ -47,7 +47,7 @@ export function PaneView({ paneId }: { paneId: string }) {
       cancelAnimationFrame(frame);
       ro.disconnect();
     };
-  }, [paneId, launcher]);
+  }, [paneId, launcher, isChat]);
 
   if (!exists) return null;
 

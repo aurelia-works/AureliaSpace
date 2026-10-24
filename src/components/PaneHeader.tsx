@@ -19,7 +19,7 @@ import { BranchIcon, CloseIcon, GlobeIcon, MicIcon, OpenIcon, SplitDownIcon, Spl
 import { startPaneDrag } from "./PaneDrag";
 import { PermissionButtons } from "./SessionExtras";
 import { StatusGlyph, stateLabel, visualOf } from "./StatusGlyph";
-import { UsageChip } from "./UsageChip";
+import { ChatUsageChip, UsageChip } from "./UsageChip";
 
 function PaneActions({ paneId, browser, editor }: { paneId: string; browser?: boolean; editor?: string }) {
   const { splitPane } = useLayout.getState();
@@ -170,7 +170,7 @@ export function PaneHeader({ paneId }: { paneId: string }) {
           {pane.launcher ? "New tab" : basename(dir) || "~"}
         </span>
         {agent && pane.mode !== "chat" && <ModeChip paneId={paneId} />}
-        {(agent || pane.account) && <UsageChip paneId={paneId} />}
+        {pane.mode === "chat" ? <ChatUsageChip paneId={paneId} /> : (agent || pane.account) && <UsageChip paneId={paneId} />}
         {git && (
           <span
             className={`git-chip hide-tight${git.worktree ? " worktree" : ""}`}

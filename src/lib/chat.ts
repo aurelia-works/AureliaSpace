@@ -116,6 +116,9 @@ function reduce(paneId: string, s: ChatSession, ev: ChatEvent): ChatSession {
       }
       const u = ev.usage;
       const tokens = u ? u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheWriteTokens : 0;
+      // Kept on the pane so a restart (app, account switch, edit) carries on counting.
+      const total = { tokens: s.tokens + tokens, costUsd: s.costUsd + (u?.costUsd ?? 0) };
+      queueMicrotask(() => useLayout.getState().panes[paneId] && useLayout.getState().updatePane(paneId, { chatTokens: total.tokens, chatCost: total.costUsd }));
       const [next, ...queued] = s.queued;
       const ended = endTurn(s.transcript, ev.outcome, ev.error, u, ev.durationMs);
       return {
@@ -124,8 +127,7 @@ function reduce(paneId: string, s: ChatSession, ev: ChatEvent): ChatSession {
         transcript: next === undefined ? ended : addUser(ended, next.text, Date.now(), next),
         queued,
         approvals: [],
-        tokens: s.tokens + tokens,
-        costUsd: s.costUsd + (u?.costUsd ?? 0),
+        ...total,
         last: u ?? s.last,
       };
     }
@@ -192,7 +194,7 @@ export async function ensureChat(pane: PaneMeta) {
   if (spawns.has(pane.id)) return;
   const token = ++spawnSeq;
   spawns.set(pane.id, token);
-  patch(pane.id, () => blank());
+  patch(pane.id, () => ({ ...blank(), tokens: pane.chatTokens ?? 0, costUsd: pane.chatCost ?? 0 }));
   let resume = pane.claudeSession;
   const branch = branches.get(pane.id);
   branches.delete(pane.id);
@@ -279,7 +281,7 @@ export async function branchChat(paneId: string, uuid: string, text: string, und
     if (parent) branches.set(paneId, { at: parent, before: uuid });
     firstMessage.set(paneId, text);
     // No parent: it was the first message, so the branch is a new chat.
-    restartChat(paneId, !parent);
+    restartChat(paneId, !parent, true);
   } catch (e) {
     patch(paneId, (s) => ({ ...s, transcript: addNotice(s.transcript, `Couldn't edit that message: ${e}`, true) }));
   }
@@ -292,9 +294,9 @@ export function stopChat(paneId: string) {
   return ipc.chatKill(paneId).catch(() => {});
 }
 
-export function restartChat(paneId: string, fresh = false) {
+export function restartChat(paneId: string, fresh = false, keepTotals = false) {
   void stopChat(paneId);
-  if (fresh) useLayout.getState().updatePane(paneId, { claudeSession: undefined });
+  if (fresh) useLayout.getState().updatePane(paneId, { claudeSession: undefined, ...(!keepTotals && { chatTokens: undefined, chatCost: undefined }) });
   const pane = useLayout.getState().panes[paneId];
   if (pane) ensureChat(pane);
 }
@@ -482,20 +484,21 @@ export function chatText(paneId: string, lines: number): string {
   return out.join("\n").split("\n").slice(-lines).join("\n");
 }
 
-onPanesClosed((ids) =>
-  ids.forEach((id) => {
-    if (!spawns.delete(id)) return;
-    ipc.chatKill(id).catch(() => {});
-    pending.delete(id);
-    firstMessage.delete(id);
-    configPending.delete(id);
-    appliedEffort.delete(id);
-    sending.delete(id);
-    forkIds.delete(id);
-    useChat.setState((st) => {
-      const byPane = { ...st.byPane };
-      delete byPane[id];
-      return { byPane };
-    });
-  }),
-);
+/** Stops the pane's Claude and forgets its chat (the pane closed, or became a terminal). */
+export function releaseChat(id: string) {
+  if (!spawns.delete(id)) return;
+  ipc.chatKill(id).catch(() => {});
+  pending.delete(id);
+  firstMessage.delete(id);
+  configPending.delete(id);
+  appliedEffort.delete(id);
+  sending.delete(id);
+  forkIds.delete(id);
+  useChat.setState((st) => {
+    const byPane = { ...st.byPane };
+    delete byPane[id];
+    return { byPane };
+  });
+}
+
+onPanesClosed((ids) => ids.forEach(releaseChat));

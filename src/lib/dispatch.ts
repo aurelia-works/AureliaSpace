@@ -2,7 +2,8 @@ import { useAgents } from "../store/agents";
 import { useConfig } from "../store/config";
 import { useLayout } from "../store/layout";
 import { useTasks } from "../store/tasks";
-import { toast } from "../store/ui";
+import { toast, useUi } from "../store/ui";
+import { queueFirstMessage } from "./chat";
 import { shellQuote } from "./launch";
 import { queueInit } from "./terminals";
 
@@ -36,8 +37,14 @@ export function startDispatchWatch() {
         useTasks.getState().setReview(project, task.id, "started");
         const worker = useLayout.getState().panes[paneId]?.account ?? session.account;
         const account = reviewerAccount(worker);
-        const reviewer = useLayout.getState().splitPane(paneId, "column", { account, cwd: session.cwd });
-        queueInit(reviewer, `claude --permission-mode plan ${shellQuote(reviewPrompt(task.title))}`);
+        const chat = useUi.getState().claudeAsChat;
+        const layout = useLayout.getState();
+        const reviewer = layout.splitPane(paneId, "column", { account, cwd: session.cwd, ...(chat && { mode: "chat" as const }) });
+        if (chat) {
+          // The chat starts in plan mode (ensureChat passes it as --permission-mode) so the reviewer can't edit.
+          layout.updatePane(reviewer, { chatPermission: "plan" });
+          queueFirstMessage(reviewer, reviewPrompt(task.title));
+        } else queueInit(reviewer, `claude --permission-mode plan ${shellQuote(reviewPrompt(task.title))}`);
         toast(`Reviewing "${task.title}" as ${account ?? "claude"}`);
       }
     }

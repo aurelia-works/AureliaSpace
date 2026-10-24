@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { forkConversation } from "../lib/fork";
+import { forkConversation, openChatInTerminal, openInChat } from "../lib/fork";
 import { cyclePermissionMode } from "../lib/permissionMode";
 import { launchCustomAgent, launchTeam, variantOf } from "../lib/agents";
 import { openInBrowserPane } from "../lib/browser";
@@ -111,6 +111,8 @@ function actionItems(): Item[] {
     { id: "browser", group: "Actions", label: "Open browser pane", keys: "⇧⌘B", run: () => openInBrowserPane(pane, "") },
     !!pane && { id: "clear", group: "Actions", label: "Clear pane", keys: "⌘K", run: () => clearTerminal(pane) },
     !!pane && !!useAgents.getState().sessions[pane] && { id: "checkpoints", group: "Actions", label: "Checkpoints: restore files to before a prompt", run: () => ui.set({ checkpointsPaneId: pane }) },
+    !!pane && layout.panes[pane]?.mode === "chat" && { id: "chat-terminal", group: "Actions", label: "Open this chat in a terminal", hint: "same conversation, Claude's own screen", run: () => openChatInTerminal(pane) },
+    !!pane && layout.panes[pane]?.mode !== "chat" && !!useAgents.getState().sessions[pane]?.sessionId && { id: "terminal-chat", group: "Actions", label: "Continue this conversation as a chat", hint: "a chat pane beside it, same history", run: () => void openInChat(pane) },
     !!pane && !!useAgents.getState().sessions[pane]?.sessionId && { id: "fork", group: "Actions", label: "Fork this conversation into a new pane", run: () => void forkConversation(pane) },
     !!pane && !!useAgents.getState().sessions[pane] && { id: "perm-mode", group: "Actions", label: "Cycle permission mode (ask, auto-edit, plan…)", keys: "⇧⇥", run: () => void cyclePermissionMode(pane) },
     !!pane && !!useAgents.getState().sessions[pane]?.transcriptPath && { id: "handoff", group: "Actions", label: "Hand off this session to a fresh pane", run: () => void handOff(pane) },

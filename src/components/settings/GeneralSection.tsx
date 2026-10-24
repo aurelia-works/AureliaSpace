@@ -1,8 +1,10 @@
 import { ipc } from "../../lib/ipc";
 import { shortenPath } from "../../lib/format";
+import { useUi } from "../../store/ui";
 import type { SectionProps } from "./registry";
 
 export function GeneralSection({ draft, update }: SectionProps) {
+  const asChat = useUi((s) => s.claudeAsChat);
   return (
     <>
       <section className="set-group">
@@ -73,6 +75,19 @@ export function GeneralSection({ draft, update }: SectionProps) {
         <p className="hint">
           Applies to Claude panes AureliaSpace starts, as <code>claude --permission-mode</code>. Each pane's mode chip switches it
           later (Shift+Tab in Claude).
+        </p>
+      </section>
+
+      <section className="set-group">
+        <h3>New Claude panes</h3>
+        <label className="field check">
+          <input type="checkbox" checked={asChat} onChange={(e) => useUi.getState().set({ claudeAsChat: e.target.checked })} />
+          <span>Open Claude as a chat</span>
+        </label>
+        <p className="hint">
+          A conversation view instead of Claude's terminal, for the start screen, launcher, routines and tasks. It saves as you
+          click. Any chat can switch to the terminal from the command palette (<code>⌘P</code>), and a plain Terminal is always on
+          the start screen.
         </p>
       </section>
 

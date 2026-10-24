@@ -36,6 +36,9 @@ export interface PaneMeta {
   chatUsed?: boolean;
   /** A forked chat: `claudeSession` is the original's, resumed as a copy until the fork's first turn is saved. */
   chatFork?: boolean;
+  /** This chat's tokens and cost so far, kept across restarts (the CLI only counts its own run). */
+  chatTokens?: number;
+  chatCost?: number;
   /** A chat pane's permission mode, so a restarted chat comes back in it. */
   chatPermission?: string;
   /** A file editor pane (components/EditorPane.tsx) instead of a terminal; line:col is where it opened. */
