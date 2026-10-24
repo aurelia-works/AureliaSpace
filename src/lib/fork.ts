@@ -39,7 +39,8 @@ export function openChatInTerminal(paneId: string): boolean {
   if (pane?.mode !== "chat") return false;
   releaseChat(paneId);
   useAgents.getState().remove(paneId);
-  const init = pane.claudeSession ? `claude --resume ${shellQuote(pane.claudeSession)}${pane.chatFork ? " --fork-session" : ""}` : "claude";
+  // A chat nobody has written to has a session id but no transcript on disk to resume.
+  const init = pane.claudeSession && pane.chatUsed ? `claude --resume ${shellQuote(pane.claudeSession)}${pane.chatFork ? " --fork-session" : ""}` : "claude";
   queueInit(paneId, init);
   layout.updatePane(paneId, { mode: undefined, chatFork: undefined });
   toast("Opened in a terminal. The conversation carries on there.");
