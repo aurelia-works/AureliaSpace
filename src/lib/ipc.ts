@@ -68,7 +68,7 @@ export interface Config {
   defaultWorkspace: string;
   /** Claude panes restored at launch reopen the conversation they last ran. */
   resumeOnLaunch: boolean;
-  /** `--permission-mode` for Claude panes started here ("acceptEdits", "plan", …); empty = Claude's default. */
+  /** `--permission-mode` for Claude panes started here ("acceptEdits", "plan", …); empty = Auto-edit, "default" = Claude's own ask-before-edits. */
   claudePermissionMode: string;
   /** ⌘-clicked paths and the Files view open in an editor pane; off = the external `editor`. */
   openFilesInApp: boolean;

@@ -6,6 +6,7 @@ import { onPanesClosed, useLayout, type PaneMeta } from "../store/layout";
 import { addNotice, addUser, applyLine, emptyTranscript, endTurn, toolSummary, type Transcript } from "./chatModel";
 import { cacheSafe } from "./effort";
 import { ipc, type ChatEvent, type ChatImage, type CliModel, type ChatUsage, type ContextUsage, type SlashCommand } from "./ipc";
+import { startPermissionMode } from "./startMode";
 
 /**
  * Chat panes' live state, kept outside React like terminals.ts keeps xterm: a pane that
@@ -224,7 +225,7 @@ export async function ensureChat(pane: PaneMeta) {
   try {
     const r = await ipc.chatSpawn({ paneId: pane.id, cwd: pane.cwd, account: pane.account, env: pane.env, secretEnv: pane.secretEnv, resume, resumeAt: resume ? branch?.at : undefined, fork: !!resume && fork, model: real(chatPicks(pane).model),
       effort: real(chatPicks(pane).effort),
-      permissionMode: pane.chatPermission || getConfig().claudePermissionMode || undefined,
+      permissionMode: pane.chatPermission || startPermissionMode(getConfig().claudePermissionMode),
       onEvent: ch,
     });
     if (spawns.get(pane.id) !== token) return;

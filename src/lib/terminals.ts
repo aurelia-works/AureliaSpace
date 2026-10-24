@@ -17,6 +17,7 @@ import { forgetInput, interceptInput } from "./inlineEffort";
 import { ipc } from "./ipc";
 import { installLinks } from "./links";
 import { terminalThemeFor } from "./palettes";
+import { startPermissionMode } from "./startMode";
 import { resolveDark } from "./theme";
 
 /**
@@ -250,7 +251,7 @@ function flushInit(entry: TermEntry) {
 
 /** Starts Claude in the mode chosen in Settings, unless the command already picks one. */
 function withPermissionMode(cmd: string): string {
-  const mode = getConfig().claudePermissionMode;
+  const mode = startPermissionMode(getConfig().claudePermissionMode);
   if (!mode || !/^claude(\s|$)/.test(cmd) || /--permission-mode|--dangerously-skip-permissions/.test(cmd)) return cmd;
   return cmd.replace(/^claude/, `claude --permission-mode ${mode}`);
 }
