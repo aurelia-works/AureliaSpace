@@ -405,6 +405,8 @@ export const ipc = {
   gitInfo: (cwd: string) => invoke<GitInfo | null>("git_info", { cwd }),
   createWorktree: (cwd: string, label: string) => invoke<string>("create_worktree", { cwd, label }),
   gitDiff: (cwd: string) => invoke<Diff>("git_diff", { cwd }),
+  /** The working tree against the thread's last checkpoint ("turn") or its branch's base ("branch"). */
+  diffScope: (cwd: string, pane: string, scope: "turn" | "branch") => invoke<Diff>("diff_scope", { cwd, pane, scope }),
   prStatus: (cwd: string) => invoke<PrInfo | null>("pr_status", { cwd }),
 
   fetchUsage: (account: string, force = false) => invoke<Usage | null>("fetch_usage", { account, force }),

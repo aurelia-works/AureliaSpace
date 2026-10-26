@@ -306,13 +306,14 @@ function Recents() {
 }
 
 /** Right rail (⌘B): the agent queue, tasks for the focused project, saved prompts, and recent folders. */
+/** The right column's Queue tab (components/RightPanel.tsx). */
 export function QueueRail() {
   return (
-    <aside className="rail" aria-label="Queue">
+    <>
       <Queue />
       <Tasks />
       <Prompts />
       <Recents />
-    </aside>
+    </>
   );
 }

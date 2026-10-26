@@ -10,6 +10,9 @@ export interface PickerTask {
 
 export type Mode = "agents" | "terminals";
 
+/** What the right column shows: the queue, the focused thread's changes, or its details. */
+export type RailTab = "queue" | "changes" | "details";
+
 /**
  * What the left navigator shows: the workspace tree (⌘\), the project's files (⇧⌘F),
  * search in them (⌥⌘F), their type errors (⇧⌘M), the focused Claude pane's conversation
@@ -21,6 +24,7 @@ interface UiState {
   /** Title-bar mode: agent board or the tab/pane view (Review is the diff modal). */
   mode: Mode;
   agentPanelOpen: boolean;
+  railTab: RailTab;
   nav: NavView;
   /** One thread at a time: the stage shows only each tab's focused pane, full size. */
   single: boolean;
@@ -59,6 +63,7 @@ interface UiState {
 export const useUi = create<UiState>((set) => ({
   mode: "terminals",
   agentPanelOpen: true,
+  railTab: "queue",
   nav: "projects",
   single: false,
   settingsOpen: false,
@@ -84,6 +89,7 @@ export const useUi = create<UiState>((set) => ({
 interface SavedUi {
   mode?: Mode;
   agentPanelOpen?: boolean;
+  railTab?: RailTab;
   nav?: NavView;
   single?: boolean;
   /** Pre-redesign flags, read once so an existing ui.json keeps its sidebar state. */
@@ -101,6 +107,7 @@ export async function loadUiState() {
     useUi.setState({
       mode: saved.mode === "agents" ? "agents" : "terminals",
       agentPanelOpen: saved.agentPanelOpen ?? true,
+      railTab: saved.railTab === "changes" || saved.railTab === "details" ? saved.railTab : "queue",
       nav:
         saved.nav !== undefined
           ? saved.nav
@@ -121,6 +128,7 @@ export async function loadUiState() {
     const next = JSON.stringify({
       mode: s.mode,
       agentPanelOpen: s.agentPanelOpen,
+      railTab: s.railTab,
       nav: s.nav,
       single: s.single,
       useWorktree: s.useWorktree,

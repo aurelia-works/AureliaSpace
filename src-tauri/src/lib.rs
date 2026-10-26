@@ -216,6 +216,7 @@ pub fn run() {
             git::create_worktree,
             git::git_diff,
             pr::pr_status,
+            checkpoints::diff_scope,
             checkpoints::checkpoint_create,
             checkpoints::checkpoint_list,
             checkpoints::checkpoint_restore,

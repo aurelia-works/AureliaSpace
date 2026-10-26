@@ -323,6 +323,8 @@ mockIPC(
       }
       case "resolve_paths":
         return args.candidates;
+      case "diff_scope":
+        return { root: dev("web"), diff: DIFF, truncated: false };
       case "pr_status":
         return PRS[String(args.cwd).split("/").pop()!] ?? null;
       case "fetch_usage":
@@ -421,7 +423,7 @@ if (view === "settings") useUi.setState({ settingsOpen: true, settingsSection: p
 if (view === "palette") useUi.setState({ paletteOpen: true });
 if (view === "files") useUi.setState({ nav: "files" });
 if (view === "threads") {
-  useUi.setState({ single: params.get("single") === "1" });
+  useUi.setState({ single: params.get("single") === "1", railTab: (params.get("rail") as "queue" | "changes" | "details") ?? "queue" });
   useLayout.getState().updatePane("p4", { babysit: true, babysitWakes: 2 });
   useLayout.getState().updatePane("p3", { settled: true });
 }

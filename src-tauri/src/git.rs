@@ -151,6 +151,11 @@ pub fn git_diff(cwd: String) -> Result<Diff, String> {
             break;
         }
     }
+    Ok(capped(&top, diff))
+}
+
+/// A diff cut to MAX_DIFF bytes (on a char boundary), so a huge change can't flood the UI.
+pub(crate) fn capped(root: &Path, mut diff: String) -> Diff {
     let truncated = diff.len() > MAX_DIFF;
     if truncated {
         let mut cut = MAX_DIFF;
@@ -159,5 +164,5 @@ pub fn git_diff(cwd: String) -> Result<Diff, String> {
         }
         diff.truncate(cut);
     }
-    Ok(Diff { root: top.to_string_lossy().into_owned(), diff, truncated })
+    Diff { root: root.to_string_lossy().into_owned(), diff, truncated }
 }

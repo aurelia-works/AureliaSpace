@@ -179,12 +179,51 @@ pub async fn checkpoint_restore(cwd: String, pane: String, sha: String) -> Resul
     .map_err(|e| e.to_string())?
 }
 
+/// The branch this one would merge into: origin's default branch, else a local main/master.
+fn base_ref(root: &Path) -> Option<String> {
+    let origin = git(root, None, &["symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD"]).ok();
+    origin
+        .into_iter()
+        .chain(["origin/main", "origin/master", "main", "master"].map(String::from))
+        .find(|r| git(root, None, &["rev-parse", "--verify", "-q", r]).is_ok())
+}
+
+/// The working tree (tracked and untracked) compared with a starting point: "turn" = the
+/// thread's latest checkpoint, taken just before its last prompt, so only that turn's work
+/// shows; "branch" = where this branch left its base, so everything the branch changes shows.
+fn scoped_diff(root: &Path, pane: &str, scope: &str) -> Result<String, String> {
+    let from = match scope {
+        "turn" => refs(root, pane).first().map(|(sha, _, _)| sha.clone()).ok_or("No checkpoint yet: this thread hasn't started a turn here.")?,
+        "branch" => {
+            let base = base_ref(root).ok_or("Couldn't find a base branch (origin/HEAD, main or master).")?;
+            git(root, None, &["merge-base", "HEAD", &base])?
+        }
+        other => return Err(format!("unknown scope: {other}")),
+    };
+    let tree = worktree_tree(root)?;
+    git(root, None, &["diff", "--no-color", "--no-ext-diff", "-U3", &from, &tree])
+}
+
+#[tauri::command]
+pub async fn diff_scope(cwd: String, pane: String, scope: String) -> Result<crate::git::Diff, String> {
+    let pane = safe_pane(&pane)?.to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = repo_root(&cwd).ok_or("not inside a git repository")?;
+        Ok(crate::git::capped(&root, scoped_diff(&root, &pane, &scope)?))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn repo() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("aurelia-cp-{}-{}", std::process::id(), now_ms()));
+        // Tests run in parallel: a counter keeps two repos made in the same millisecond apart.
+        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("aurelia-cp-{}-{}-{n}", std::process::id(), now_ms()));
         fs::create_dir_all(&dir).unwrap();
         for args in [&["init", "-q"][..], &["config", "user.email", "t@t"], &["config", "user.name", "t"]] {
             git(&dir, None, args).unwrap();
@@ -226,6 +265,22 @@ mod tests {
         let list = checkpoint_list(root.to_string_lossy().into(), "pane-1".into()).unwrap();
         assert_eq!(list.len(), 2);
         assert_eq!(list[0].label, "Before restore");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn turn_diff_shows_only_work_since_the_last_checkpoint_and_branch_diff_everything() {
+        let root = repo();
+        fs::write(root.join("a.txt"), "two").unwrap();
+        assert!(scoped_diff(&root, "pane-2", "turn").is_err(), "no checkpoint yet");
+        create(&root, "pane-2", "second prompt").unwrap().unwrap();
+        fs::write(root.join("a.txt"), "three").unwrap();
+        fs::write(root.join("new.txt"), "fresh").unwrap();
+        let turn = scoped_diff(&root, "pane-2", "turn").unwrap();
+        assert!(turn.contains("-two") && turn.contains("+three") && turn.contains("new.txt"), "{turn}");
+        assert!(!turn.contains("-one"), "{turn}");
+        let branch = scoped_diff(&root, "pane-2", "branch").unwrap();
+        assert!(branch.contains("-one") && branch.contains("+three") && branch.contains("new.txt"), "{branch}");
         let _ = fs::remove_dir_all(&root);
     }
 }

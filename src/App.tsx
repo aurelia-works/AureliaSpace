@@ -10,7 +10,7 @@ import { LayoutView } from "./components/LayoutView";
 import { Navigator } from "./components/Navigator";
 import { NoticeStack } from "./components/Notices";
 import { PaneDragGhost } from "./components/PaneDrag";
-import { QueueRail } from "./components/QueueRail";
+import { RightPanel } from "./components/RightPanel";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
@@ -29,6 +29,7 @@ export function App() {
   const agentPanelOpen = useUi((s) => s.agentPanelOpen);
   const nav = useUi((s) => s.nav);
   const single = useUi((s) => s.single);
+  const railTab = useUi((s) => s.railTab);
   const mode = useUi((s) => s.mode);
   const focusKey = useLayout((s) => `${s.activeTabId}:${s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId}`);
   const modalOpen = useUi((s) => s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen || s.paletteOpen);
@@ -44,7 +45,7 @@ export function App() {
   useEffect(() => {
     const id = requestAnimationFrame(fitAllTerminals);
     return () => cancelAnimationFrame(id);
-  }, [nav, agentPanelOpen, single, focusKey]);
+  }, [nav, agentPanelOpen, railTab, single, focusKey]);
 
   // Keyboard focus follows the focused pane.
   useEffect(() => {
@@ -74,7 +75,7 @@ export function App() {
           </div>
           {mode === "agents" && <AgentsBoard />}
         </main>
-        {agentPanelOpen && mode !== "agents" && <QueueRail />}
+        {agentPanelOpen && mode !== "agents" && <RightPanel />}
       </div>
       <StatusBar />
       <DiffReview />

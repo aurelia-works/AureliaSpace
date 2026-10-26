@@ -658,6 +658,161 @@
   background: var(--chrome);
   border-left: 1px solid var(--border);
 }
+/* Diffs need room: the Changes tab widens the column. */
+.rail.rail-changes {
+  width: min(560px, 42vw);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rail-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+}
+.rail-tabs button {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 550;
+}
+.rail-tabs button:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.rail-tabs button.on {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+/* Changes tab */
+.changes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.changes-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--sp-2) var(--sp-3);
+}
+.changes-head .seg {
+  margin-right: auto;
+}
+.changes-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--sp-3) var(--sp-2);
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+.changes-summary .link-btn {
+  margin-left: auto;
+}
+.changes-cut {
+  color: var(--warn);
+}
+.changes-files {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+.changes-empty {
+  margin: var(--sp-3);
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+.diff-file.side {
+  margin-bottom: var(--sp-2);
+}
+.diff-file.side header {
+  height: 28px;
+  padding: 0 8px;
+  gap: 6px;
+  cursor: pointer;
+}
+.diff-file.side .diff-path {
+  cursor: pointer;
+}
+.diff-file.side .diff-path:hover {
+  text-decoration: underline;
+}
+.diff-file.side .diff-lines {
+  font-size: 11px;
+  overflow-x: auto;
+}
+.diff-file.side .diff-line {
+  cursor: default;
+}
+.diff-file.side .diff-line .ln {
+  width: 36px;
+}
+
+/* Details tab */
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 22px;
+  font-size: 11.5px;
+}
+.detail-label {
+  flex: none;
+  width: 78px;
+  color: var(--text-faint);
+}
+.detail-value {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-value .link-btn {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.detail-meter {
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.detail-meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.detail-checks.pass {
+  color: var(--ok);
+}
+.detail-checks.fail {
+  color: var(--err);
+}
+.detail-checks.pending {
+  color: var(--work);
+}
+.detail-actions {
+  margin-top: var(--sp-2);
+}
 .rail-section {
   padding: var(--sp-3) var(--sp-3) var(--sp-4);
 }
