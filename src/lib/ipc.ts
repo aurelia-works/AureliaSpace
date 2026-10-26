@@ -156,6 +156,23 @@ export interface GitInfo {
   branch: string;
   detached: boolean;
   worktree: boolean;
+  /** The main checkout's root (same as `root` outside a linked worktree). */
+  repo: string;
+}
+
+/** The pull request for a branch (src-tauri/src/pr.rs). */
+export interface PrInfo {
+  number: number;
+  url: string;
+  title: string;
+  state: "OPEN" | "MERGED" | "CLOSED";
+  draft: boolean;
+  review: "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | "";
+  conflicts: boolean;
+  checks: "none" | "pending" | "pass" | "fail";
+  failing: string[];
+  /** Reviews plus conversation comments; a rise means new feedback. */
+  feedback: number;
 }
 
 export interface DirEntry {
@@ -388,6 +405,7 @@ export const ipc = {
   gitInfo: (cwd: string) => invoke<GitInfo | null>("git_info", { cwd }),
   createWorktree: (cwd: string, label: string) => invoke<string>("create_worktree", { cwd, label }),
   gitDiff: (cwd: string) => invoke<Diff>("git_diff", { cwd }),
+  prStatus: (cwd: string) => invoke<PrInfo | null>("pr_status", { cwd }),
 
   fetchUsage: (account: string, force = false) => invoke<Usage | null>("fetch_usage", { account, force }),
 

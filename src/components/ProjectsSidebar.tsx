@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useChat } from "../lib/chat";
 import { basename } from "../lib/format";
 import { showPane } from "../lib/terminals";
 import { useAgents } from "../store/agents";
 import { paneDir, useGit } from "../store/git";
 import { paneIds, useLayout } from "../store/layout";
+import { setBabysit, usePrs } from "../store/prs";
 import { useRuntime } from "../store/runtime";
+import { ipc, type PrInfo } from "../lib/ipc";
 import { usePaneAgent } from "./AgentChip";
 import { StatusGlyph, stateLabel, urgency, visualOf, type Visual } from "./StatusGlyph";
 
@@ -15,40 +18,113 @@ interface Project {
   panes: { id: string; tab: number }[];
 }
 
-function PaneRow({ paneId, tab, focused }: { paneId: string; tab: number; focused: boolean }) {
+const TRUNKS = new Set(["main", "master", "trunk", "develop"]);
+
+/** A chat's first message, as the thread's name. */
+function useChatTitle(paneId: string) {
+  return useChat((s) => {
+    const first = s.byPane[paneId]?.transcript.items.find((i) => i.kind === "user");
+    return first?.kind === "user" ? first.text.replace(/\s+/g, " ").trim().slice(0, 80) : undefined;
+  });
+}
+
+function PrBadge({ pr }: { pr: PrInfo }) {
+  const tone = pr.state === "MERGED" ? "merged" : pr.state === "CLOSED" ? "closed" : pr.conflicts ? "fail" : pr.checks;
+  const what =
+    pr.state !== "OPEN"
+      ? pr.state.toLowerCase()
+      : [pr.draft && "draft", pr.checks !== "none" && `checks ${pr.checks}`, pr.conflicts && "conflicts", pr.review && pr.review.toLowerCase().replace(/_/g, " ")].filter(Boolean).join(", ");
+  return (
+    <span
+      role="link"
+      className={`nav-pr num ${tone}`}
+      title={`PR #${pr.number}: ${pr.title}${what ? `\n${what}` : ""}\nClick to open on GitHub`}
+      onClick={(e) => {
+        e.stopPropagation();
+        void ipc.openUrl(pr.url);
+      }}
+    >
+      #{pr.number}
+    </span>
+  );
+}
+
+function PaneRow({ paneId, tab, focused, projectBranch }: { paneId: string; tab: number; focused: boolean; projectBranch?: string }) {
   const pane = useLayout((s) => s.panes[paneId]);
   const agent = useAgents((s) => s.sessions[paneId]);
   const running = useRuntime((s) => s.panes[paneId]?.running);
+  const git = useGit((s) => {
+    const d = paneDir(paneId);
+    return d ? s.info[d] : undefined;
+  });
+  const pr = usePrs((s) => {
+    const d = paneDir(paneId);
+    return d ? s.byDir[d] : undefined;
+  });
+  const title = useChatTitle(paneId);
   const custom = usePaneAgent(paneId);
   const account = pane?.account ?? agent?.account;
   const isClaude = !!agent || !!account;
   const v: Visual | undefined = agent ? visualOf(agent) : isClaude ? "starting" : undefined;
-  const label = pane?.browser ? "Browser" : pane?.editor ? (pane.editor.path.split("/").pop() ?? "Editor") : pane?.launcher ? "New tab" : custom ? custom.name : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
-  const sub = agent
-    ? agent.status === "working" && agent.tool
-      ? agent.tool
-      : stateLabel[visualOf(agent)]
-    : running && !isClaude
-      ? "running"
-      : "";
+  const kind = pane?.browser ? "Browser" : pane?.editor ? (pane.editor.path.split("/").pop() ?? "Editor") : pane?.launcher ? "New tab" : custom ? custom.name : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
+  const label = title ?? kind;
+  const status = agent ? (agent.status === "working" && agent.tool ? agent.tool : stateLabel[visualOf(agent)]) : running && !isClaude ? "running" : "";
+  // The project row already names its checkout's branch; say it here only when it differs.
+  const branch = git && git.branch !== projectBranch ? git.branch : undefined;
+  const sub = [status, branch].filter(Boolean).join(" · ");
+  const canBabysit = isClaude && !!git && !git.detached && !TRUNKS.has(git.branch) && pr?.state !== "MERGED";
+  const update = useLayout.getState().updatePane;
+
   return (
-    <button
-      className={`nav-pane${focused ? " focused" : ""}${v ? ` ${v}` : ""}`}
-      onClick={() => showPane(paneId)}
-      title={paneDir(paneId) ?? ""}
-      aria-current={focused ? "true" : undefined}
-    >
-      {v ? <StatusGlyph state={v} /> : <StatusGlyph state="shell" busy={!!running} />}
-      <span className="nav-pane-label">{label}</span>
-      {sub && <span className="nav-pane-sub">{sub}</span>}
-      <span className="nav-pane-tab num" title={`Tab ${tab + 1}`}>
-        {tab + 1}
+    <div className={`nav-thread${focused ? " focused" : ""}${pane?.settled ? " settled" : ""}`}>
+      <button
+        className={`nav-pane${focused ? " focused" : ""}${v ? ` ${v}` : ""}`}
+        onClick={() => showPane(paneId)}
+        title={[label !== kind ? `${kind}: ${label}` : label, paneDir(paneId)].filter(Boolean).join("\n")}
+        aria-current={focused ? "true" : undefined}
+      >
+        {v ? <StatusGlyph state={v} /> : <StatusGlyph state="shell" busy={!!running} />}
+        <span className="nav-thread-text">
+          <span className="nav-pane-label">{label}</span>
+          {sub && <span className="nav-pane-sub">{sub}</span>}
+        </span>
+        {pane?.babysit && (
+          <span className="nav-babysit" title={`Babysitting its PR: woken ${pane.babysitWakes ?? 0} times`}>
+            ◉
+          </span>
+        )}
+        {pr && <PrBadge pr={pr} />}
+        <span className="nav-pane-tab num" title={`Tab ${tab + 1}`}>
+          {tab + 1}
+        </span>
+      </button>
+      <span className="nav-thread-actions">
+        {canBabysit && (
+          <button
+            className={`nav-act${pane?.babysit ? " on" : ""}`}
+            title={
+              pane?.babysit
+                ? "Stop babysitting this PR"
+                : "Babysit: let this agent push the branch, open a PR and fix failed checks, reviews and conflicts as they come in (never merges)"
+            }
+            onClick={() => setBabysit(paneId, !pane?.babysit)}
+          >
+            {pane?.babysit ? "Stop" : "Babysit"}
+          </button>
+        )}
+        <button
+          className="nav-act"
+          title={pane?.settled ? "Back to the active threads" : "Settle: done for now, move it under Settled"}
+          onClick={() => update(paneId, { settled: !pane?.settled })}
+        >
+          {pane?.settled ? "Wake" : "Settle"}
+        </button>
       </span>
-    </button>
+    </div>
   );
 }
 
-/** Every open pane, grouped by git root (or folder), most urgent project first. */
+/** Every open pane as a thread, grouped by repository (worktrees under their repo), most urgent project first. */
 export function ProjectsSidebar() {
   const tabs = useLayout((s) => s.tabs);
   const panes = useLayout((s) => s.panes);
@@ -56,6 +132,7 @@ export function ProjectsSidebar() {
   const sessions = useAgents((s) => s.sessions);
   const git = useGit((s) => s.info);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [showSettled, setShowSettled] = useState<Record<string, boolean>>({});
 
   const focusedId = tabs.find((t) => t.id === activeTabId)?.focusedPaneId;
   const projects: Project[] = [];
@@ -63,24 +140,30 @@ export function ProjectsSidebar() {
   tabs.forEach((tab, ti) => {
     for (const id of paneIds(tab.root)) {
       const dir = sessions[id]?.cwd ?? panes[id]?.cwd ?? "";
-      const root = git[dir]?.root ?? dir;
+      const g = git[dir];
+      const root = g?.repo ?? g?.root ?? dir;
       let p = byRoot.get(root);
       if (!p) {
-        p = { root, name: basename(root) || "~", branch: git[dir]?.branch, panes: [] };
+        p = { root, name: basename(root) || "~", panes: [] };
         byRoot.set(root, p);
         projects.push(p);
       }
+      if (g && g.root === g.repo) p.branch = g.branch;
       p.panes.push({ id, tab: ti });
     }
   });
-  const best = (p: Project) => Math.min(5, ...p.panes.map(({ id }) => (sessions[id] ? urgency[visualOf(sessions[id])] : 5)));
+  const rank = (id: string) => (sessions[id] ? urgency[visualOf(sessions[id])] : 5);
+  const best = (p: Project) => Math.min(5, ...p.panes.filter(({ id }) => !panes[id]?.settled).map(({ id }) => rank(id)));
   projects.sort((a, b) => best(a) - best(b));
 
   return (
-    <div className="nav-tree" role="tree" aria-label="Workspace">
+    <div className="nav-tree" role="tree" aria-label="Threads">
       {projects.map((p) => {
         const isCollapsed = collapsed[p.root];
-        const needs = p.panes.filter(({ id }) => sessions[id]?.status === "needs_input").length;
+        const active = p.panes.filter(({ id }) => !panes[id]?.settled).sort((a, b) => rank(a.id) - rank(b.id));
+        const settled = p.panes.filter(({ id }) => panes[id]?.settled);
+        const needs = active.filter(({ id }) => sessions[id]?.status === "needs_input").length;
+        const row = ({ id, tab }: { id: string; tab: number }) => <PaneRow key={id} paneId={id} tab={tab} focused={id === focusedId} projectBranch={p.branch} />;
         return (
           <div key={p.root} className="nav-project" role="treeitem" aria-expanded={!isCollapsed}>
             <button className="nav-project-head" title={p.root} onClick={() => setCollapsed({ ...collapsed, [p.root]: !isCollapsed })}>
@@ -90,13 +173,22 @@ export function ProjectsSidebar() {
               <span className="nav-project-name">{p.name}</span>
               {p.branch && <span className="nav-project-branch mono">{p.branch}</span>}
               {needs > 0 && <span className="nav-needs num">{needs}</span>}
-              <span className="nav-count num">{p.panes.length}</span>
+              <span className="nav-count num">{active.length}</span>
             </button>
             {!isCollapsed && (
               <div role="group">
-                {p.panes.map(({ id, tab }) => (
-                  <PaneRow key={id} paneId={id} tab={tab} focused={id === focusedId} />
-                ))}
+                {active.map(row)}
+                {settled.length > 0 && (
+                  <>
+                    <button className="nav-settled-head" onClick={() => setShowSettled({ ...showSettled, [p.root]: !showSettled[p.root] })}>
+                      <span className={`chev${showSettled[p.root] ? " open" : ""}`} aria-hidden>
+                        ›
+                      </span>
+                      Settled <span className="num">{settled.length}</span>
+                    </button>
+                    {showSettled[p.root] && settled.map(row)}
+                  </>
+                )}
               </div>
             )}
           </div>

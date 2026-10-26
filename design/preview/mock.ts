@@ -126,6 +126,15 @@ const PANES: Record<string, { cwd: string; account?: string; agent?: string; lau
   p9: { cwd: dev("api-server"), launcher: true },
 };
 
+const pr = (number: number, title: string, over: Record<string, unknown>) => ({
+  number, url: `https://github.com/you/repo/pull/${number}`, title, state: "OPEN", draft: false, review: "", conflicts: false, checks: "pending", failing: [], feedback: 0, ...over,
+});
+const PRS: Record<string, unknown> = {
+  payments: pr(41, "Retry failed webhooks with backoff", { checks: "fail", failing: ["test (node 22)"], review: "CHANGES_REQUESTED", feedback: 3 }),
+  web: pr(212, "Settings: keyboard navigation", { checks: "pending" }),
+  infra: pr(9, "Move buckets to eu-west-2", { state: "MERGED", checks: "pass" }),
+};
+
 const leaf = (id: string) => ({ type: "pane", id });
 let sid = 0;
 const split = (dir: "row" | "column", ratio: number, a: unknown, b: unknown) => ({ type: "split", id: `s${sid++}`, dir, ratio, a, b });
@@ -310,8 +319,12 @@ mockIPC(
         return /typo/.test(args.prompt ?? args.text ?? "") ? { level: "low", source: "rules", why: "small edit", pending: false } : { level: null, source: "keep", why: "nothing to change", pending: false };
       case "git_info": {
         const name = String(args.cwd).split("/").pop()!;
-        return BRANCH[name] ? { root: args.cwd, branch: BRANCH[name], detached: false, worktree: name === "payments" } : null;
+        return BRANCH[name] ? { root: args.cwd, branch: BRANCH[name], detached: false, worktree: name === "payments", repo: args.cwd } : null;
       }
+      case "resolve_paths":
+        return args.candidates;
+      case "pr_status":
+        return PRS[String(args.cwd).split("/").pop()!] ?? null;
       case "fetch_usage":
         return USAGE[args.account] ?? null;
       case "project_root":
@@ -407,6 +420,11 @@ if (view === "review") useUi.setState({ reviewOpen: true });
 if (view === "settings") useUi.setState({ settingsOpen: true, settingsSection: params.get("section") });
 if (view === "palette") useUi.setState({ paletteOpen: true });
 if (view === "files") useUi.setState({ nav: "files" });
+if (view === "threads") {
+  useUi.setState({ single: params.get("single") === "1" });
+  useLayout.getState().updatePane("p4", { babysit: true, babysitWakes: 2 });
+  useLayout.getState().updatePane("p3", { settled: true });
+}
 if (view === "start") useLayout.getState().activateTab("t3");
-if (view !== "terminals" && view !== "files") useNotices.getState().clear();
+if (view !== "terminals" && view !== "files" && view !== "threads") useNotices.getState().clear();
 (window as any).__ready = true;

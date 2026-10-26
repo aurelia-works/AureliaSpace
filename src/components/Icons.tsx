@@ -16,6 +16,9 @@ const base = (props: SVGProps<SVGSVGElement>) => ({
 export const SplitRightIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M8 2.5v11" /></svg>
 );
+export const SingleIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="2" y="2.5" width="12" height="11" rx="2" /></svg>
+);
 export const SplitDownIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 8h12" /></svg>
 );

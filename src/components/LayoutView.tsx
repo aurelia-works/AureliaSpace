@@ -1,13 +1,17 @@
 import { useRef } from "react";
-import { useLayout, type LayoutNode } from "../store/layout";
+import { paneIds, useLayout, type LayoutNode } from "../store/layout";
 import { PaneView } from "./PaneView";
 
-export function LayoutView({ node }: { node: LayoutNode }) {
+/**
+ * A tab's panes. With `zoom` set, only that pane shows, full size; the others stay mounted
+ * (hidden) so their terminals keep running and come back as they were.
+ */
+export function LayoutView({ node, zoom }: { node: LayoutNode; zoom?: string }) {
   if (node.type === "pane") return <PaneView paneId={node.id} />;
-  return <Split node={node} />;
+  return <Split node={node} zoom={zoom} />;
 }
 
-function Split({ node }: { node: Extract<LayoutNode, { type: "split" }> }) {
+function Split({ node, zoom }: { node: Extract<LayoutNode, { type: "split" }>; zoom?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const setRatio = useLayout((s) => s.setRatio);
 
@@ -30,19 +34,22 @@ function Split({ node }: { node: Extract<LayoutNode, { type: "split" }> }) {
     window.addEventListener("mouseup", up);
   };
 
+  const side = zoom ? (paneIds(node.a).includes(zoom) ? "a" : paneIds(node.b).includes(zoom) ? "b" : undefined) : undefined;
   return (
     <div ref={ref} className={`split split-${node.dir}`}>
-      <div className="split-child" style={{ flex: `${node.ratio} 1 0` }}>
-        <LayoutView node={node.a} />
+      <div className={`split-child${side === "b" ? " zoom-hidden" : ""}`} style={{ flex: side ? "1 1 0" : `${node.ratio} 1 0` }}>
+        <LayoutView node={node.a} zoom={zoom} />
       </div>
-      <div
-        className="divider"
-        onMouseDown={onMouseDown}
-        onDoubleClick={() => setRatio(node.id, 0.5)}
-        title="Drag to resize · double-click to even out"
-      />
-      <div className="split-child" style={{ flex: `${1 - node.ratio} 1 0` }}>
-        <LayoutView node={node.b} />
+      {!side && (
+        <div
+          className="divider"
+          onMouseDown={onMouseDown}
+          onDoubleClick={() => setRatio(node.id, 0.5)}
+          title="Drag to resize · double-click to even out"
+        />
+      )}
+      <div className={`split-child${side === "a" ? " zoom-hidden" : ""}`} style={{ flex: side ? "1 1 0" : `${1 - node.ratio} 1 0` }}>
+        <LayoutView node={node.b} zoom={zoom} />
       </div>
     </div>
   );

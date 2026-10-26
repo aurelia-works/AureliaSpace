@@ -22,6 +22,8 @@ interface UiState {
   mode: Mode;
   agentPanelOpen: boolean;
   nav: NavView;
+  /** One thread at a time: the stage shows only each tab's focused pane, full size. */
+  single: boolean;
   settingsOpen: boolean;
   /** Section to show when Settings next opens (then cleared). */
   settingsSection: string | null;
@@ -58,6 +60,7 @@ export const useUi = create<UiState>((set) => ({
   mode: "terminals",
   agentPanelOpen: true,
   nav: "projects",
+  single: false,
   settingsOpen: false,
   settingsSection: null,
   paletteOpen: false,
@@ -82,6 +85,7 @@ interface SavedUi {
   mode?: Mode;
   agentPanelOpen?: boolean;
   nav?: NavView;
+  single?: boolean;
   /** Pre-redesign flags, read once so an existing ui.json keeps its sidebar state. */
   filesOpen?: boolean;
   sidebarOpen?: boolean;
@@ -105,6 +109,7 @@ export async function loadUiState() {
             : saved.sidebarOpen === false
               ? null
               : "projects",
+      single: saved.single ?? false,
       useWorktree: saved.useWorktree ?? false,
       reviewWhenDone: saved.reviewWhenDone ?? false,
       claudeAsChat: saved.claudeAsChat ?? true,
@@ -117,6 +122,7 @@ export async function loadUiState() {
       mode: s.mode,
       agentPanelOpen: s.agentPanelOpen,
       nav: s.nav,
+      single: s.single,
       useWorktree: s.useWorktree,
       reviewWhenDone: s.reviewWhenDone,
       claudeAsChat: s.claudeAsChat,

@@ -15,6 +15,7 @@ mod integration;
 mod orchestrator;
 mod links;
 mod privacy;
+mod pr;
 mod pty;
 mod ptyhost;
 mod remote;
@@ -214,6 +215,7 @@ pub fn run() {
             git::git_info,
             git::create_worktree,
             git::git_diff,
+            pr::pr_status,
             checkpoints::checkpoint_create,
             checkpoints::checkpoint_list,
             checkpoints::checkpoint_restore,

@@ -28,6 +28,7 @@ export function App() {
   const activeTabId = useLayout((s) => s.activeTabId);
   const agentPanelOpen = useUi((s) => s.agentPanelOpen);
   const nav = useUi((s) => s.nav);
+  const single = useUi((s) => s.single);
   const mode = useUi((s) => s.mode);
   const focusKey = useLayout((s) => `${s.activeTabId}:${s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId}`);
   const modalOpen = useUi((s) => s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen || s.paletteOpen);
@@ -43,7 +44,7 @@ export function App() {
   useEffect(() => {
     const id = requestAnimationFrame(fitAllTerminals);
     return () => cancelAnimationFrame(id);
-  }, [nav, agentPanelOpen]);
+  }, [nav, agentPanelOpen, single, focusKey]);
 
   // Keyboard focus follows the focused pane.
   useEffect(() => {
@@ -67,7 +68,7 @@ export function App() {
           <div className={`tabs-area${mode === "agents" ? " mode-hidden" : ""}`}>
             {tabs.map((tab) => (
               <div key={tab.id} className={`tab-content${tab.id === activeTabId ? "" : " hidden"}`}>
-                <LayoutView node={tab.root} />
+                <LayoutView node={tab.root} zoom={single ? tab.focusedPaneId : undefined} />
               </div>
             ))}
           </div>

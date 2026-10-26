@@ -45,6 +45,12 @@ export interface PaneMeta {
   editor?: EditorTarget;
   /** "chat": Claude Code drawn as a conversation (components/ChatPane.tsx) instead of a terminal. */
   mode?: "chat" | "terminal";
+  /** Done with for now: listed under Settled in the threads sidebar (set when its PR merges). */
+  settled?: boolean;
+  /** Watch this thread's PR and wake its agent on failed checks, new reviews or conflicts. */
+  babysit?: boolean;
+  /** How many times babysitting has woken it; stops at a cap so a loop can't run forever. */
+  babysitWakes?: number;
 }
 
 export interface EditorTarget {

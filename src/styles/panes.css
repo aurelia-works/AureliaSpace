@@ -21,6 +21,10 @@
 .tab-content.hidden {
   display: none;
 }
+/* One-thread view: the other panes of the tab stay mounted but out of sight. */
+.split-child.zoom-hidden {
+  display: none;
+}
 
 .split {
   flex: 1;

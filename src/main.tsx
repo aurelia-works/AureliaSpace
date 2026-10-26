@@ -26,6 +26,7 @@ import { trackAttention, useAgents, type AgentEvent } from "./store/agents";
 import { trackNoticeFocus, useNotices } from "./store/notifications";
 import { useConfig } from "./store/config";
 import { startGitPolling } from "./store/git";
+import { startPrPolling } from "./store/prs";
 import { serializeLayout, useLayout, type SavedLayout } from "./store/layout";
 import { loadCustomAgents } from "./store/customAgents";
 import { loadPrompts, startPromptLinks } from "./store/prompts";
@@ -89,6 +90,7 @@ async function boot() {
   await installFileDrop();
   startUsagePolling();
   startGitPolling();
+  startPrPolling();
   trackAttention();
   trackNoticeFocus();
   startCacheWatch();

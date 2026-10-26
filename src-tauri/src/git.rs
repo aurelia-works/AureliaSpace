@@ -17,6 +17,9 @@ pub struct GitInfo {
     pub detached: bool,
     /// True when `root` is a linked worktree rather than the main checkout.
     pub worktree: bool,
+    /// The main checkout's root (same as `root` outside a linked worktree), so a project's
+    /// worktrees group under it.
+    pub repo: String,
 }
 
 /// Nearest ancestor with a `.git` entry, plus the resolved git dir.
@@ -47,7 +50,9 @@ pub fn git_info(cwd: String) -> Option<GitInfo> {
         None => (head.chars().take(7).collect(), true),
     };
     let worktree = gitdir.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "worktrees");
-    Some(GitInfo { root: root.to_string_lossy().into_owned(), branch, detached, worktree })
+    // <repo>/.git/worktrees/<name> → <repo>
+    let repo = if worktree { gitdir.parent().and_then(Path::parent).and_then(Path::parent).map(Path::to_path_buf) } else { None }.unwrap_or_else(|| root.clone());
+    Some(GitInfo { root: root.to_string_lossy().into_owned(), branch, detached, worktree, repo: repo.to_string_lossy().into_owned() })
 }
 
 fn git(dir: &Path, args: &[&str]) -> Result<std::process::Output, String> {

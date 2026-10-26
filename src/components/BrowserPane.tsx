@@ -19,7 +19,11 @@ const QUICK = ["localhost:3000", "localhost:5173", "localhost:8080"];
 export function BrowserPane({ paneId }: { paneId: string }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const storeUrl = useLayout((s) => s.panes[paneId]?.browser?.url ?? "");
-  const visible = useLayout((s) => s.activeTabId === s.tabs.find((t) => t.root && hasPane(t.root, paneId))?.id);
+  const single = useUi((s) => s.single);
+  const visible = useLayout((s) => {
+    const tab = s.tabs.find((t) => t.root && hasPane(t.root, paneId));
+    return s.activeTabId === tab?.id && (!single || tab.focusedPaneId === paneId);
+  });
   const covered = useUi((s) => s.mode !== "terminals" || s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen);
   const [draft, setDraft] = useState(storeUrl);
   const [loading, setLoading] = useState(false);
