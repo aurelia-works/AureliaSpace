@@ -5,7 +5,7 @@ import { showPane } from "../lib/terminals";
 import { useAgents } from "../store/agents";
 import { paneDir, useGit } from "../store/git";
 import { paneIds, useLayout } from "../store/layout";
-import { setBabysit, usePrs } from "../store/prs";
+import { usePrs } from "../store/prs";
 import { useRuntime } from "../store/runtime";
 import { ipc, type PrInfo } from "../lib/ipc";
 import { usePaneAgent } from "./AgentChip";
@@ -18,7 +18,6 @@ interface Project {
   panes: { id: string; tab: number }[];
 }
 
-const TRUNKS = new Set(["main", "master", "trunk", "develop"]);
 const SNOOZE_MS = 60 * 60_000;
 const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
@@ -74,7 +73,6 @@ function PaneRow({ paneId, tab, focused, projectBranch, snoozed }: { paneId: str
   // The project row already names its checkout's branch; say it here only when it differs.
   const branch = git && git.branch !== projectBranch ? git.branch : undefined;
   const sub = [snoozed && pane?.snoozedUntil ? `snoozed until ${clock(pane.snoozedUntil)}` : status, branch].filter(Boolean).join(" · ");
-  const canBabysit = isClaude && !!git && !git.detached && !TRUNKS.has(git.branch) && pr?.state !== "MERGED";
   const update = useLayout.getState().updatePane;
 
   return (
@@ -91,7 +89,7 @@ function PaneRow({ paneId, tab, focused, projectBranch, snoozed }: { paneId: str
           {sub && <span className="nav-pane-sub">{sub}</span>}
         </span>
         {pane?.babysit && (
-          <span className="nav-babysit" title={`Babysitting its PR: woken ${pane.babysitWakes ?? 0} times`}>
+          <span className="nav-babysit" title={`Babysitting its PR: woken ${pane.babysitWakes ?? 0} times (turn it off in Details)`}>
             ◉
           </span>
         )}
@@ -101,19 +99,6 @@ function PaneRow({ paneId, tab, focused, projectBranch, snoozed }: { paneId: str
         </span>
       </button>
       <span className="nav-thread-actions">
-        {canBabysit && (
-          <button
-            className={`nav-act${pane?.babysit ? " on" : ""}`}
-            title={
-              pane?.babysit
-                ? "Stop babysitting this PR"
-                : "Babysit: let this agent push the branch, open a PR and fix failed checks, reviews and conflicts as they come in (never merges)"
-            }
-            onClick={() => setBabysit(paneId, !pane?.babysit)}
-          >
-            {pane?.babysit ? "Stop" : "Babysit"}
-          </button>
-        )}
         {pane?.settled || snoozed ? (
           <button className="nav-act" title="Back to the active threads" onClick={() => update(paneId, { settled: false, snoozedUntil: undefined })}>
             Wake

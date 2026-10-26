@@ -59,7 +59,11 @@ fn now_ms() -> u64 {
 fn worktree_tree(root: &Path) -> Result<String, String> {
     let dir = app_dir().join("checkpoints");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let index = dir.join(format!("index-{}-{}", std::process::id(), now_ms()));
+    // A turn ending starts a checkpoint and the Changes tab's diffs together, often in the
+    // same millisecond: the counter keeps their throwaway indexes apart.
+    static SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let index = dir.join(format!("index-{}-{}-{seq}", std::process::id(), now_ms()));
     let result = (|| {
         if git(root, None, &["rev-parse", "--verify", "-q", "HEAD"]).is_ok() {
             git(root, Some(&index), &["read-tree", "HEAD"])?;
@@ -281,6 +285,25 @@ mod tests {
         assert!(!turn.contains("-one"), "{turn}");
         let branch = scoped_diff(&root, "pane-2", "branch").unwrap();
         assert!(branch.contains("-one") && branch.contains("+three") && branch.contains("new.txt"), "{branch}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn snapshots_at_the_same_moment_dont_share_an_index() {
+        let root = repo();
+        fs::write(root.join("a.txt"), "changed").unwrap();
+        let trees: Vec<_> = (0..8)
+            .map(|_| {
+                let root = root.clone();
+                std::thread::spawn(move || worktree_tree(&root))
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|h| h.join().unwrap())
+            .collect();
+        for t in &trees {
+            assert!(t.is_ok(), "{t:?}");
+        }
         let _ = fs::remove_dir_all(&root);
     }
 }

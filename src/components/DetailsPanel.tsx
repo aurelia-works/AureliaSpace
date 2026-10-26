@@ -39,30 +39,32 @@ export function DetailsPanel() {
 
   return (
     <div className="details">
-      <section className="rail-section">
-        <h3 className="rail-head">Thread</h3>
-        {agent && <Row label="Status">{agent.status === "working" && agent.tool ? `Working: ${agent.tool}` : stateLabel[visualOf(agent)]}</Row>}
-        {pane.account && <Row label="Account">{pane.account}</Row>}
-        {(chat?.model || pane.chatModel) && <Row label="Model">{chat?.model ?? pane.chatModel}</Row>}
-        {(agent?.permissionMode || chat?.mode) && <Row label="Mode">{chat?.mode ?? agent?.permissionMode}</Row>}
-        {chat?.context && (
-          <Row label="Context" title={`${formatTokens(chat.context.totalTokens)} of ${formatTokens(chat.context.maxTokens)}`}>
-            <span className="detail-meter">
-              <span style={{ width: `${Math.min(100, chat.context.percentage)}%` }} />
-            </span>
-            {Math.round(chat.context.percentage)}%
-          </Row>
-        )}
-        {!!tokens && <Row label="Tokens">{formatTokens(tokens)}</Row>}
-        {!!cost && <Row label="Cost">${cost.toFixed(2)}</Row>}
-        {pane.claudeSession && (
-          <Row label="Session" title="Click to copy">
-            <button className="link-btn mono" onClick={() => copy(pane.claudeSession!)}>
-              {pane.claudeSession.slice(0, 8)}
-            </button>
-          </Row>
-        )}
-      </section>
+      {(agent || pane.account || chat) && (
+        <section className="rail-section">
+          <h3 className="rail-head">Thread</h3>
+          {agent && <Row label="Status">{agent.status === "working" && agent.tool ? `Working: ${agent.tool}` : stateLabel[visualOf(agent)]}</Row>}
+          {pane.account && <Row label="Account">{pane.account}</Row>}
+          {(chat?.model || pane.chatModel) && <Row label="Model">{chat?.model ?? pane.chatModel}</Row>}
+          {(agent?.permissionMode || chat?.mode) && <Row label="Mode">{chat?.mode ?? agent?.permissionMode}</Row>}
+          {chat?.context && (
+            <Row label="Context" title={`${formatTokens(chat.context.totalTokens)} of ${formatTokens(chat.context.maxTokens)}`}>
+              <span className="detail-meter">
+                <span style={{ width: `${Math.min(100, chat.context.percentage)}%` }} />
+              </span>
+              {Math.round(chat.context.percentage)}%
+            </Row>
+          )}
+          {!!tokens && <Row label="Tokens">{formatTokens(tokens)}</Row>}
+          {!!cost && <Row label="Cost">${cost.toFixed(2)}</Row>}
+          {pane.claudeSession && (
+            <Row label="Session" title="Click to copy">
+              <button className="link-btn mono" onClick={() => copy(pane.claudeSession!)}>
+                {pane.claudeSession.slice(0, 8)}
+              </button>
+            </Row>
+          )}
+        </section>
+      )}
 
       <section className="rail-section">
         <h3 className="rail-head">Workspace</h3>
