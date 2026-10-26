@@ -12,7 +12,7 @@ import { NoticeStack } from "./components/Notices";
 import { PaneDragGhost } from "./components/PaneDrag";
 import { RightPanel } from "./components/RightPanel";
 import { SettingsPage } from "./components/settings/SettingsPage";
-import { StatusBar } from "./components/StatusBar";
+import { ThreadHeader } from "./components/ThreadHeader";
 import { TitleBar } from "./components/TitleBar";
 import { Toast } from "./components/Toast";
 import { fitAllTerminals, focusTerminal } from "./lib/terminals";
@@ -55,7 +55,7 @@ export function App() {
       const pane = activeTab()?.focusedPaneId;
       if (!pane) return;
       if (useLayout.getState().panes[pane]?.launcher) {
-        document.querySelector<HTMLElement>(`[data-pane-id="${pane}"] .start-screen`)?.focus();
+        document.querySelector<HTMLElement>(`[data-pane-id="${pane}"] .start-screen textarea`)?.focus();
       } else if (useUi.getState().suggestPaneId !== pane && useUi.getState().composerPaneId !== pane) focusTerminal(pane);
     });
     return () => cancelAnimationFrame(id);
@@ -67,6 +67,7 @@ export function App() {
       <div className="frame">
         {nav && <Navigator view={nav} />}
         <main className="stage">
+          <ThreadHeader />
           <div className={`tabs-area${mode === "agents" ? " mode-hidden" : ""}`}>
             {tabs.map((tab) => (
               <div key={tab.id} className={`tab-content${tab.id === activeTabId ? "" : " hidden"}`}>
@@ -78,7 +79,6 @@ export function App() {
         </main>
         {agentPanelOpen && mode !== "agents" && <RightPanel />}
       </div>
-      <StatusBar />
       <DiffReview />
       <SettingsPage />
       <AccountPicker />

@@ -114,7 +114,7 @@ const SCREENS: Record<string, string> = {
   p8: claudeScreen(dev("web"), [`${col(90, ">")} ${dim("Try \"refactor the router\"")}`]),
 };
 
-const PANES: Record<string, { cwd: string; account?: string; agent?: string; launcher?: boolean }> = {
+const PANES: Record<string, { cwd: string; account?: string; agent?: string; launcher?: boolean; mode?: "chat" }> = {
   p1: { cwd: dev("api-server"), account: "claude" },
   p2: { cwd: dev("web"), account: "claude-b" },
   p3: { cwd: dev("docs"), account: "work" },
@@ -124,6 +124,7 @@ const PANES: Record<string, { cwd: string; account?: string; agent?: string; lau
   p7: { cwd: dev("web") },
   p8: { cwd: dev("web"), account: "work" },
   p9: { cwd: dev("api-server"), launcher: true },
+  p10: { cwd: dev("web"), account: "claude", mode: "chat" },
 };
 
 const pr = (number: number, title: string, over: Record<string, unknown>) => ({
@@ -141,11 +142,12 @@ const split = (dir: "row" | "column", ratio: number, a: unknown, b: unknown) => 
 const row3 = (a: string, b: string, c: string) => split("row", 1 / 3, leaf(a), split("row", 0.5, leaf(b), leaf(c)));
 const layout = {
   version: 1,
-  activeTabId: view === "start" ? "t3" : "t1",
+  activeTabId: view === "start" ? "t3" : view === "chat" ? "t4" : "t1",
   tabs: [
     { id: "t1", root: split("column", 0.5, row3("p1", "p2", "p3"), row3("p4", "p5", "p6")), focusedPaneId: "p2" },
     { id: "t2", root: split("row", 0.55, leaf("p7"), leaf("p8")), focusedPaneId: "p7" },
     { id: "t3", root: leaf("p9"), focusedPaneId: "p9" },
+    { id: "t4", root: leaf("p10"), focusedPaneId: "p10" },
   ],
   panes: Object.fromEntries(Object.entries(PANES).map(([id, p]) => [id, { id, ...p }])),
 };
@@ -348,6 +350,13 @@ mockIPC(
         return [];
       case "has_api_key":
         return false;
+      case "chat_history":
+        // The scripted chat (view=chat) is the whole story: never load or spawn over it.
+        return new Promise(() => {});
+      case "chat_spawn":
+        return {};
+      case "chat_commands":
+        return { commands: [] };
       case "transcript_usage":
         return { entries: [], offset: 0 };
       case "plugin:path|resolve_directory":
@@ -430,4 +439,36 @@ if (view === "threads") {
 }
 if (view === "start") useLayout.getState().activateTab("t3");
 if (view !== "terminals" && view !== "files" && view !== "threads") useNotices.getState().clear();
+if (view === "chat") {
+  // A chat mid-turn, waiting on an approval, with one message queued behind it.
+  const { useChat } = await import("../../src/lib/chat.ts");
+  useLayout.getState().activateTab("t4");
+  await sleep(900);
+  let n = 0;
+  const id = () => `i${n++}`;
+  useChat.setState({
+    byPane: {
+      p10: {
+        status: "waiting",
+        tokens: 14_200,
+        costUsd: 0.42,
+        model: "claude-opus-5-5",
+        queued: [{ text: "also check whether Notes gets the same key code", uuid: "q1" }],
+        approvals: [{ id: "a1", tool: "Bash", input: { command: `log show --last 5m --predicate 'subsystem == "com.aurelia.voice"'`, description: "Read Aurelia Voice's key events" }, description: "Reads Aurelia Voice's key events. Changes nothing." }],
+        transcript: {
+          open: {},
+          files: [],
+          seq: 9,
+          items: [
+            { kind: "user", id: id(), text: "The composer gets 7 boxes when I press the right arrow instead of moving the caret. Notes did it too. Find out whether it's us." },
+            { kind: "tool", id: id(), toolId: "t1", name: "Grep", input: { pattern: "u001d" }, partial: "", result: "No matches", steps: 0 },
+            { kind: "tool", id: id(), toolId: "t2", name: "Read", input: { file_path: "/Users/you/dev/web/src/components/Composer.tsx" }, partial: "", result: "...", steps: 0 },
+            { kind: "text", id: id(), text: "Nothing in the app writes that character, and Notes doing the same thing puts it below us. Two suspects left: the Karabiner \"Right Command to hjkl\" rule and Aurelia Voice's key tap.\n\nThe system log will show which one sends the key. It's read only.", done: true, final: true },
+            { kind: "tool", id: id(), toolId: "t3", name: "Bash", input: { command: "log show --last 5m" }, partial: "", steps: 0 },
+          ],
+        },
+      },
+    },
+  });
+}
 (window as any).__ready = true;

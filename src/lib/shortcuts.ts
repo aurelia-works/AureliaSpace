@@ -120,6 +120,9 @@ export function installShortcuts(): () => void {
         if (!shift && !alt) action = () => layout.newTab({ cwd, launcher: true });
         else if (alt && !shift) action = () => toggleNav("thread");
         break;
+      case "KeyN":
+        if (!shift && !alt) action = () => layout.newTab({ cwd, launcher: true });
+        break;
       case "KeyM":
         if (shift && !alt) action = () => toggleNav("problems");
         break;

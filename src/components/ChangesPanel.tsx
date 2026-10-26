@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useChat } from "../lib/chat";
+import { sendChat, useChat } from "../lib/chat";
 import { parseDiff, type DiffFile } from "../lib/diff";
 import { ipc, type Diff } from "../lib/ipc";
 import { openFile } from "../lib/openFile";
 import { useAgents } from "../store/agents";
 import { paneDir } from "../store/git";
 import { useLayout } from "../store/layout";
+import { usePrs } from "../store/prs";
 import { useUi } from "../store/ui";
 import { RerunIcon } from "./Icons";
 
@@ -147,8 +148,44 @@ export function ChangesPanel() {
               return <FileDiff key={f.path} file={f} root={diff!.root} open={open} toggle={() => setClosed({ ...closed, [f.path]: open })} />;
             })}
           </div>
+          {paneId && <PrActions paneId={paneId} />}
         </>
       )}
+    </div>
+  );
+}
+
+/** Under a chat's diff: babysit its PR, or ask Claude to open one or to commit and push. */
+function PrActions({ paneId }: { paneId: string }) {
+  const pane = useLayout((s) => s.panes[paneId]);
+  const pr = usePrs((s) => {
+    const d = paneDir(paneId);
+    return d ? s.byDir[d] : undefined;
+  });
+  const busy = useChat((s) => s.byPane[paneId]?.status === "working");
+  if (pane?.mode !== "chat") return null;
+  const ask = (text: string) => void sendChat(paneId, text);
+  return (
+    <div className="pact">
+      {pr?.state === "OPEN" && (
+        <button
+          className="btn"
+          aria-pressed={!!pane.babysit}
+          title="Watch this PR and wake the thread on failed checks, new reviews or conflicts"
+          onClick={() => useLayout.getState().updatePane(paneId, { babysit: !pane.babysit, babysitWakes: 0 })}
+        >
+          {pane.babysit ? "Babysitting" : "Babysit PR"}
+        </button>
+      )}
+      <span className="sp" />
+      {!pr && (
+        <button className="btn" disabled={busy} title="Ask Claude to push the branch and open a pull request" onClick={() => ask("Push this branch and open a pull request for it.")}>
+          Open PR
+        </button>
+      )}
+      <button className="btn solid" disabled={busy} title="Ask Claude to commit these changes and push" onClick={() => ask("Commit these changes with a clear message and push.")}>
+        Commit and push
+      </button>
     </div>
   );
 }

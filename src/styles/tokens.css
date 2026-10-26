@@ -13,28 +13,28 @@
 
 :root,
 :root[data-theme="dark"] {
-  /* Abyss: blue-black ink, ivory text, Aurelia gold. */
-  --bg: #08090c;
-  --chrome: #0e1015;
-  --surface: #13151b;
-  --surface-2: #191c23;
-  --surface-3: #22262f;
-  --pane-bg: #0b0d11;
-  --border: #1c1f27;
-  --border-strong: #2a2e39;
-  --text: #ece8e1;
-  --text-dim: #a7aab2;
-  --text-faint: #7d818c;
-  --accent: #f2b544;
-  --accent-strong: #ffcb6b;
-  --accent-ink: #1a1205;
-  --ok: #79d29a;
-  --err: #ff7b72;
+  /* Deep: pure black for OLED-like panels, warm moonlight ink, Aurelia gold, bio-blue work. */
+  --bg: #000;
+  --chrome: #000;
+  --surface: #0b0b0a;
+  --surface-2: #111110;
+  --surface-3: #181816;
+  --pane-bg: #000;
+  --border: #171615;
+  --border-strong: #252422;
+  --text: #f1eee7;
+  --text-dim: #a29d92;
+  --text-faint: #8a857b;
+  --accent: #e9b04b;
+  --accent-strong: #f3c065;
+  --accent-ink: #160f02;
+  --ok: #5ed6a0;
+  --err: #ff8a7a;
   --warn: #f59e5b;
-  --attn: #f2b544;
-  --work: #62c6de;
-  --shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --attn: #e9b04b;
+  --work: #8fd3ff;
+  --shadow: 0 20px 50px #000, 0 0 0 1px rgba(241, 238, 231, 0.14);
+  --shadow-sm: 0 6px 18px #000, 0 0 0 1px rgba(241, 238, 231, 0.09);
   --tint: 12%;
   color-scheme: dark;
 }
@@ -91,11 +91,12 @@
   --s-fail: var(--err);
 
   /* Type. */
-  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-ui: "Geist", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-serif: "Instrument Serif", Georgia, serif;
   --fs-label: 10px; /* caps labels */
-  --fs-meta: 11px;
-  --fs-body: 12.5px;
+  --fs-meta: 12px;
+  --fs-body: 13.5px;
   --fs-title: 14px;
   --fs-page: 20px;
   --fs-hero: 28px;
@@ -115,14 +116,16 @@
   --r-lg: 12px;
 
   /* Frame. */
-  --titlebar-h: 40px;
-  --statusbar-h: 26px;
-  --nav-w: 240px;
+  --titlebar-h: 46px;
+  --statusbar-h: 0px;
+  --nav-w: 288px;
   --rail-w: 312px;
   --pane-head-h: 28px;
 
   /* Motion: short, ease-out, transform/opacity only. */
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Pulse 0..1, written by the one clock (lib/pulse.ts): the mark and working bells beat on it. */
+  --p: 0;
   --t-fast: 110ms;
   --t-med: 180ms;
 }

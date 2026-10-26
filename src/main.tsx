@@ -16,6 +16,7 @@ import { startControl } from "./lib/control";
 import { startDispatchWatch } from "./lib/dispatch";
 import { startOutbox } from "./lib/outbox";
 import { startChains } from "./lib/chain";
+import { startPulse } from "./lib/pulse";
 import { startRoutines } from "./lib/routines";
 import { startRemote } from "./lib/remote";
 import { planResume } from "./lib/resume";
@@ -36,6 +37,7 @@ import { loadTasks } from "./store/tasks";
 import { loadUiState, useUi } from "./store/ui";
 import { startMetrics } from "./store/metrics";
 import { startUsagePolling } from "./store/usage";
+import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/chrome.css";
@@ -44,6 +46,7 @@ import "./styles/board.css";
 import "./styles/overlays.css";
 import "./styles/notices.css";
 import "./styles/settings.css";
+import "./styles/deep.css";
 
 function applyTheme() {
   const cfg = useConfig.getState().config;
@@ -104,6 +107,7 @@ async function boot() {
   startRemote().catch(() => {});
   startOutbox();
   startChains();
+  startPulse();
   startDispatchWatch();
   startRoutines().catch(() => {});
   startControl().catch(() => {});

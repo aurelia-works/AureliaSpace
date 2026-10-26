@@ -1,7 +1,7 @@
 import type { ITheme } from "@xterm/xterm";
 
 export const darkTerminalTheme: ITheme = {
-  background: "#0b0d11",
+  background: "#000000",
   foreground: "#e6e3dc",
   cursor: "#f2b544",
   cursorAccent: "#0b0d11",

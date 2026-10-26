@@ -4,21 +4,17 @@ import { basename } from "../lib/format";
 import { showPane } from "../lib/terminals";
 import { useAgents } from "../store/agents";
 import { paneDir, useGit } from "../store/git";
-import { paneIds, useLayout } from "../store/layout";
+import { paneIds, useLayout, type PaneMeta } from "../store/layout";
 import { usePrs } from "../store/prs";
 import { useRuntime } from "../store/runtime";
 import { ipc, type PrInfo, type WorktreeEntry } from "../lib/ipc";
 import { matchesFilter, prAttention, snoozeChoices } from "../lib/threads";
-import { toast } from "../store/ui";
+import { toast, useUi } from "../store/ui";
+import { useRemote } from "../lib/remote";
 import { usePaneAgent } from "./AgentChip";
-import { StatusGlyph, stateLabel, urgency, visualOf, type Visual } from "./StatusGlyph";
+import { stateLabel, visualOf, type Visual } from "./StatusGlyph";
+import { FolderIcon, GearIcon, GlobeIcon, JellyIcon, LogIcon, PhoneIcon, PlusIcon, PrIcon, SearchIcon, TerminalIcon } from "./Icons";
 
-interface Project {
-  root: string;
-  name: string;
-  branch?: string;
-  panes: { id: string; tab: number }[];
-}
 
 const clock = (at: number) => {
   const d = new Date(at);
@@ -85,7 +81,7 @@ function SnoozeMenu({ onPick, onClose }: { onPick: (until: number) => void; onCl
 }
 
 /** A chat's first message, as the thread's name. */
-function useChatTitle(paneId: string) {
+export function useChatTitle(paneId: string) {
   return useChat((s) => {
     const first = s.byPane[paneId]?.transcript.items.find((i) => i.kind === "user");
     return first?.kind === "user" ? first.text.replace(/\s+/g, " ").trim().slice(0, 80) : undefined;
@@ -93,7 +89,7 @@ function useChatTitle(paneId: string) {
 }
 
 function PrBadge({ pr, attention, onOpen }: { pr: PrInfo; attention: string | null; onOpen: () => void }) {
-  const tone = pr.state === "MERGED" ? "merged" : pr.state === "CLOSED" ? "closed" : pr.conflicts ? "fail" : pr.checks;
+  const tone = pr.state === "MERGED" ? "merged" : pr.state === "CLOSED" ? "closed" : pr.conflicts || pr.checks === "fail" || attention ? "bad" : pr.checks === "pass" ? "ok" : "";
   const what =
     pr.state !== "OPEN"
       ? pr.state.toLowerCase()
@@ -101,7 +97,7 @@ function PrBadge({ pr, attention, onOpen }: { pr: PrInfo; attention: string | nu
   return (
     <span
       role="link"
-      className={`nav-pr num ${tone}${attention ? " attn" : ""}`}
+      className={`prb num ${tone}${attention ? " attn" : ""}`}
       title={`PR #${pr.number}: ${pr.title}${what ? `\n${what}` : ""}${attention ? `\nNeeds you: ${attention}` : ""}\nClick to open on GitHub`}
       onClick={(e) => {
         e.stopPropagation();
@@ -109,12 +105,29 @@ function PrBadge({ pr, attention, onOpen }: { pr: PrInfo; attention: string | nu
         void ipc.openUrl(pr.url);
       }}
     >
-      #{pr.number}
+      <PrIcon width={12} height={12} />#{pr.number}
     </span>
   );
 }
 
-function PaneRow({ paneId, focused, projectBranch, snoozed, selected, onSelect }: { paneId: string; focused: boolean; projectBranch?: string; snoozed: boolean; selected: boolean; onSelect: (e: MouseEvent) => boolean }) {
+/** "now", "12m", "3h", "2d": how long since the thread last did something. */
+function ago(at: number | undefined, now: number) {
+  if (!at) return "";
+  const m = Math.floor((now - at) / 60_000);
+  if (m < 1) return "now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
+}
+
+function Lead({ v, pane, running }: { v: Visual | undefined; pane: PaneMeta | undefined; running: boolean }) {
+  if (v === "needs_input") return <span className="dot-needs" aria-label="needs you" />;
+  if (v) return <JellyIcon className={v === "working" || v === "starting" ? "working" : v === "done" ? "done" : "idle"} aria-label={stateLabel[v]} />;
+  if (pane?.browser) return <GlobeIcon className="th-ico" />;
+  return <TerminalIcon className={`th-ico${running ? " busy" : ""}`} />;
+}
+
+function PaneRow({ paneId, focused, snoozed, selected, now, onSelect }: { paneId: string; focused: boolean; snoozed: boolean; selected: boolean; now: number; onSelect: (e: MouseEvent) => boolean }) {
   const pane = useLayout((s) => s.panes[paneId]);
   const agent = useAgents((s) => s.sessions[paneId]);
   const running = useRuntime((s) => s.panes[paneId]?.running);
@@ -132,36 +145,45 @@ function PaneRow({ paneId, focused, projectBranch, snoozed, selected, onSelect }
   const account = pane?.account ?? agent?.account;
   const isClaude = !!agent || !!account;
   const v: Visual | undefined = agent ? visualOf(agent) : isClaude ? "starting" : undefined;
-  const kind = pane?.browser ? "Browser" : pane?.editor ? (pane.editor.path.split("/").pop() ?? "Editor") : pane?.launcher ? "New tab" : custom ? custom.name : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
+  const kind = pane?.browser ? "Browser" : pane?.editor ? (pane.editor.path.split("/").pop() ?? "Editor") : pane?.launcher ? "New thread" : custom ? custom.name : isClaude ? (account ?? "Claude") : (running?.split(/\s+/)[0] ?? "Terminal");
   const label = title ?? kind;
-  const status = agent ? (agent.status === "working" && agent.tool ? agent.tool : stateLabel[visualOf(agent)]) : running && !isClaude ? "running" : "";
-  // The project row already names its checkout's branch; say it here only when it differs.
-  const branch = git && git.branch !== projectBranch ? git.branch : undefined;
+  const dir = paneDir(paneId);
+  const repo = basename(git?.repo ?? dir) || "~";
   const attention = prAttention(pr, pane?.prSeenFeedback);
-  const sub = [snoozed && pane?.snoozedUntil ? `snoozed until ${clock(pane.snoozedUntil)}` : status, branch].filter(Boolean).join(" · ");
+  const status = agent ? (agent.status === "working" && agent.tool ? agent.tool : stateLabel[visualOf(agent)]) : running && !isClaude ? "running" : "";
+  const when = snoozed && pane?.snoozedUntil ? `until ${clock(pane.snoozedUntil)}` : v === "working" ? "now" : ago(agent?.updatedAt, now);
   const update = useLayout.getState().updatePane;
   const away = pane?.settled || snoozed;
 
   return (
-    <div className={`nav-thread${focused ? " focused" : ""}${away ? " settled" : ""}${selected ? " selected" : ""}`}>
+    <div className={`nav-thread${focused ? " on" : ""}${away ? " away" : ""}${selected ? " selected" : ""}`}>
       <button
-        className={`nav-pane${focused ? " focused" : ""}${v ? ` ${v}` : ""}`}
+        className={`th-row${v ? ` ${v}` : ""}`}
         onClick={(e) => onSelect(e) || showPane(paneId)}
-        title={[label !== kind ? `${kind}: ${label}` : label, paneDir(paneId), "⌘-click to select several"].filter(Boolean).join("\n")}
+        title={[label !== kind ? `${kind}: ${label}` : label, status, dir, "⌘-click to select several"].filter(Boolean).join("\n")}
         aria-current={focused ? "true" : undefined}
         aria-selected={selected}
       >
-        {v ? <StatusGlyph state={v} /> : <StatusGlyph state="shell" busy={!!running} />}
-        <span className="nav-thread-text">
-          <span className="nav-pane-label">{label}</span>
-          {sub && <span className="nav-pane-sub">{sub}</span>}
+        <span className="th-t">
+          <Lead v={v} pane={pane} running={!!running} />
+          <span className="th-title">{label}</span>
+          {pane?.babysit && (
+            <span className="th-babysit" title={`Babysitting its PR: woken ${pane.babysitWakes ?? 0} times (turn it off in Details)`}>
+              ◉
+            </span>
+          )}
         </span>
-        {pane?.babysit && (
-          <span className="nav-babysit" title={`Babysitting its PR: woken ${pane.babysitWakes ?? 0} times (turn it off in Details)`}>
-            ◉
-          </span>
-        )}
-        {pr && <PrBadge pr={pr} attention={attention} onOpen={() => update(paneId, { prSeenFeedback: pr.feedback })} />}
+        <span className="th-m">
+          <span className="th-repo">{repo}</span>
+          {git && (
+            <>
+              <i>·</i>
+              <span className="th-br">{git.branch}</span>
+            </>
+          )}
+          {pr && <PrBadge pr={pr} attention={attention} onOpen={() => update(paneId, { prSeenFeedback: pr.feedback })} />}
+          {when && <time>{when}</time>}
+        </span>
       </button>
       <span className={`nav-thread-actions${menu ? " open" : ""}`}>
         {away ? (
@@ -219,7 +241,23 @@ function useLeftovers(roots: string[], panes: unknown, version: number) {
   return byRoot;
 }
 
-/** Every open pane as a thread, grouped by repository (worktrees under their repo), most urgent project first. */
+/** Shown while a phone is connected to the remote (Settings → Remote): it can read and reply to threads. */
+function PhoneStatus() {
+  const clients = useRemote((s) => s.clients);
+  if (!clients) return null;
+  const label = clients === 1 ? "Phone connected" : `${clients} phones connected`;
+  return (
+    <button className="side-remote" title={`${label}: it can read and reply to threads (Settings → Remote)`} onClick={() => useUi.getState().set({ settingsOpen: true, settingsSection: "remote" })}>
+      <i />
+      <PhoneIcon width={13} height={13} />
+      {label}
+    </button>
+  );
+}
+
+type Group = { key: "needs" | "work" | "recent"; label: string; ids: string[] };
+
+/** Every open pane as a thread, grouped by what it needs: you, time, or nothing. Snoozed and settled ones fold away below. */
 export function ProjectsSidebar() {
   const tabs = useLayout((s) => s.tabs);
   const panes = useLayout((s) => s.panes);
@@ -227,55 +265,48 @@ export function ProjectsSidebar() {
   const sessions = useAgents((s) => s.sessions);
   const git = useGit((s) => s.info);
   const prs = usePrs((s) => s.byDir);
-  const titles = useChat((s) => s.byPane);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [showSettled, setShowSettled] = useState<Record<string, boolean>>({});
+  const chats = useChat((s) => s.byPane);
+  const [away, setAway] = useState<"snoozed" | "settled" | null>(null);
+  const [finding, setFinding] = useState(false);
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkMenu, setBulkMenu] = useState(false);
   const [removed, setRemoved] = useState(0);
-  // Snoozes end on the clock, so re-check once a minute.
+  // Snoozes end and ages tick on the clock, so re-check once a minute.
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
   const snoozed = (id: string) => (panes[id]?.snoozedUntil ?? 0) > now && sessions[id]?.status !== "needs_input";
-  const away = (id: string) => !!panes[id]?.settled || snoozed(id);
 
   const focusedId = tabs.find((t) => t.id === activeTabId)?.focusedPaneId;
-  const projects: Project[] = [];
-  const byRoot = new Map<string, Project>();
-  tabs.forEach((tab, ti) => {
-    for (const id of paneIds(tab.root)) {
-      const dir = sessions[id]?.cwd ?? panes[id]?.cwd ?? "";
-      const g = git[dir];
-      const root = g?.repo ?? g?.root ?? dir;
-      let p = byRoot.get(root);
-      if (!p) {
-        p = { root, name: basename(root) || "~", panes: [] };
-        byRoot.set(root, p);
-        projects.push(p);
-      }
-      if (g && g.root === g.repo) p.branch = g.branch;
-      p.panes.push({ id, tab: ti });
-    }
-  });
-  const leftovers = useLeftovers(
-    projects.filter((p) => git[p.root] || Object.values(git).some((g) => g?.repo === p.root)).map((p) => p.root),
-    panes,
-    removed,
-  );
-  const rank = (id: string) => (sessions[id] ? urgency[visualOf(sessions[id])] : 5);
-  const best = (p: Project) => Math.min(5, ...p.panes.filter(({ id }) => !away(id)).map(({ id }) => rank(id)));
-  projects.sort((a, b) => best(a) - best(b));
+  const all = tabs.flatMap((t) => paneIds(t.root));
+  const dirOf = (id: string) => sessions[id]?.cwd ?? panes[id]?.cwd ?? "";
+  const repos = [...new Set(all.map((id) => git[dirOf(id)]?.repo).filter(Boolean) as string[])];
+  const leftovers = useLeftovers(repos, panes, removed);
+  const spare = Object.values(leftovers).flat();
 
-  const shown = (p: Project, id: string) => {
+  const shown = (id: string) => {
     if (!filter.trim()) return true;
-    const first = titles[id]?.transcript.items.find((i) => i.kind === "user");
-    const d = paneDir(id);
-    return matchesFilter(filter, [p.name, first?.kind === "user" ? first.text : undefined, panes[id]?.account, d, d ? git[d]?.branch : undefined, d && prs[d] ? `#${prs[d]!.number} ${prs[d]!.title}` : undefined]);
+    const first = chats[id]?.transcript.items.find((i) => i.kind === "user");
+    const d = dirOf(id);
+    const g = git[d];
+    return matchesFilter(filter, [basename(g?.repo ?? d), first?.kind === "user" ? first.text : undefined, panes[id]?.account, d, g?.branch, prs[d] ? `#${prs[d]!.number} ${prs[d]!.title}` : undefined]);
   };
+  const visible = all.filter(shown);
+  const snoozedIds = visible.filter((id) => snoozed(id) && !panes[id]?.settled);
+  const settledIds = visible.filter((id) => panes[id]?.settled);
+  const active = visible.filter((id) => !snoozed(id) && !panes[id]?.settled);
+  const st = (id: string) => (sessions[id] ? visualOf(sessions[id]) : undefined);
+  const groups: Group[] = [
+    { key: "needs", label: "Needs you", ids: active.filter((id) => st(id) === "needs_input") },
+    { key: "work", label: "Working", ids: active.filter((id) => st(id) === "working" || st(id) === "starting" || (!sessions[id] && (panes[id]?.account || panes[id]?.mode === "chat"))) },
+    { key: "recent", label: "Recent", ids: [] },
+  ];
+  const grouped = new Set(groups.flatMap((g) => g.ids));
+  groups[2].ids = active.filter((id) => !grouped.has(id)).sort((a, b) => (sessions[b]?.updatedAt ?? 0) - (sessions[a]?.updatedAt ?? 0));
+
   const live = [...selected].filter((id) => panes[id]);
   const select = (id: string) => (e: MouseEvent) => {
     if (!e.metaKey && !e.shiftKey && live.length === 0) return false;
@@ -285,19 +316,21 @@ export function ProjectsSidebar() {
     setSelected(next);
     return true;
   };
-  const bulk = (patch: Parameters<ReturnType<typeof useLayout.getState>["updatePane"]>[1]) => {
+  const bulk = (patch: Partial<PaneMeta>) => {
     for (const id of live) useLayout.getState().updatePane(id, patch);
     setSelected(new Set());
     setBulkMenu(false);
   };
   const bulkCleanUp = async () => {
-    const roots = new Set(live.map((id) => paneDir(id)).map((d) => (d ? git[d] : undefined)).filter((g) => g?.worktree).map((g) => g!.root));
+    const roots = new Set(live.map((id) => git[dirOf(id)]).filter((g) => g?.worktree).map((g) => g!.root));
     setSelected(new Set());
     for (const r of roots) await cleanUpWorktree(r);
   };
+  const row = (id: string) => <PaneRow key={id} paneId={id} focused={id === focusedId} snoozed={snoozed(id)} selected={live.includes(id)} now={now} onSelect={select(id)} />;
+  const set = useUi.getState().set;
 
   return (
-    <div className="nav-tree" role="tree" aria-label="Threads">
+    <div className="side">
       {live.length > 0 ? (
         <div className="nav-bulk" role="toolbar" aria-label="Selected threads">
           <span className="nav-bulk-count num">{live.length} selected</span>
@@ -311,91 +344,127 @@ export function ProjectsSidebar() {
             <button className="nav-act" onClick={() => bulk({ settled: false, snoozedUntil: undefined })}>
               Wake
             </button>
-            {live.some((id) => {
-              const d = paneDir(id);
-              return d && git[d]?.worktree;
-            }) && (
+            {live.some((id) => git[dirOf(id)]?.worktree) && (
               <button className="nav-act" title="Close these threads and remove their worktrees (skips any with uncommitted changes)" onClick={() => void bulkCleanUp()}>
                 Clean up
               </button>
             )}
-            <button className="nav-act" title="Clear the selection (Esc)" onClick={() => setSelected(new Set())}>
+            <button className="nav-act" title="Clear the selection" onClick={() => setSelected(new Set())}>
               ✕
             </button>
           </span>
           {bulkMenu && <SnoozeMenu onClose={() => setBulkMenu(false)} onPick={(until) => bulk({ snoozedUntil: until })} />}
         </div>
       ) : (
+        <div className="side-top">
+          <button className="newt" onClick={() => useLayout.getState().newTab({ launcher: true })}>
+            <PlusIcon />
+            New thread
+            <kbd>⌘N</kbd>
+          </button>
+          <button
+            className={`find${finding ? " on" : ""}`}
+            aria-label="Filter threads"
+            title="Filter threads"
+            aria-pressed={finding}
+            onClick={() => {
+              setFinding(!finding);
+              setFilter("");
+            }}
+          >
+            <SearchIcon />
+          </button>
+        </div>
+      )}
+      {finding && (
         <input
           className="nav-filter"
           type="search"
-          placeholder="Filter threads"
+          autoFocus
+          placeholder="Filter by title, repo, branch or PR"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && setFilter("")}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setFilter("");
+              setFinding(false);
+            }
+          }}
           aria-label="Filter threads"
         />
       )}
-      {projects.map((p) => {
-        const isCollapsed = collapsed[p.root] && !filter.trim();
-        const visible = p.panes.filter(({ id }) => shown(p, id));
-        if (filter.trim() && visible.length === 0) return null;
-        const active = visible.filter(({ id }) => !away(id)).sort((a, b) => rank(a.id) - rank(b.id));
-        const settled = visible.filter(({ id }) => away(id));
-        const needs = active.filter(({ id }) => sessions[id]?.status === "needs_input").length;
-        const spare = leftovers[p.root] ?? [];
-        const row = ({ id }: { id: string; tab: number }) => (
-          <PaneRow key={id} paneId={id} focused={id === focusedId} projectBranch={p.branch} snoozed={snoozed(id)} selected={live.includes(id)} onSelect={select(id)} />
-        );
-        return (
-          <div key={p.root} className="nav-project" role="treeitem" aria-expanded={!isCollapsed}>
-            <button className="nav-project-head" title={p.root} onClick={() => setCollapsed({ ...collapsed, [p.root]: !collapsed[p.root] })}>
-              <span className={`chev${isCollapsed ? "" : " open"}`} aria-hidden>
-                ›
-              </span>
-              <span className="nav-project-name">{p.name}</span>
-              {p.branch && <span className="nav-project-branch mono">{p.branch}</span>}
-              {needs > 0 && <span className="nav-needs num">{needs}</span>}
+      <div className="side-list" role="tree" aria-label="Threads">
+        {groups.map(
+          (g) =>
+            g.ids.length > 0 && (
+              <section key={g.key} className={`grp ${g.key}`}>
+                <h3>
+                  {g.label}
+                  <span className="n num">{g.ids.length}</span>
+                </h3>
+                {g.ids.map(row)}
+              </section>
+            ),
+        )}
+        {(away === "snoozed" || filter.trim()) && snoozedIds.length > 0 && (
+          <section className="grp">
+            <h3>
+              Snoozed<span className="n num">{snoozedIds.length}</span>
+            </h3>
+            {snoozedIds.map(row)}
+          </section>
+        )}
+        {(away === "settled" || filter.trim()) && settledIds.length > 0 && (
+          <section className="grp">
+            <h3>
+              Settled<span className="n num">{settledIds.length}</span>
+            </h3>
+            {settledIds.map(row)}
+          </section>
+        )}
+        {visible.length === 0 && <p className="side-empty">{filter.trim() ? "No thread matches." : "No threads yet. Start one with ⌘N."}</p>}
+      </div>
+      <div className="side-foot">
+        <button className={`bk${away === "snoozed" ? " on" : ""}`} onClick={() => setAway(away === "snoozed" ? null : "snoozed")} aria-pressed={away === "snoozed"}>
+          Snoozed<span className="num">{snoozedIds.length}</span>
+        </button>
+        <button className={`bk${away === "settled" ? " on" : ""}`} onClick={() => setAway(away === "settled" ? null : "settled")} aria-pressed={away === "settled"}>
+          Settled<span className="num">{settledIds.length}</span>
+        </button>
+        {spare.length > 0 && (
+          <div className="bk leftover" title={spare.map((w) => `${w.branch}${w.dirty ? " (uncommitted changes)" : ""}`).join("\n")}>
+            {spare.length} unused {spare.length === 1 ? "worktree" : "worktrees"}
+            <button
+              className="nav-act"
+              title="Remove the ones without uncommitted changes"
+              onClick={async () => {
+                const clean = spare.filter((w) => !w.dirty);
+                for (const w of clean) await ipc.removeWorktree(w.path).catch((e) => toast(String(e), true));
+                const kept = spare.length - clean.length;
+                toast(`Removed ${clean.length} ${clean.length === 1 ? "worktree" : "worktrees"}${kept ? `; kept ${kept} with uncommitted changes` : ""}.`);
+                setRemoved(removed + 1);
+              }}
+            >
+              Clean up
             </button>
-            {!isCollapsed && (
-              <div role="group">
-                {active.map(row)}
-                {settled.length > 0 && (
-                  <>
-                    <button className="nav-settled-head" onClick={() => setShowSettled({ ...showSettled, [p.root]: !showSettled[p.root] })}>
-                      <span className={`chev${showSettled[p.root] || filter.trim() ? " open" : ""}`} aria-hidden>
-                        ›
-                      </span>
-                      {settled.some(({ id }) => snoozed(id)) ? "Settled and snoozed" : "Settled"} <span className="num">{settled.length}</span>
-                    </button>
-                    {(showSettled[p.root] || !!filter.trim()) && settled.map(row)}
-                  </>
-                )}
-                {spare.length > 0 && !filter.trim() && (
-                  <div className="nav-leftover" title={spare.map((w) => `${w.branch}${w.dirty ? " (uncommitted changes)" : ""}`).join("\n")}>
-                    <span>
-                      {spare.length} unused {spare.length === 1 ? "worktree" : "worktrees"}
-                    </span>
-                    <button
-                      className="nav-act"
-                      title="Remove the ones without uncommitted changes"
-                      onClick={async () => {
-                        const clean = spare.filter((w) => !w.dirty);
-                        for (const w of clean) await ipc.removeWorktree(w.path).catch((e) => toast(String(e), true));
-                        const kept = spare.length - clean.length;
-                        toast(`Removed ${clean.length} ${clean.length === 1 ? "worktree" : "worktrees"}${kept ? `; kept ${kept} with uncommitted changes` : ""}.`);
-                        setRemoved(removed + 1);
-                      }}
-                    >
-                      Clean up
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-        );
-      })}
+        )}
+        <div className="foot">
+          <button className="ib" aria-label="Settings" title="Settings (⌘,)" onClick={() => set({ settingsOpen: true })}>
+            <GearIcon />
+          </button>
+          <button className="ib" aria-label="Command palette" title="Go to a thread or action (⌘P)" onClick={() => set({ paletteOpen: true })}>
+            <span className="kbd">⌘P</span>
+          </button>
+          <button className="ib" aria-label="Project files" title="Files, search and problems (⇧⌘F)" onClick={() => set({ nav: "files" })}>
+            <FolderIcon />
+          </button>
+          <button className="ib" aria-label="Conversation log" title="The focused thread's conversation as a log (⌥⌘T)" onClick={() => set({ nav: "thread" })}>
+            <LogIcon />
+          </button>
+          <PhoneStatus />
+        </div>
+      </div>
     </div>
   );
 }

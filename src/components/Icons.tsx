@@ -149,3 +149,32 @@ export const AureliaMark = (p: SVGProps<SVGSVGElement>) => (
     </g>
   </svg>
 );
+
+/** A thread's state mark in the threads list: a small moon jellyfish (bio-blue while working). */
+export const JellyIcon = ({ className, ...p }: SVGProps<SVGSVGElement>) => (
+  <svg width={14} height={14} viewBox="0 0 24 24" aria-hidden className={`bell${className ? ` ${className}` : ""}`} {...p}>
+    <path d="M3 13C3 7.2 7 4 12 4s9 3.2 9 9c-2-.6-3 .5-4.5 0-1.4-.5-2 .5-4.5.5s-3.1-1-4.5-.5C6 13.5 5 12.4 3 13z" fill="currentColor" />
+    <path d="M8 15.5v4M12 16v5M16 15.5v4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+export const PhoneIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="4.5" y="1.5" width="7" height="13" rx="1.5" /><path d="M7 12.5h2" /></svg>
+);
+export const PrIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="4.5" cy="3.5" r="1.5" /><circle cx="4.5" cy="12.5" r="1.5" /><circle cx="11.5" cy="12.5" r="1.5" /><path d="M4.5 5v6M11.5 11V6.5c0-1-.8-2-2-2H7.5M9 3l-1.5 1.5L9 6" /></svg>
+);
+export const WorktreeIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M8 14V8M8 8C8 5 5 4 3 4M8 8c0-3 3-4 5-4M3 2v4M13 2v4" /></svg>
+);
+export const BottomPanelIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="2.5" y="2.5" width="11" height="11" rx="1.5" /><path d="M2.5 10h11" /></svg>
+);
+export const RightPanelIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><rect x="2.5" y="2.5" width="11" height="11" rx="1.5" /><path d="M10 2.5v11" /></svg>
+);
+export const LogIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M3 4h10M3 8h10M3 12h6" /></svg>
+);
+export const ChevronDownIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4.5 6.5L8 10l3.5-3.5" /></svg>
+);

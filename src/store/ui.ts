@@ -68,7 +68,7 @@ export const useUi = create<UiState>((set) => ({
   railTab: "queue",
   railWidths: {},
   nav: "projects",
-  single: false,
+  single: true,
   settingsOpen: false,
   settingsSection: null,
   paletteOpen: false,
@@ -121,7 +121,7 @@ export async function loadUiState() {
             : saved.sidebarOpen === false
               ? null
               : "projects",
-      single: saved.single ?? false,
+      single: saved.single ?? true,
       useWorktree: saved.useWorktree ?? false,
       reviewWhenDone: saved.reviewWhenDone ?? false,
       claudeAsChat: saved.claudeAsChat ?? true,
