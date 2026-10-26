@@ -5,6 +5,7 @@ import { fileStats, latestTodos, segments, toolSummary, turnEdits } from "../lib
 import { isLocalUrl, openInBrowserPane } from "../lib/browser";
 import { basename, formatCost, formatDuration, formatTokens } from "../lib/format";
 import { appendText, drafts, registerComposer } from "../lib/chatComposer";
+import { toolPhrase } from "../lib/toolPhrase";
 import { ipc, type ChatImage, type CliModel, type RuleFile, type RuleKind, type SlashCommand } from "../lib/ipc";
 import { renderMarkdown } from "../lib/markdown";
 import { openFile } from "../lib/openFile";
@@ -484,23 +485,6 @@ const TOOL_VERB: Record<string, string> = {
   Agent: "Running an agent",
 };
 
-/** Kinds of work a run of tool calls did, for its one-line summary. */
-const TOOL_KIND: Record<string, string> = {
-  Bash: "Commands",
-  Edit: "Edits",
-  MultiEdit: "Edits",
-  Write: "Edits",
-  NotebookEdit: "Edits",
-  Read: "Reads",
-  Grep: "Searches",
-  Glob: "Searches",
-  WebFetch: "Web",
-  WebSearch: "Web",
-  Task: "Agents",
-  Agent: "Agents",
-  TodoWrite: "Plan",
-};
-
 /**
  * Claude's work for one message. While it runs: what it's doing, its tool calls grouped
  * and folded, and the answer as it streams. Once done the work folds under one line.
@@ -573,7 +557,6 @@ function ToolGroup({ tools, cwd }: { tools: Tool[]; cwd?: string }) {
   const [open, setOpen] = useState(false);
   const running = tools.find((t) => t.result === undefined);
   const failed = tools.filter((t) => t.isError).length;
-  const kinds = [...new Set(tools.map((t) => TOOL_KIND[t.name] ?? t.name))].join(", ");
   const one = tools.length === 1 ? tools[0] : running;
   return (
     <div className={`chat-tools${running ? " running" : ""}`}>
@@ -587,8 +570,7 @@ function ToolGroup({ tools, cwd }: { tools: Tool[]; cwd?: string }) {
           </>
         ) : (
           <>
-            <span className="chat-tools-name num">{tools.length} tools</span>
-            <span className="chat-tools-kinds">· {kinds}</span>
+            <span className="chat-tools-name">{toolPhrase(tools)}</span>
           </>
         )}
         {failed > 0 && <span className="chat-tools-failed num">{failed} failed</span>}

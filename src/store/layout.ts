@@ -47,6 +47,8 @@ export interface PaneMeta {
   mode?: "chat" | "terminal";
   /** Done with for now: listed under Settled in the threads sidebar (set when its PR merges). */
   settled?: boolean;
+  /** Epoch ms: hidden under Settled until then, or until it needs you. */
+  snoozedUntil?: number;
   /** Watch this thread's PR and wake its agent on failed checks, new reviews or conflicts. */
   babysit?: boolean;
   /** How many times babysitting has woken it; stops at a cap so a loop can't run forever. */

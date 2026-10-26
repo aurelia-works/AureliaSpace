@@ -426,6 +426,7 @@ if (view === "threads") {
   useUi.setState({ single: params.get("single") === "1", railTab: (params.get("rail") as "queue" | "changes" | "details") ?? "queue" });
   useLayout.getState().updatePane("p4", { babysit: true, babysitWakes: 2 });
   useLayout.getState().updatePane("p3", { settled: true });
+  useLayout.getState().updatePane("p7", { snoozedUntil: Date.now() + 3_600_000 });
 }
 if (view === "start") useLayout.getState().activateTab("t3");
 if (view !== "terminals" && view !== "files" && view !== "threads") useNotices.getState().clear();

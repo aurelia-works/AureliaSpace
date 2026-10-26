@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChat } from "../lib/chat";
 import { basename } from "../lib/format";
 import { showPane } from "../lib/terminals";
@@ -19,6 +19,8 @@ interface Project {
 }
 
 const TRUNKS = new Set(["main", "master", "trunk", "develop"]);
+const SNOOZE_MS = 60 * 60_000;
+const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
 /** A chat's first message, as the thread's name. */
 function useChatTitle(paneId: string) {
@@ -49,7 +51,7 @@ function PrBadge({ pr }: { pr: PrInfo }) {
   );
 }
 
-function PaneRow({ paneId, tab, focused, projectBranch }: { paneId: string; tab: number; focused: boolean; projectBranch?: string }) {
+function PaneRow({ paneId, tab, focused, projectBranch, snoozed }: { paneId: string; tab: number; focused: boolean; projectBranch?: string; snoozed: boolean }) {
   const pane = useLayout((s) => s.panes[paneId]);
   const agent = useAgents((s) => s.sessions[paneId]);
   const running = useRuntime((s) => s.panes[paneId]?.running);
@@ -71,12 +73,12 @@ function PaneRow({ paneId, tab, focused, projectBranch }: { paneId: string; tab:
   const status = agent ? (agent.status === "working" && agent.tool ? agent.tool : stateLabel[visualOf(agent)]) : running && !isClaude ? "running" : "";
   // The project row already names its checkout's branch; say it here only when it differs.
   const branch = git && git.branch !== projectBranch ? git.branch : undefined;
-  const sub = [status, branch].filter(Boolean).join(" · ");
+  const sub = [snoozed && pane?.snoozedUntil ? `snoozed until ${clock(pane.snoozedUntil)}` : status, branch].filter(Boolean).join(" · ");
   const canBabysit = isClaude && !!git && !git.detached && !TRUNKS.has(git.branch) && pr?.state !== "MERGED";
   const update = useLayout.getState().updatePane;
 
   return (
-    <div className={`nav-thread${focused ? " focused" : ""}${pane?.settled ? " settled" : ""}`}>
+    <div className={`nav-thread${focused ? " focused" : ""}${pane?.settled || snoozed ? " settled" : ""}`}>
       <button
         className={`nav-pane${focused ? " focused" : ""}${v ? ` ${v}` : ""}`}
         onClick={() => showPane(paneId)}
@@ -112,13 +114,20 @@ function PaneRow({ paneId, tab, focused, projectBranch }: { paneId: string; tab:
             {pane?.babysit ? "Stop" : "Babysit"}
           </button>
         )}
-        <button
-          className="nav-act"
-          title={pane?.settled ? "Back to the active threads" : "Settle: done for now, move it under Settled"}
-          onClick={() => update(paneId, { settled: !pane?.settled })}
-        >
-          {pane?.settled ? "Wake" : "Settle"}
-        </button>
+        {pane?.settled || snoozed ? (
+          <button className="nav-act" title="Back to the active threads" onClick={() => update(paneId, { settled: false, snoozedUntil: undefined })}>
+            Wake
+          </button>
+        ) : (
+          <>
+            <button className="nav-act" title="Snooze: out of the way for an hour, or until it needs you" onClick={() => update(paneId, { snoozedUntil: Date.now() + SNOOZE_MS })}>
+              Snooze
+            </button>
+            <button className="nav-act" title="Settle: done for now, move it under Settled" onClick={() => update(paneId, { settled: true })}>
+              Settle
+            </button>
+          </>
+        )}
       </span>
     </div>
   );
@@ -133,6 +142,14 @@ export function ProjectsSidebar() {
   const git = useGit((s) => s.info);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [showSettled, setShowSettled] = useState<Record<string, boolean>>({});
+  // Snoozes end on the clock, so re-check once a minute.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const snoozed = (id: string) => (panes[id]?.snoozedUntil ?? 0) > now && sessions[id]?.status !== "needs_input";
+  const away = (id: string) => !!panes[id]?.settled || snoozed(id);
 
   const focusedId = tabs.find((t) => t.id === activeTabId)?.focusedPaneId;
   const projects: Project[] = [];
@@ -153,17 +170,17 @@ export function ProjectsSidebar() {
     }
   });
   const rank = (id: string) => (sessions[id] ? urgency[visualOf(sessions[id])] : 5);
-  const best = (p: Project) => Math.min(5, ...p.panes.filter(({ id }) => !panes[id]?.settled).map(({ id }) => rank(id)));
+  const best = (p: Project) => Math.min(5, ...p.panes.filter(({ id }) => !away(id)).map(({ id }) => rank(id)));
   projects.sort((a, b) => best(a) - best(b));
 
   return (
     <div className="nav-tree" role="tree" aria-label="Threads">
       {projects.map((p) => {
         const isCollapsed = collapsed[p.root];
-        const active = p.panes.filter(({ id }) => !panes[id]?.settled).sort((a, b) => rank(a.id) - rank(b.id));
-        const settled = p.panes.filter(({ id }) => panes[id]?.settled);
+        const active = p.panes.filter(({ id }) => !away(id)).sort((a, b) => rank(a.id) - rank(b.id));
+        const settled = p.panes.filter(({ id }) => away(id));
         const needs = active.filter(({ id }) => sessions[id]?.status === "needs_input").length;
-        const row = ({ id, tab }: { id: string; tab: number }) => <PaneRow key={id} paneId={id} tab={tab} focused={id === focusedId} projectBranch={p.branch} />;
+        const row = ({ id, tab }: { id: string; tab: number }) => <PaneRow key={id} paneId={id} tab={tab} focused={id === focusedId} projectBranch={p.branch} snoozed={snoozed(id)} />;
         return (
           <div key={p.root} className="nav-project" role="treeitem" aria-expanded={!isCollapsed}>
             <button className="nav-project-head" title={p.root} onClick={() => setCollapsed({ ...collapsed, [p.root]: !isCollapsed })}>
@@ -184,7 +201,7 @@ export function ProjectsSidebar() {
                       <span className={`chev${showSettled[p.root] ? " open" : ""}`} aria-hidden>
                         ›
                       </span>
-                      Settled <span className="num">{settled.length}</span>
+                      {settled.some(({ id }) => snoozed(id)) ? "Settled and snoozed" : "Settled"} <span className="num">{settled.length}</span>
                     </button>
                     {showSettled[p.root] && settled.map(row)}
                   </>
