@@ -53,6 +53,10 @@ export interface PaneMeta {
   babysit?: boolean;
   /** How many times babysitting has woken it; stops at a cap so a loop can't run forever. */
   babysitWakes?: number;
+  /** PR review comments already seen (Details or the badge was opened); more means new feedback. */
+  prSeenFeedback?: number;
+  /** When this thread next finishes a turn, send `text` to the thread in pane `paneId` (once). */
+  then?: { paneId: string; text: string };
 }
 
 export interface EditorTarget {

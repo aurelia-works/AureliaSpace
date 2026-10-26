@@ -82,7 +82,8 @@ async function read() {
     if (action.kind === "wake") wake(id, action.text);
     else if (action.kind === "settle" && !pane.settled) {
       layout.updatePane(id, { settled: true, babysit: false });
-      toast(`PR #${next[d]!.number} merged; its thread is settled.`);
+      const inWorktree = useGit.getState().info[d]?.worktree;
+      toast(`PR #${next[d]!.number} merged; its thread is settled.${inWorktree ? " Clean up its worktree from the threads list." : ""}`);
     }
   }
 }

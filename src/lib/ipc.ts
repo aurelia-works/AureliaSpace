@@ -175,6 +175,12 @@ export interface PrInfo {
   feedback: number;
 }
 
+export interface WorktreeEntry {
+  path: string;
+  branch: string;
+  dirty: boolean;
+}
+
 export interface DirEntry {
   name: string;
   path: string;
@@ -404,6 +410,10 @@ export const ipc = {
 
   gitInfo: (cwd: string) => invoke<GitInfo | null>("git_info", { cwd }),
   createWorktree: (cwd: string, label: string) => invoke<string>("create_worktree", { cwd, label }),
+  /** The repo's AureliaSpace worktrees (under `<repo>.worktrees/`). */
+  listWorktrees: (cwd: string) => invoke<WorktreeEntry[]>("list_worktrees", { cwd }),
+  /** Refuses one with uncommitted changes; deletes its aurelia/* branch when merged. */
+  removeWorktree: (path: string) => invoke<void>("remove_worktree", { path }),
   gitDiff: (cwd: string) => invoke<Diff>("git_diff", { cwd }),
   /** The working tree against the thread's last checkpoint ("turn") or its branch's base ("branch"). */
   diffScope: (cwd: string, pane: string, scope: "turn" | "branch") => invoke<Diff>("diff_scope", { cwd, pane, scope }),

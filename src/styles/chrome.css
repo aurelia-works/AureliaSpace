@@ -578,6 +578,137 @@
 .nav-settled-head:hover {
   color: var(--text-dim);
 }
+.nav-thread-actions.open {
+  display: flex;
+}
+.nav-thread.selected .nav-pane {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.nav-pr.attn {
+  box-shadow: 0 0 0 1px var(--attn);
+}
+.nav-pr.attn::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--attn);
+  vertical-align: 1px;
+}
+.nav-filter {
+  width: 100%;
+  height: 24px;
+  margin: 0 0 6px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11.5px;
+}
+.nav-filter::placeholder {
+  color: var(--text-faint);
+}
+.nav-filter:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+.nav-bulk {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  margin: 0 0 6px;
+  padding: 0 4px 0 8px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+}
+.nav-bulk-count {
+  flex: 1;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text);
+}
+.nav-bulk-acts {
+  display: flex;
+  gap: 3px;
+}
+.nav-leftover {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 4px 0 22px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+}
+.nav-leftover span {
+  flex: 1;
+}
+.snooze-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  width: 220px;
+  padding: 4px;
+  border-radius: var(--r-md, 8px);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+.snooze-menu > button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 11.5px;
+}
+.snooze-menu > button:hover {
+  background: var(--hover);
+}
+.snooze-when {
+  color: var(--text-faint);
+}
+.snooze-custom {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.snooze-custom input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+  background: var(--surface-1, var(--chrome));
+  color: var(--text);
+  font-size: 11px;
+  color-scheme: dark light;
+}
+.snooze-custom button {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+}
+.snooze-note {
+  margin: 2px 8px 4px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+}
 
 .nav-files {
   flex: 1;
@@ -652,6 +783,7 @@
 /* ---------- Queue rail (right) ---------- */
 
 .rail {
+  position: relative;
   width: var(--rail-w);
   flex: none;
   overflow-y: auto;
@@ -664,6 +796,19 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+.rail-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  width: 5px;
+  cursor: col-resize;
+}
+.rail-grip:hover,
+body.resizing-row .rail-grip {
+  background: linear-gradient(to right, var(--accent) 2px, transparent 2px);
 }
 .rail-tabs {
   position: sticky;
@@ -759,6 +904,11 @@
   width: 36px;
 }
 
+/* Labels are written in sentence case; the shared segmented control would capitalise them. */
+.changes .seg button {
+  text-transform: none;
+}
+
 /* Details tab */
 .detail-row {
   display: flex;
@@ -813,6 +963,34 @@
 .detail-actions {
   margin-top: var(--sp-2);
 }
+.detail-actions .btn {
+  height: 26px;
+  font-size: 11.5px;
+}
+.detail-attn {
+  margin: 4px 0 0;
+  color: var(--attn);
+  font-size: 11.5px;
+}
+.detail-then .detail-row {
+  align-items: center;
+  margin-bottom: 4px;
+}
+.detail-input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11.5px;
+}
+.detail-input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
 .rail-section {
   padding: var(--sp-3) var(--sp-3) var(--sp-4);
 }
@@ -826,6 +1004,10 @@
   gap: 8px;
   font-size: inherit;
   font-weight: inherit;
+}
+.details .rail-head {
+  color: var(--text-faint);
+  font-size: 11px;
 }
 .rail-count {
   font-size: 10.5px;

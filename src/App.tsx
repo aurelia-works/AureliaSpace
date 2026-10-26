@@ -30,6 +30,7 @@ export function App() {
   const nav = useUi((s) => s.nav);
   const single = useUi((s) => s.single);
   const railTab = useUi((s) => s.railTab);
+  const railWidth = useUi((s) => s.railWidths[s.railTab]);
   const mode = useUi((s) => s.mode);
   const focusKey = useLayout((s) => `${s.activeTabId}:${s.tabs.find((t) => t.id === s.activeTabId)?.focusedPaneId}`);
   const modalOpen = useUi((s) => s.settingsOpen || !!s.accountPicker || s.gridOpen || s.reviewOpen || s.paletteOpen);
@@ -45,7 +46,7 @@ export function App() {
   useEffect(() => {
     const id = requestAnimationFrame(fitAllTerminals);
     return () => cancelAnimationFrame(id);
-  }, [nav, agentPanelOpen, railTab, single, focusKey]);
+  }, [nav, agentPanelOpen, railTab, railWidth, single, focusKey]);
 
   // Keyboard focus follows the focused pane.
   useEffect(() => {

@@ -214,6 +214,8 @@ pub fn run() {
             files::snap_capture,
             git::git_info,
             git::create_worktree,
+            git::list_worktrees,
+            git::remove_worktree,
             git::git_diff,
             pr::pr_status,
             checkpoints::diff_scope,

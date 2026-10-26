@@ -15,6 +15,7 @@ import { startHudBridge } from "./lib/hudBridge";
 import { startControl } from "./lib/control";
 import { startDispatchWatch } from "./lib/dispatch";
 import { startOutbox } from "./lib/outbox";
+import { startChains } from "./lib/chain";
 import { startRoutines } from "./lib/routines";
 import { startRemote } from "./lib/remote";
 import { planResume } from "./lib/resume";
@@ -102,6 +103,7 @@ async function boot() {
   startHudBridge().catch(() => {});
   startRemote().catch(() => {});
   startOutbox();
+  startChains();
   startDispatchWatch();
   startRoutines().catch(() => {});
   startControl().catch(() => {});

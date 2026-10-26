@@ -25,6 +25,8 @@ interface UiState {
   mode: Mode;
   agentPanelOpen: boolean;
   railTab: RailTab;
+  /** Right column widths you dragged, per tab (Changes is wider by default); unset = default. */
+  railWidths: Partial<Record<RailTab, number>>;
   nav: NavView;
   /** One thread at a time: the stage shows only each tab's focused pane, full size. */
   single: boolean;
@@ -64,6 +66,7 @@ export const useUi = create<UiState>((set) => ({
   mode: "terminals",
   agentPanelOpen: true,
   railTab: "queue",
+  railWidths: {},
   nav: "projects",
   single: false,
   settingsOpen: false,
@@ -90,6 +93,7 @@ interface SavedUi {
   mode?: Mode;
   agentPanelOpen?: boolean;
   railTab?: RailTab;
+  railWidths?: Partial<Record<RailTab, number>>;
   nav?: NavView;
   single?: boolean;
   /** Pre-redesign flags, read once so an existing ui.json keeps its sidebar state. */
@@ -108,6 +112,7 @@ export async function loadUiState() {
       mode: saved.mode === "agents" ? "agents" : "terminals",
       agentPanelOpen: saved.agentPanelOpen ?? true,
       railTab: saved.railTab === "changes" || saved.railTab === "details" ? saved.railTab : "queue",
+      railWidths: saved.railWidths ?? {},
       nav:
         saved.nav !== undefined
           ? saved.nav
@@ -129,6 +134,7 @@ export async function loadUiState() {
       mode: s.mode,
       agentPanelOpen: s.agentPanelOpen,
       railTab: s.railTab,
+      railWidths: s.railWidths,
       nav: s.nav,
       single: s.single,
       useWorktree: s.useWorktree,
