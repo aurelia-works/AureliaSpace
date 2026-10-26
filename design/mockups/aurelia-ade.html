@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AureliaSpace</title>
+<meta name="description" content="AureliaSpace redesign mockup: an agentic development environment on pure black.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#000; --ink:#f1eee7; --muted:#a29d92; --faint:#8f8a80;
+  --line:rgba(241,238,231,.09); --line2:rgba(241,238,231,.14);
+  --s1:rgba(241,238,231,.035); --s2:rgba(241,238,231,.06); --s3:rgba(241,238,231,.09); --s4:rgba(241,238,231,.13);
+  --aurum:#e9b04b; --aurum-soft:rgba(233,176,75,.12); --bio:#8fd3ff; --bio-soft:rgba(143,211,255,.14);
+  --pass:#5ed6a0; --fail:#ff8a7a;
+  --add:rgba(94,214,160,.08); --del:rgba(255,138,122,.08);
+  --sans:"Geist",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --serif:"Instrument Serif",Georgia,serif;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --p:0; /* pulse, written by the one clock */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--ground)}
+body{color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden;font-feature-settings:"ss01"}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--aurum);outline-offset:2px;box-shadow:0 0 0 5px rgba(233,176,75,.18)}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+code,.mono{font-family:var(--mono)}
+
+/* ---------- frame ---------- */
+.frame{display:grid;grid-template-rows:46px 1fr;height:100vh}
+.titlebar{display:flex;align-items:center;gap:14px;padding:0 14px 0 16px;border-bottom:1px solid var(--line);position:relative;z-index:20}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}
+.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.mark{display:flex;align-items:center;gap:9px;margin-left:6px}
+.mark svg{width:22px;height:22px;transform-origin:50% 40%;
+  transform:scale(calc(1 - var(--p) * .1),calc(1 + var(--p) * .07));
+  filter:drop-shadow(0 0 calc(2px + var(--p) * 8px) rgba(233,176,75,calc(.25 + var(--p) * .35)))}
+.mark b{font-weight:600;letter-spacing:-.01em}
+.mark b span{font-weight:400;color:var(--muted)}
+.tb-sp{flex:1}
+
+/* mockup switcher (lives in the empty middle of the title bar) */
+.switch{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:9px;font-size:12px}
+.switch>span{color:var(--faint);padding:0 8px 0 6px;font:11px var(--mono);letter-spacing:.04em}
+.switch button{padding:3px 10px;border-radius:6px;color:var(--muted);transition:background .25s var(--ease),color .25s var(--ease)}
+.switch button:hover{color:var(--ink);background:var(--s2)}
+.switch button[aria-pressed=true]{background:var(--ink);color:#000}
+
+/* usage strip */
+.usage{display:flex;align-items:center;gap:4px;height:32px;padding:0 4px 0 12px;border:1px solid var(--line);border-radius:10px}
+.usage .lbl{font:500 11.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.u{position:relative;display:flex;align-items:center;gap:7px;height:26px;padding:0 8px;border-radius:7px;transition:background .25s var(--ease)}
+.u:hover,.u:focus-visible{background:var(--s2)}
+.u svg.g{width:15px;height:15px}
+.u .pct{font:500 12.5px var(--mono);font-variant-numeric:tabular-nums;min-width:30px;text-align:left}
+.u .bar{position:absolute;left:8px;right:8px;bottom:2px;height:2px;border-radius:2px;background:var(--line)}
+.u .bar b{display:block;height:100%;border-radius:2px;background:var(--muted);transform-origin:left}
+.u.low .pct{color:var(--aurum)} .u.low .bar b{background:var(--aurum)}
+.u.free .bar b{background:repeating-linear-gradient(90deg,var(--muted) 0 3px,transparent 3px 6px)}
+.tip{position:absolute;top:calc(100% + 10px);right:-4px;width:282px;padding:12px 14px;border:1px solid var(--line2);border-radius:12px;background:#0b0b0a;box-shadow:0 20px 50px #000;
+  opacity:0;translate:0 -4px;pointer-events:none;transition:opacity .2s var(--ease),translate .3s var(--ease);text-align:left;z-index:30}
+.u:hover .tip,.u:focus-visible .tip{opacity:1;translate:0 0}
+.tip h4{font-size:13px;font-weight:500;display:flex;justify-content:space-between;margin-bottom:8px}
+.tip h4 span{color:var(--muted);font-weight:400}
+.tip dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px}
+.tip dt{color:var(--muted)} .tip dd{font-family:var(--mono);font-size:11.5px;text-align:right}
+.tip .meter{grid-column:1/-1;height:3px;border-radius:3px;background:var(--line);margin:2px 0 6px}
+.tip .meter b{display:block;height:100%;border-radius:3px;background:var(--ink)}
+
+.body{display:grid;grid-template-columns:288px 1fr;min-height:0}
+
+/* ---------- sidebar ---------- */
+.side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.side-top{display:flex;gap:6px;padding:12px 12px 6px}
+.newt{flex:1;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--s1);color:var(--ink);transition:background .25s var(--ease),border-color .25s var(--ease)}
+.newt:hover{background:var(--s2);border-color:rgba(241,238,231,.22)}
+.newt:active{transform:translateY(1px)}
+.newt kbd,.kbd{margin-left:auto;font:11px var(--mono);color:var(--faint)}
+.find{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;border:1px solid var(--line);color:var(--muted)}
+.find:hover{color:var(--ink);background:var(--s2)}
+.list{flex:1;overflow:auto;padding:4px 8px}
+.grp{margin-top:14px}
+.grp h3{display:flex;align-items:center;gap:8px;padding:0 10px 6px;font:500 11.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.grp h3 .n{margin-left:auto;color:var(--faint)}
+.grp.needs h3{color:var(--aurum)}
+.row{position:relative;display:block;width:100%;text-align:left;padding:8px 10px 8px 12px;border-radius:9px;overflow:hidden}
+.row::before{content:"";position:absolute;inset:0;background:var(--s2);transform:scaleX(0);transform-origin:left;transition:transform .35s var(--ease)}
+.row:hover::before{transform:scaleX(1)}
+.row>*{position:relative}
+.row.on{background:var(--s3)}
+.row.on::after{content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;border-radius:2px;background:var(--ink)}
+.row .t{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.row .t .tt{overflow:hidden;text-overflow:ellipsis;flex:1}
+.row .m{display:flex;align-items:center;gap:6px;margin-top:2px;font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden}
+.row .m .br{overflow:hidden;text-overflow:ellipsis}
+.row .m time{margin-left:auto;flex:none}
+.prb{display:inline-flex;align-items:center;gap:3px;flex:none}
+.prb.ok{color:var(--pass)} .prb.bad{color:var(--fail)}
+.kid{margin-left:22px;padding-left:18px;width:calc(100% - 22px)}
+.kid .lin{position:absolute;left:4px;top:-8px;width:12px;height:26px;border-left:1px solid var(--line2);border-bottom:1px solid var(--line2);border-bottom-left-radius:8px}
+.kid .t{font-size:13px;color:#d8d4cb}
+.dot-needs{width:7px;height:7px;border-radius:50%;background:var(--aurum);box-shadow:0 0 0 3px var(--aurum-soft);flex:none}
+.bell{width:14px;height:14px;flex:none;transform-origin:50% 45%;
+  transform:scale(calc(1 - var(--p) * .2),calc(1 + var(--p) * .1));
+  filter:drop-shadow(0 0 calc(1px + var(--p) * 5px) var(--bio))}
+.bell.idle{transform:none;filter:none;opacity:.4}
+.prov{width:13px;height:13px;flex:none}
+.side-foot{border-top:1px solid var(--line);padding:6px 8px 8px}
+.bk{display:flex;align-items:center;width:100%;padding:6px 10px;border-radius:8px;color:var(--muted);font-size:13px;transition:background .25s var(--ease),color .25s var(--ease)}
+.bk:hover{background:var(--s2);color:var(--ink)}
+.bk span{margin-left:auto;font:12px var(--mono);color:var(--faint)}
+.foot{display:flex;align-items:center;gap:4px;padding:6px 4px 0}
+.ib{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:var(--muted);transition:background .25s var(--ease),color .25s var(--ease)}
+.ib:hover{background:var(--s2);color:var(--ink)}
+.ib:active{transform:translateY(1px)}
+.ib[aria-pressed=true]{background:var(--s3);color:var(--ink)}
+.remote{display:flex;align-items:center;gap:7px;padding:4px 10px;border-radius:8px;font-size:12px;color:var(--muted);margin-left:auto}
+.remote:hover{background:var(--s2);color:var(--ink)}
+.remote i{width:6px;height:6px;border-radius:50%;background:var(--pass)}
+
+/* ---------- main ---------- */
+.main{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
+.view{display:none;flex:1;flex-direction:column;min-height:0}
+.view.on{display:flex}
+.hdr{height:50px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px 0 22px;border-bottom:1px solid var(--line)}
+.crumb{display:flex;align-items:center;gap:8px;color:var(--muted);white-space:nowrap;min-width:0}
+.crumb h1{font-size:14px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:7px;border:1px solid var(--line);font:11.5px var(--mono);color:var(--muted);white-space:nowrap}
+.hdr .sp{flex:1}
+.hdr .tools{display:flex;gap:2px}
+
+.btn{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);font-size:13px;white-space:nowrap;
+  background:linear-gradient(var(--s4),var(--s4)) no-repeat left/0% 100%;transition:background-size .4s var(--ease),border-color .25s var(--ease)}
+.btn{transition:background-size .4s var(--ease),border-color .25s var(--ease),translate .3s var(--ease),box-shadow .3s var(--ease)}
+.btn:hover{background-size:100% 100%;border-color:rgba(241,238,231,.32);translate:0 -1px}
+.btn:active{transform:translateY(1px)}
+.btn.pri{border-color:var(--aurum);color:var(--aurum);background:linear-gradient(var(--aurum),var(--aurum)) no-repeat left/0% 100%}
+.btn.pri:hover{color:#160f02;background-size:100% 100%}
+.btn.solid{background:var(--aurum);color:#160f02;border-color:var(--aurum);font-weight:500}
+.btn.solid:hover{background:#f3c065;box-shadow:0 6px 22px rgba(233,176,75,.28)}
+.btn.ghost{border-color:transparent}
+
+/* composer */
+.composer{container-type:inline-size;width:100%;max-width:760px;margin:0 auto;border:1px solid var(--line2);border-radius:16px;background:#080807;transition:border-color .3s var(--ease)}
+.composer:focus-within,.composer:hover{border-color:rgba(241,238,231,.24)}
+.composer textarea{display:block;width:100%;resize:none;background:none;border:0;outline:0;color:var(--ink);font:15px/1.5 var(--sans);padding:16px 18px 6px;height:64px}
+.composer textarea::placeholder{color:var(--faint)}
+.cbar{display:flex;align-items:center;gap:2px;padding:6px 8px 8px 10px}
+.opt{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;border-radius:8px;font-size:13px;color:#d8d4cb;transition:background .25s var(--ease)}
+.opt:hover{background:var(--s2)}
+.opt .cv{width:12px;height:12px;color:var(--faint)}
+.opt.tog{color:var(--muted)}
+.opt.tog[aria-pressed=true]{color:var(--ink)}
+.opt.tog[aria-pressed=true] .sw{background:var(--aurum)}
+.opt.tog[aria-pressed=true] .sw::after{translate:10px 0;background:#160f02}
+.sw{width:22px;height:12px;border-radius:12px;background:var(--s3);position:relative;transition:background .25s var(--ease)}
+.sw::after{content:"";position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;background:var(--muted);transition:translate .3s var(--ease),background .25s}
+.cbar .sp{flex:1}
+.send{width:34px;height:34px;border-radius:50%;background:var(--ink);color:#000;display:grid;place-items:center;margin-left:6px;transition:transform .3s var(--ease),background .25s}
+.send:hover{background:var(--aurum);transform:translateY(-2px)}
+.send:active{transform:translateY(0) scale(.94)}
+.queued{display:flex;align-items:center;gap:8px;margin:0 auto 8px;max-width:760px;font-size:12.5px;color:var(--muted)}
+.queued .chip{color:#d8d4cb}
+
+/* start */
+.start{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px 40px;overflow:hidden}
+#bloom{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.start>*:not(canvas){position:relative}
+.hello{font:500 clamp(34px,3.4vw,50px)/1.05 var(--sans);letter-spacing:-.035em;text-align:center}
+.hello em{font:italic 400 1.18em/1 var(--serif);letter-spacing:-.01em;color:#f6e6c4;padding-right:.04em}
+.where{display:flex;align-items:center;gap:8px;margin:14px 0 28px;color:var(--muted);font-size:14px}
+.where .pick{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:7px;color:var(--ink);border:1px solid var(--line)}
+.where .pick:hover{background:var(--s2)}
+.mono-badge{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;font:700 8.5px var(--sans);color:#000;background:var(--aurum);flex:none}
+.resume{width:100%;max-width:760px;margin-top:30px}
+.resume h2{font:500 11.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:0 12px 8px}
+.rz{position:relative;display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 12px;border-top:1px solid var(--line);overflow:hidden}
+.rz:last-child{border-bottom:1px solid var(--line)}
+.rz::before{content:"";position:absolute;inset:0;background:var(--s1);transform:scaleX(0);transform-origin:left;transition:transform .4s var(--ease)}
+.rz:hover::before{transform:scaleX(1)}
+.rz>*{position:relative}
+.rz .what{flex:1;min-width:0}
+.rz .what b{font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rz .what span{font-size:12.5px;color:var(--muted)}
+.rz .go{font:12px var(--mono);color:var(--faint);display:inline-flex;align-items:center;gap:6px;transition:translate .35s var(--ease),color .25s}
+.rz:hover .go{translate:4px 0;color:var(--ink)}
+.ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;border:1px solid var(--line);flex:none}
+
+/* conversation */
+.split{flex:1;display:flex;min-height:0}
+.convo{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.scroll{flex:1;overflow:auto;padding:26px 28px 14px;-webkit-mask-image:linear-gradient(transparent,#000 28px);mask-image:linear-gradient(transparent,#000 28px)}
+.col{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.you{align-self:flex-end;max-width:78%;padding:10px 14px;border-radius:16px 16px 4px 16px;background:var(--s2);border:1px solid var(--line)}
+.say p{color:#e6e2d9;line-height:1.65}
+.say p+p{margin-top:10px}
+.say code,.you code{font-size:12.5px;padding:1px 5px;border-radius:5px;background:var(--s2);border:1px solid var(--line)}
+.card{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.card-h{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;color:var(--muted)}
+.card-h b{color:var(--ink);font-weight:500}
+.card-h .sp{flex:1}
+.run{display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;font-size:13px;color:var(--muted);border-radius:12px;border:1px solid var(--line);transition:background .25s var(--ease),color .25s}
+.run:hover{background:var(--s1);color:var(--ink)}
+.run .chev{transition:rotate .35s var(--ease)}
+.run:hover .chev{rotate:90deg}
+.run time{margin-left:auto;font:11.5px var(--mono);color:var(--faint)}
+.steps{list-style:none;border-top:1px solid var(--line);padding:6px 0}
+.steps li{display:flex;align-items:center;gap:12px;padding:6px 14px;font-size:13.5px}
+.steps .ck{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;flex:none;border:1px solid var(--line2)}
+.steps .done{color:var(--muted)}
+.steps .done .ck{background:var(--s3);border-color:transparent;color:var(--ink)}
+.steps .now .ck{border-color:var(--bio);box-shadow:0 0 0 calc(var(--p) * 5px) var(--bio-soft)}
+.steps .now{color:var(--ink)}
+.steps .next{color:#bdb8ad}
+.steps .tag{margin-left:auto;font:11.5px var(--mono);color:var(--faint)}
+.approve{border-color:rgba(233,176,75,.35);background:linear-gradient(180deg,rgba(233,176,75,.05),transparent 70%)}
+.approve .card-h{color:var(--aurum)}
+.cmd{margin:0 14px;padding:10px 12px;border-radius:9px;background:#0b0b0a;border:1px solid var(--line);font:12.5px/1.55 var(--mono);color:#e6e2d9;overflow:auto;white-space:pre}
+.why{padding:10px 14px 0;font-size:13px;color:var(--muted)}
+.acts{display:flex;gap:8px;padding:12px 14px 14px}
+.acts .sp{flex:1}
+.meta{display:flex;align-items:center;gap:10px;font:11.5px var(--mono);color:var(--faint)}
+.dock{padding:6px 28px 20px}
+
+/* review panel */
+.panel{width:min(56%,700px);flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;align-items:center;gap:2px;height:46px;padding:0 10px;border-bottom:1px solid var(--line)}
+.tab{position:relative;padding:5px 10px;border-radius:7px;font-size:13px;color:var(--muted)}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected=true]{color:var(--ink)}
+.tab[aria-selected=true]::after{content:"";position:absolute;left:10px;right:10px;bottom:-11px;height:2px;background:var(--ink);border-radius:2px}
+.tabs .sum{margin-left:auto;font:12px var(--mono);color:var(--muted)}
+.plus{color:var(--pass)} .minus{color:var(--fail)}
+.diffs{flex:1;overflow:auto;padding:12px}
+.df{border:1px solid var(--line);border-radius:12px;overflow:hidden;overflow-x:auto;margin-bottom:12px}
+.fh{display:flex;align-items:center;gap:8px;padding:8px 12px;font:12px var(--mono);color:#d8d4cb;border-bottom:1px solid var(--line);background:#080807}
+.fh .n{margin-left:auto}
+.ln{display:flex;font:12px/1.8 var(--mono);white-space:pre}
+.ln i{width:40px;flex:none;text-align:right;padding-right:10px;color:var(--faint);font-style:normal}
+.ln.a{background:var(--add)} .ln.a span{color:#b9efd4}
+.ln.d{background:var(--del)} .ln.d span{color:#ffc9c0}
+.ln.h{color:var(--bio);padding-left:50px;background:rgba(143,211,255,.04)}
+.note{margin:6px 10px 8px 50px;border:1px solid var(--line2);border-radius:10px;background:#0b0b0a;padding:10px 12px;font-size:12.5px;white-space:normal}
+.note .who{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin-bottom:4px}
+.note .who b{color:var(--ink);font-weight:500}
+.note .na{display:flex;gap:6px;margin-top:8px}
+.note .na .btn{height:26px;font-size:12px;padding:0 9px}
+.pact{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.pact .sp{flex:1}
+.drawer{border-top:1px solid var(--line);flex:none}
+.dh{display:flex;align-items:center;gap:4px;height:36px;padding:0 12px}
+.dh .tab{font-size:12.5px}
+.dh .sp{flex:1}
+.term{height:210px;padding:4px 18px 10px;font:12.5px/1.7 var(--mono);color:#cfcabf;overflow:hidden}
+.term .p{color:var(--aurum)} .term .g{color:var(--pass)} .term .f{color:var(--faint)}
+
+/* colony */
+.colony{flex:1;display:grid;grid-template-columns:1.3fr 1fr;grid-template-rows:repeat(3,1fr);gap:1px;background:var(--line);min-height:0}
+.cell{background:var(--ground);display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
+.cell.needs{grid-row:1/4;box-shadow:inset 0 0 0 1px rgba(233,176,75,.4)}
+.ch{display:flex;align-items:center;gap:9px;height:44px;padding:0 16px;border-bottom:1px solid var(--line);font-size:13px}
+.ch .t{font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch .state{font:11.5px var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.state.w{color:var(--bio)} .state.n{color:var(--aurum)} .state.d{color:var(--pass)}
+.cb{flex:1;min-height:0;padding:16px 18px;display:flex;flex-direction:column;gap:12px;font-size:13.5px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 calc(100% - 28px),transparent);mask-image:linear-gradient(#000 calc(100% - 28px),transparent)}
+.cell:not(.needs) .mini{display:none}
+.cell:not(.needs) .ch{cursor:pointer}
+.cell:not(.needs):hover .ch .t{text-decoration:underline;text-underline-offset:3px}
+.mini{margin:0 14px 14px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:9px 12px;color:var(--faint);font-size:13px;background:#080807}
+.mini .kbd{margin-left:auto}
+.cell.sh .cb{font:12.5px/1.7 var(--mono);color:#cfcabf}
+
+@container (max-width:470px){ .opt .lbl-x{display:none} .opt.tog .lbl-x{display:none} }
+@media (max-width:1360px){ .switch>span{display:none} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important}
+  #bloom{display:none}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd98a"/><stop offset=".55" stop-color="#e9b04b"/><stop offset="1" stop-color="#b9792a"/></linearGradient>
+    <symbol id="jelly" viewBox="0 0 24 24"><path d="M3 12.2C3 6.9 7 4 12 4s9 2.9 9 8.2c-1.6-.5-2.9.4-4.2-.1-1-.4-1.6.4-2.4.4h-4.8c-.8 0-1.4-.8-2.4-.4-1.3.5-2.6-.4-4.2.1z" fill="url(#ag)"/><g fill="none" stroke="url(#ag)" stroke-width="1.6" stroke-linecap="round"><path d="M7 14c-.5 1.8.8 3-.1 5"/><path d="M10.3 14.3c-.5 2 .8 3.2 0 5.7"/><path d="M13.7 14.3c.5 2-.8 3.2 0 5.7"/><path d="M17 14c.5 1.8-.8 3 .1 5"/></g></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M3 13C3 7.2 7 4 12 4s9 3.2 9 9c-2-.6-3 .5-4.5 0-1.4-.5-2 .5-4.5.5s-3.1-1-4.5-.5C6 13.5 5 12.4 3 13z" fill="#8fd3ff"/><g fill="none" stroke="#8fd3ff" stroke-width="1.8" stroke-linecap="round"><path d="M8 15.5v4M12 16v5M16 15.5v4"/></g></symbol>
+    <symbol id="claude" viewBox="0 0 16 16"><g stroke="#d97757" stroke-width="1.6" stroke-linecap="round"><path d="M8 1.5v13M1.5 8h13M3.4 3.4l9.2 9.2M12.6 3.4l-9.2 9.2"/></g></symbol>
+    <symbol id="codex" viewBox="0 0 16 16"><g fill="none" stroke="#f1eee7" stroke-width="1.3"><ellipse cx="8" cy="8" rx="2.6" ry="6"/><ellipse cx="8" cy="8" rx="2.6" ry="6" transform="rotate(60 8 8)"/><ellipse cx="8" cy="8" rx="2.6" ry="6" transform="rotate(120 8 8)"/></g></symbol>
+    <symbol id="deep" viewBox="0 0 16 16"><path d="M1.5 9c1-4.2 6.2-6.3 10.3-3.1 1 .8 2 .5 2.7 0-.3 3.2-3.1 6.3-7.2 6.3S1.8 11.2 1.5 9z" fill="#6b8cff"/><circle cx="11" cy="7.6" r=".85" fill="#000"/></symbol>
+    <symbol id="ocode" viewBox="0 0 16 16"><g fill="none" stroke="#f1eee7" stroke-width="1.3" stroke-linejoin="round"><path d="M8 1.8l5.5 3.1v6.2L8 14.2l-5.5-3.1V4.9z"/><path d="M2.5 4.9L8 8l5.5-3.1M8 8v6.2"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></symbol>
+    <symbol id="i-new" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 16 16"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="5.5" r="1.5"/><path d="M4.5 5v6M11.5 7c0 3-7 2-7 4"/></symbol>
+    <symbol id="i-pr" viewBox="0 0 16 16"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="12.5" r="1.5"/><path d="M4.5 5v6M11.5 11V6.5c0-1-.8-2-2-2H7.5M9 3l-1.5 1.5L9 6"/></symbol>
+    <symbol id="i-wt" viewBox="0 0 16 16"><path d="M8 14V8M8 8C8 5 5 4 3 4M8 8c0-3 3-4 5-4M3 2v4M13 2v4"/></symbol>
+    <symbol id="i-term" viewBox="0 0 16 16"><path d="M3 4.5l3.5 3.5L3 11.5M8 12h5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 16 16"><rect x="4.5" y="1.5" width="7" height="13" rx="1.5"/><path d="M7 12.5h2"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 16 16"><path d="M4.5 6.5L8 10l3.5-3.5"/></symbol>
+    <symbol id="i-right" viewBox="0 0 16 16"><path d="M6.5 4L10.5 8l-4 4"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></symbol>
+    <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 16 16"><path d="M2.5 11a5.5 5.5 0 1111 0"/><path d="M8 11l2.5-3.5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 16 16"><path d="M8 1.8l5 2v4c0 3.2-2.2 5.4-5 6.4-2.8-1-5-3.2-5-6.4v-4z"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 16 16"><rect x="6" y="2" width="4" height="7.5" rx="2"/><path d="M3.5 8a4.5 4.5 0 009 0M8 12.5V14"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 16 16"><path d="M13 7.5l-5 5a3 3 0 01-4.2-4.2l5.3-5.3a2 2 0 012.8 2.8L6.6 11a1 1 0 01-1.4-1.4l4.6-4.6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 16 16"><path d="M2.5 3.5h11v7.5h-6l-3 2.5V11h-2z"/></symbol>
+    <symbol id="i-p-right" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M10 2.5v11"/></symbol>
+    <symbol id="i-p-bottom" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M2.5 10h11"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 16 16"><path d="M11 2.5l2.5 2.5L6 12.5H3.5V10z"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 106.5 6.5z"/></symbol>
+  </defs>
+</svg>
+
+<a href="#main" class="sr">Skip to main content</a>
+<div class="frame">
+
+  <header class="titlebar">
+    <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="mark"><svg aria-hidden="true"><use href="#jelly"/></svg><b>Aurelia<span>Space</span></b></div>
+    <span class="tb-sp"></span>
+    <nav class="switch" aria-label="Mockup screens">
+      <span>MOCKUP</span>
+      <button data-v="start" aria-pressed="true">Start</button>
+      <button data-v="thread" aria-pressed="false">Thread</button>
+      <button data-v="review" aria-pressed="false">Review</button>
+      <button data-v="colony" aria-pressed="false">Colony</button>
+    </nav>
+    <span class="tb-sp"></span>
+    <div class="usage" role="group" aria-label="Usage left">
+      <span class="lbl">Left</span>
+      <div id="usage" style="display:flex;gap:2px"></div>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="side" aria-label="Threads">
+      <div class="side-top">
+        <button class="newt"><svg class="i"><use href="#i-new"/></svg>New thread<kbd>⌘N</kbd></button>
+        <button class="find" aria-label="Search threads, files and commands (⌘K)"><svg class="i"><use href="#i-search"/></svg></button>
+      </div>
+      <div class="list" id="list"></div>
+      <div class="side-foot">
+        <button class="bk">Snoozed<span>3</span></button>
+        <button class="bk">Settled<span>148</span></button>
+        <div class="foot">
+          <button class="ib" aria-label="Settings"><svg class="i"><use href="#i-gear"/></svg></button>
+          <button class="ib" aria-label="Command palette"><span class="kbd" style="margin:0;color:inherit">⌘K</span></button>
+          <button class="remote" title="Your phone can read and reply to threads"><i></i><svg class="i" style="width:14px;height:14px"><use href="#i-phone"/></svg>iPhone connected</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+
+      <!-- ===== START ===== -->
+      <section class="view on" id="v-start" aria-label="New thread">
+        <div class="hdr">
+          <div class="crumb"><span class="mono-badge">AS</span>AureliaSpace<span>/</span><h1>New thread</h1></div>
+          <span class="sp"></span>
+          <span class="chip"><svg class="i" style="width:13px;height:13px"><use href="#i-branch"/></svg>main</span>
+        </div>
+        <div class="start">
+          <canvas id="bloom" aria-hidden="true"></canvas>
+          <h2 class="hello">What should we build <em id="when">tonight</em>?</h2>
+          <div class="where">in <button class="pick"><span class="mono-badge">AS</span>AureliaSpace<svg class="i" style="width:12px;height:12px;color:var(--faint)"><use href="#i-chev"/></svg></button> on a fresh worktree from <span class="mono" style="color:var(--ink)">main</span></div>
+          <div class="composer" data-c="Describe the change. @ for files, / for commands"></div>
+          <div class="resume">
+            <h2>Pick up where you left off</h2>
+            <button class="rz"><span class="ico" style="border-color:rgba(233,176,75,.4)"><span class="dot-needs"></span></span><span class="what"><b>Arrow keys type boxes in the composer</b><span>Waiting on you for 12 min. Quit Aurelia Voice and test the arrow key.</span></span><span class="go">Open<svg class="i" style="width:13px;height:13px"><use href="#i-arrow"/></svg></span></button>
+            <button class="rz"><span class="ico"><svg class="i" style="color:var(--fail)"><use href="#i-msg"/></svg></span><span class="what"><b>PR #15 · Subagent lineage in threads</b><span>2 new review comments since you looked. Babysit is off.</span></span><span class="go">Review<svg class="i" style="width:13px;height:13px"><use href="#i-arrow"/></svg></span></button>
+            <button class="rz"><span class="ico"><svg class="i" style="color:var(--fail)"><use href="#i-x"/></svg></span><span class="what"><b>Nightly build failed on main</b><span>cargo build at 2:14 AM: unresolved import in pr.rs</span></span><span class="go">Fix in a thread<svg class="i" style="width:13px;height:13px"><use href="#i-arrow"/></svg></span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== THREAD ===== -->
+      <section class="view" id="v-thread" aria-label="Thread">
+        <div class="hdr">
+          <div class="crumb"><span class="mono-badge">AS</span>AureliaSpace<span>/</span><h1>Arrow keys type boxes in the composer</h1></div>
+          <span class="chip"><svg class="i" style="width:13px;height:13px"><use href="#i-wt"/></svg>fix/arrow-keys</span>
+          <span class="sp"></span>
+          <div class="tools">
+            <button class="ib" aria-label="Colony view" aria-pressed="false"><svg class="i"><use href="#i-grid"/></svg></button>
+            <button class="ib" aria-label="Terminal" aria-pressed="false"><svg class="i"><use href="#i-p-bottom"/></svg></button>
+            <button class="ib" aria-label="Changes" aria-pressed="false"><svg class="i"><use href="#i-p-right"/></svg></button>
+          </div>
+        </div>
+        <div class="convo">
+          <div class="scroll"><div class="col">
+            <div class="you">The composer gets 7 boxes when I press the right arrow instead of moving the caret. Notes did it too. Find out whether it's us.</div>
+            <div class="card">
+              <div class="card-h"><b>Plan</b><span>step 3 of 5</span><span class="sp"></span><button class="btn ghost" style="height:28px;font-size:12.5px"><svg class="i" style="width:13px;height:13px"><use href="#i-edit"/></svg>Edit plan</button></div>
+              <ol class="steps">
+                <li class="done"><span class="ck"><svg class="i" style="width:11px;height:11px"><use href="#i-check"/></svg></span>Search the app for anything that writes <code>U+001D</code><span class="tag">nothing found</span></li>
+                <li class="done"><span class="ck"><svg class="i" style="width:11px;height:11px"><use href="#i-check"/></svg></span>Read the composer keydown handler<span class="tag">Enter and ⌘K only</span></li>
+                <li class="now"><span class="ck"></span>Read Aurelia Voice's key events from the last 5 minutes<span class="tag">waiting on you</span></li>
+                <li class="next"><span class="ck"></span>Ask you to retest with Aurelia Voice quit</li>
+                <li class="next"><span class="ck"></span>If it still happens, turn off the Karabiner hjkl rule</li>
+              </ol>
+            </div>
+            <button class="run"><svg class="i chev" style="width:13px;height:13px"><use href="#i-right"/></svg>Searched 3 patterns, read 2 files<time>4s</time></button>
+            <div class="say">
+              <p>Nothing in the app writes that character, and Notes doing the same thing puts it below us. Two suspects left: the Karabiner "Right Command to hjkl" rule and Aurelia Voice's key tap.</p>
+              <p>The system log will show which one sends the key. It's read only.</p>
+            </div>
+            <div class="card approve" role="group" aria-label="Approval needed">
+              <div class="card-h"><svg class="i"><use href="#i-shield"/></svg><b style="color:var(--aurum)">Wants to run a command outside the worktree</b></div>
+              <div class="cmd">log show --last 5m --predicate 'subsystem == "com.aurelia.voice"'</div>
+              <div class="why">Reads Aurelia Voice's key events. Changes nothing.</div>
+              <div class="acts"><button class="btn">Deny</button><span class="sp"></span><button class="btn">Always in this repo</button><button class="btn solid">Allow once</button></div>
+            </div>
+            <div class="meta"><svg class="prov"><use href="#claude"/></svg>Claude Opus 5.5 · 38s · 14.2k tokens</div>
+          </div></div>
+          <div class="dock">
+            <div class="queued"><span class="chip">1 queued</span>"also check whether Notes gets the same key code"</div>
+            <div class="composer" data-c="Reply. Sends after the approval above."></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== REVIEW ===== -->
+      <section class="view" id="v-review" aria-label="Review">
+        <div class="hdr">
+          <div class="crumb"><span class="mono-badge">AS</span>AureliaSpace<span>/</span><h1>Fix snapshot index collisions</h1></div>
+          <span class="chip" style="color:var(--pass);border-color:rgba(94,214,160,.3)"><svg class="i" style="width:13px;height:13px"><use href="#i-pr"/></svg>#14 checks pass</span>
+          <span class="sp"></span>
+          <div class="tools">
+            <button class="ib" aria-label="Colony view" aria-pressed="false"><svg class="i"><use href="#i-grid"/></svg></button>
+            <button class="ib" aria-label="Terminal" aria-pressed="true"><svg class="i"><use href="#i-p-bottom"/></svg></button>
+            <button class="ib" aria-label="Changes" aria-pressed="true"><svg class="i"><use href="#i-p-right"/></svg></button>
+          </div>
+        </div>
+        <div class="split">
+          <div class="convo">
+            <div class="scroll"><div class="col">
+              <div class="you">Changes "This turn" is empty after a turn. Fix it.</div>
+              <button class="run"><svg class="i chev" style="width:13px;height:13px"><use href="#i-right"/></svg>Ran 4 commands, read 3 files, edited 2 files<time>1m 12s</time></button>
+              <div class="say"><p>Two checkpoints in the same second got the same index name, so the second overwrote the first and the diff had nothing to compare. Index names now carry the turn id, with a test for two turns in one second.</p></div>
+              <div class="say"><p><code>cargo test</code> passes, 62 of 62. The DeepSeek audit left one note on the diff.</p></div>
+              <div class="meta"><svg class="prov"><use href="#claude"/></svg>Claude Opus 5.5 · 1m 12s · 31.0k tokens</div>
+            </div></div>
+            <div class="dock" style="padding-bottom:14px"><div class="composer" data-c="Ask for a change, or reply to a note on the diff"></div></div>
+            <div class="drawer">
+              <div class="dh" role="tablist"><button class="tab" role="tab" aria-selected="true">Terminal</button><button class="tab" role="tab" aria-selected="false">Dev server</button><button class="tab" role="tab" aria-selected="false">Problems 0</button><span class="sp"></span><span class="kbd">⌘J</span></div>
+              <div class="term">
+                <div><span class="p">feat/threads ›</span> cargo test --manifest-path src-tauri/Cargo.toml</div>
+                <div class="f">    Finished test profile in 6.1s</div>
+                <div>test snapshot::tests::two_turns_same_second ... <span class="g">ok</span></div>
+                <div>test result: <span class="g">ok</span>. 62 passed; 0 failed</div>
+                <div><span class="p">feat/threads ›</span> <span style="background:var(--ink)"> </span></div>
+              </div>
+            </div>
+          </div>
+          <section class="panel" aria-label="Changes">
+            <div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="true">This turn</button><button class="tab" role="tab" aria-selected="false">Branch</button><button class="tab" role="tab" aria-selected="false">Uncommitted</button><span class="sum"><span class="plus">+11</span> <span class="minus">−4</span></span></div>
+            <div class="diffs">
+              <div class="df">
+                <div class="fh">src-tauri/src/snapshot.rs<span class="n"><span class="plus">+9</span> <span class="minus">−3</span></span></div>
+                <div class="ln h">@@ fn index_path @@</div>
+                <div class="ln"><i>41</i><span>  fn index_path(&amp;self, thread: &amp;str) -&gt; PathBuf {</span></div>
+                <div class="ln d"><i>42</i><span>-     let stamp = now_secs();</span></div>
+                <div class="ln d"><i>43</i><span>-     self.dir.join(format!("{thread}-{stamp}.idx"))</span></div>
+                <div class="ln a"><i>42</i><span>+     let turn = self.turn_id(thread);</span></div>
+                <div class="ln a"><i>43</i><span>+     self.dir.join(format!("{thread}-{turn}.idx"))</span></div>
+                <div class="note">
+                  <div class="who"><svg class="prov"><use href="#deep"/></svg><b>Audit</b>DeepSeek v4.1 · line 42</div>
+                  <code style="font-size:12px">turn_id</code> returns a String. A u64 skips one allocation per checkpoint and sorts correctly.
+                  <div class="na"><button class="btn pri">Apply</button><button class="btn">Ask Claude</button><button class="btn ghost">Dismiss</button></div>
+                </div>
+                <div class="ln"><i>44</i><span>  }</span></div>
+                <div class="ln h">@@ mod tests @@</div>
+                <div class="ln a"><i>118</i><span>+ #[test]</span></div>
+                <div class="ln a"><i>119</i><span>+ fn two_turns_same_second() {</span></div>
+                <div class="ln a"><i>120</i><span>+     let s = Snap::temp();</span></div>
+                <div class="ln a"><i>121</i><span>+     assert_ne!(s.index_path("a"), s.next().index_path("a"));</span></div>
+                <div class="ln a"><i>122</i><span>+ }</span></div>
+              </div>
+              <div class="df">
+                <div class="fh">src/components/ChangesPanel.tsx<span class="n"><span class="plus">+2</span> <span class="minus">−1</span></span></div>
+                <div class="ln"><i>77</i><span>  const base = scope === "turn"</span></div>
+                <div class="ln d"><i>78</i><span>-   ? lastCheckpoint(thread)</span></div>
+                <div class="ln a"><i>78</i><span>+   ? lastCheckpoint(thread, turnId)</span></div>
+                <div class="ln a"><i>79</i><span>+   ?? mergeBase(thread)</span></div>
+              </div>
+            </div>
+            <div class="pact"><button class="btn">Babysit PR</button><span class="sp"></span><button class="btn">Open PR</button><button class="btn solid">Commit and push</button></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===== COLONY ===== -->
+      <section class="view" id="v-colony" aria-label="Colony">
+        <div class="hdr">
+          <div class="crumb"><h1>Colony</h1><span>· 4 threads, 2 working</span></div>
+          <span class="sp"></span>
+          <div class="tools"><button class="ib" aria-label="Colony view" aria-pressed="true"><svg class="i"><use href="#i-grid"/></svg></button></div>
+        </div>
+        <div class="colony">
+          <div class="cell needs">
+            <div class="ch"><span class="dot-needs"></span><span class="t">Arrow keys type boxes</span><span class="state n">Needs you</span></div>
+            <div class="cb">
+              <div class="you" style="font-size:13px">Find out whether it's us.</div>
+              <button class="run"><svg class="i chev" style="width:13px;height:13px"><use href="#i-right"/></svg>Searched 3 patterns, read 2 files<time>4s</time></button>
+              <div class="say"><p>Nothing in the app writes <code>U+001D</code>. Next is the system log for Aurelia Voice.</p></div>
+              <div class="card approve" role="group" aria-label="Approval needed">
+                <div class="card-h"><svg class="i"><use href="#i-shield"/></svg><b style="color:var(--aurum)">Wants to run a command outside the worktree</b></div>
+                <div class="cmd">log show --last 5m --predicate 'subsystem == "com.aurelia.voice"'</div>
+                <div class="why">Reads Aurelia Voice's key events. Changes nothing.</div>
+                <div class="acts"><button class="btn">Deny</button><span class="sp"></span><button class="btn">Always in this repo</button><button class="btn solid">Allow once</button></div></div>
+              <div class="meta">Waiting 12 min · the other threads keep running</div>
+            </div>
+            <div class="mini">Reply<span class="kbd">⏎</span></div>
+          </div>
+          <div class="cell">
+            <div class="ch"><svg class="bell"><use href="#bell"/></svg><span class="t">Nightly build on merge</span><span class="state w">Working</span></div>
+            <div class="cb">
+              <button class="run"><svg class="i chev" style="width:13px;height:13px"><use href="#i-right"/></svg>Wrote .github/workflows/nightly.yml<time>+48</time></button>
+              <div class="say"><p>Running the workflow locally with act. Two subagents are on release notes and the rollback step.</p></div>
+              <div class="meta">Plan step 4 of 6 · dry run with act · 2m 10s</div>
+            </div>
+            <div class="mini">Queue a message<span class="kbd">⏎</span></div>
+          </div>
+          <div class="cell">
+            <div class="ch"><svg class="bell"><use href="#bell"/></svg><span class="t">Audit PR #14</span><svg class="prov"><use href="#deep"/></svg><span class="state w">Working</span></div>
+            <div class="cb">
+              <button class="run"><svg class="i chev" style="width:13px;height:13px"><use href="#i-right"/></svg>Read 6 files</button>
+              <div class="say"><p>No blocking issues so far. One note: <code>turn_id</code> could be a u64.</p></div>
+              <button class="run"><svg class="i chev" style="width:13px;height:13px"><use href="#i-right"/></svg>Checking tests cover two turns in one second<time>now</time></button>
+              <div class="chip" style="align-self:flex-start">snapshot.rs <span class="plus">+9</span> <span class="minus">−3</span></div>
+            </div>
+            <div class="mini">Queue a message<span class="kbd">⏎</span></div>
+          </div>
+          <div class="cell sh">
+            <div class="ch"><svg class="i" style="color:var(--muted)"><use href="#i-term"/></svg><span class="t">zsh · AureliaSpace</span><span class="state" style="color:var(--faint)">Shell</span></div>
+            <div class="cb">
+              <div><span style="color:var(--aurum)">main ›</span> npm run tauri dev</div>
+              <div style="color:var(--faint)">  VITE v7 ready in 412 ms</div>
+              <div style="color:var(--faint)">  Local: http://localhost:1420/</div>
+              <div>    Running target/debug/aurelia-space</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const ic = (id, s = "") => `<svg class="i" style="${s}"><use href="#${id}"/></svg>`;
+
+/* usage strip: what is LEFT, reset on hover */
+const usage = [
+  { g: "claude", name: "Claude", plan: "Max 20x", left: 28, resets: "4:10 AM", inMin: 38, week: 61, wReset: "Thu 9:00 AM" },
+  { g: "codex", name: "Codex", plan: "Pro", left: 100, resets: "not started", inMin: null, week: 88, wReset: "Sat 1:00 PM" },
+  { g: "deep", name: "DeepSeek", plan: "OpenCode Go", free: true },
+  { g: "ocode", name: "OpenCode", plan: "Zen", left: 14, resets: "3:52 AM", inMin: 20, week: 40, wReset: "Mon 12:00 AM" },
+];
+document.getElementById("usage").innerHTML = usage.map(u => {
+  const pct = u.free ? "free" : u.left + "%";
+  const tip = u.free
+    ? `<h4>${u.name}<span>${u.plan}</span></h4><dl><dt>Limit</dt><dd>none, runs on the free plan</dd><dt>Used today</dt><dd>41 agent runs</dd></dl>`
+    : `<h4>${u.name}<span>${u.plan}</span></h4><dl>
+        <dt>5-hour window</dt><dd>${u.left}% left</dd><span class="meter"><b style="width:${u.left}%"></b></span>
+        <dt>Resets</dt><dd>${u.resets}${u.inMin ? `, in ${u.inMin} min` : ""}</dd>
+        <dt>This week</dt><dd>${u.week}% left</dd><span class="meter"><b style="width:${u.week}%"></b></span>
+        <dt>Week resets</dt><dd>${u.wReset}</dd></dl>`;
+  const label = u.free ? `${u.name}: free` : `${u.name}: ${u.left}% left, resets ${u.resets}`;
+  return `<button class="u ${u.free ? "free" : u.left < 20 ? "low" : ""}" aria-label="${label}">
+    <svg class="g" aria-hidden="true"><use href="#${u.g}"/></svg><span class="pct">${pct}</span>
+    <span class="bar"><b style="width:${u.free ? 100 : u.left}%"></b></span><span class="tip" role="tooltip">${tip}</span></button>`;
+}).join("");
+
+/* sidebar: grouped by state, subagents nested under their parent */
+const row = (o) => `<button class="row ${o.on ? "on" : ""} ${o.kid ? "kid" : ""}">${o.kid ? '<span class="lin"></span>' : ""}
+  <span class="t">${o.lead || ""}<span class="tt">${o.t}</span>${o.prov ? `<svg class="prov"><use href="#${o.prov}"/></svg>` : ""}</span>
+  ${o.m ? `<span class="m">${o.m}</span>` : ""}</button>`;
+const meta = (repo, br, pr, time) => `<span>${repo}</span>·<span class="br">${br}</span>${pr || ""}<time>${time}</time>`;
+const pr = (k, n) => `<span class="prb ${k}">${ic("i-pr", "width:12px;height:12px")}${n}</span>`;
+const bell = `<svg class="bell"><use href="#bell"/></svg>`;
+const needs = `<span class="dot-needs"></span>`;
+const groups = [
+  ["needs", "Needs you", [
+    { lead: needs, t: "Arrow keys type boxes in the composer", m: meta("AureliaSpace", "fix/arrow-keys", "", "12m"), key: "thread" },
+    { lead: needs, t: "Subagent lineage in threads", m: meta("AureliaSpace", "feat/lineage", pr("bad", "#15"), "3h") },
+  ]],
+  ["work", "Working", [
+    { lead: bell, t: "Nightly build on merge", m: meta("AureliaSpace", "feat/nightly", "", "now") },
+    { lead: bell, t: "Write release notes", kid: 1, prov: "deep" },
+    { lead: bell, t: "Rollback step", kid: 1, prov: "claude" },
+    { lead: bell, t: "Audit PR #14", m: meta("AureliaSpace", "feat/threads", "", "now"), prov: "deep" },
+  ]],
+  ["recent", "Recent", [
+    { lead: `<svg class="bell idle"><use href="#bell"/></svg>`, t: "Fix snapshot index collisions", m: meta("AureliaSpace", "feat/threads", pr("ok", "#14"), "14m"), key: "review" },
+    { lead: `<svg class="bell idle"><use href="#bell"/></svg>`, t: "NS station signs", m: meta("mtr-addon", "ns-signs", pr("ok", "#88"), "1h") },
+    { lead: `<svg class="bell idle"><use href="#bell"/></svg>`, t: "Dictation HUD flicker", m: meta("aurelia-voice", "main", "", "1d") },
+  ]],
+];
+function renderList(view) {
+  document.getElementById("list").innerHTML = groups.map(([k, h, rows]) =>
+    `<section class="grp ${k === "needs" ? "needs" : ""}"><h3>${h}<span class="n">${rows.filter(r => !r.kid).length}</span></h3>
+     ${rows.map(r => row({ ...r, on: r.key === view })).join("")}</section>`).join("");
+}
+
+/* composers */
+document.querySelectorAll("[data-c]").forEach(el => {
+  el.innerHTML = `<label class="sr" for="c-${el.closest(".view").id}">Message</label>
+  <textarea id="c-${el.closest(".view").id}" placeholder="${el.dataset.c}"></textarea>
+  <div class="cbar">
+    <button class="opt"><svg class="prov" style="width:14px;height:14px"><use href="#claude"/></svg>Opus 5.5${ic("i-chev", "")}</button>
+    <button class="opt">${ic("i-gauge")}<span class="lbl-x">High</span>${ic("i-chev")}</button>
+    <button class="opt">${ic("i-shield")}<span class="lbl-x">Auto-edit</span>${ic("i-chev")}</button>
+    <button class="opt tog" aria-pressed="true"><span class="sw"></span><span class="lbl-x">New worktree</span></button>
+    <span class="sp"></span>
+    <button class="ib" aria-label="Dictate (⌥⌘V)">${ic("i-mic")}</button>
+    <button class="ib" aria-label="Attach a file">${ic("i-clip")}</button>
+    <button class="send" aria-label="Send">${ic("i-up")}</button>
+  </div>`;
+  el.querySelectorAll(".opt .i:last-child").forEach(s => s.classList.add("cv"));
+});
+document.addEventListener("click", e => {
+  const t = e.target.closest(".opt.tog");
+  if (t) t.setAttribute("aria-pressed", t.getAttribute("aria-pressed") !== "true");
+});
+
+/* time-aware headline word */
+const h = new Date().getHours();
+document.getElementById("when").textContent = h < 5 ? "tonight" : h < 12 ? "this morning" : h < 18 ? "this afternoon" : "tonight";
+
+/* screen switcher */
+function show(v) {
+  document.querySelectorAll(".switch button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === v));
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
+  renderList(v);
+  document.querySelectorAll(`#v-${v} .scroll`).forEach(sc => sc.scrollTop = sc.scrollHeight);
+  if (v === "start") sizeBloom();
+}
+document.querySelectorAll(".switch button").forEach(b => b.onclick = () => show(b.dataset.v));
+
+/* ===== the one clock: pulse + bloom ===== */
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const working = 2;                       // agents running right now
+const bpm = 16 + working * 8;            // more agents, faster pulse
+const root = document.documentElement.style;
+// contract fast (30%), release slow (70%)
+const pulseAt = (ph) => ph < .3 ? 1 - Math.pow(1 - ph / .3, 3) : Math.pow(1 - (ph - .3) / .7, 2);
+
+const cv = document.getElementById("bloom"), cx = cv.getContext("2d");
+let W = 0, H = 0, dpr = 1;
+function sizeBloom() {
+  const r = cv.getBoundingClientRect(); if (!r.width) return;
+  dpr = Math.min(devicePixelRatio || 1, 2); W = r.width; H = r.height;
+  cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener("resize", sizeBloom);
+// one jellyfish per live thread: gold waits for you and holds still, blue works and rises
+const jellies = [
+  { x: .075, y: .30, s: 34, sp: 0,  a: .10, off: 0,   c: "233,176,75", label: "Arrow keys type boxes" , needs: 1 },
+  { x: .925, y: .62, s: 28, sp: 0,  a: .09, off: .5,  c: "233,176,75", label: "Subagent lineage", needs: 1 },
+  { x: .085, y: .9,  s: 26, sp: 7,  a: .09, off: .37, c: "143,211,255", label: "Nightly build" },
+  { x: .915, y: .27, s: 22, sp: 10, a: .08, off: .71, c: "143,211,255", label: "Audit PR #14" },
+];
+function drawJelly(x, y, s, p, a, t, c, label) {
+  const w = s * (1 - p * .16), hb = s * .62 * (1 + p * .08);
+  const g = cx.createRadialGradient(x, y - hb * .3, 2, x, y, s * 1.6);
+  g.addColorStop(0, `rgba(${c},${a * 1.6})`); g.addColorStop(1, `rgba(${c},0)`);
+  cx.fillStyle = g; cx.beginPath(); cx.arc(x, y - hb * .2, s * 1.6, 0, 7); cx.fill();
+  cx.fillStyle = `rgba(${c},${a * 2.4})`;
+  cx.beginPath(); cx.moveTo(x - w, y);
+  cx.bezierCurveTo(x - w, y - hb * 1.35, x + w, y - hb * 1.35, x + w, y);
+  for (let k = 4; k >= 0; k--) { const px = x - w + (2 * w * k) / 4; cx.quadraticCurveTo(px + w / 4, y + 5 + p * 3, px, y); }
+  cx.fill();
+  cx.strokeStyle = `rgba(${c},${a * 5})`; cx.lineWidth = 1; cx.stroke();
+  cx.strokeStyle = `rgba(${c},${a * 2.2})`; cx.lineWidth = 1.2;
+  for (let k = 0; k < 5; k++) {
+    const tx = x - w * .7 + (w * 1.4 * k) / 4;
+    cx.beginPath(); cx.moveTo(tx, y + 2);
+    for (let j = 1; j <= 8; j++) cx.lineTo(tx + Math.sin(t * 1.3 + k + j * .7) * (2 + j * .8), y + 2 + j * s * .17);
+    cx.stroke();
+  }
+  cx.font = "500 12px 'Geist Mono', monospace"; cx.textAlign = "center";
+  cx.fillStyle = `rgba(${c},.85)`; cx.fillText(label, x, y + s * 1.75);
+}
+let start = performance.now();
+function tick(now) {
+  const t = (now - start) / 1000;
+  const ph = (t * bpm / 60) % 1, p = pulseAt(ph);
+  root.setProperty("--p", p.toFixed(3));
+  if (W && document.getElementById("v-start").classList.contains("on")) {
+    cx.clearRect(0, 0, W, H);
+    for (const j of jellies) {
+      const jp = pulseAt((t * 22 / 60 + j.off) % 1);
+      const y = j.sp ? ((j.y * H - t * j.sp) % (H + 260) + H + 260) % (H + 260) - 130 : j.y * H + Math.sin(t * .5 + j.off * 6) * 6;
+      drawJelly(j.x * W + Math.sin(t * .2 + j.off * 6) * 10, y, j.s, j.needs ? jp * .4 : jp, j.a, t, j.c, j.label);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+show("start");
+if (reduce) { root.setProperty("--p", "0"); }
+else requestAnimationFrame(tick);
+</script>
+</body>
+</html>
