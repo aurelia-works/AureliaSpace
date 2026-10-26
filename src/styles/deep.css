@@ -1575,3 +1575,96 @@ body.resizing-row .rail-grip {
   background: var(--bg);
   border-radius: 12px;
 }
+
+/* ---------- One-time setup (start screen) ---------- */
+.setup {
+  width: 100%;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  background: var(--well);
+}
+.setup h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+.setup-sub {
+  margin: 4px 0 16px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.setup-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.setup-row > span {
+  color: var(--text-dim);
+}
+.setup-row .seg {
+  justify-self: start;
+}
+.setup-row select {
+  justify-self: start;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: #0b0b0a;
+  color: var(--text);
+}
+.setup-perms {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.setup-perm {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+  transition:
+    background 0.25s var(--ease),
+    border-color 0.25s var(--ease);
+}
+.setup-perm:hover {
+  background: var(--s1);
+  border-color: var(--line-2);
+}
+.setup-perm.on {
+  border-color: rgba(233, 176, 75, 0.5);
+  background: rgba(233, 176, 75, 0.06);
+}
+.setup-perm b {
+  font-weight: 500;
+}
+.setup-perm.on b {
+  color: var(--attn);
+}
+.setup-perm span {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.setup-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.setup-foot span {
+  flex: 1;
+  color: var(--text-faint);
+  font: 11.5px var(--font-mono);
+}
+.setup .seg button {
+  text-transform: none;
+}

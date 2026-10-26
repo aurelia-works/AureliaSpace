@@ -166,6 +166,8 @@ const config = {
   hud: { enabled: false },
   discord: { enabled: false, clientId: "", hideProject: false },
   defaultAccount: "claude",
+  // ?setup=1 shows the one-time setup on the start screen.
+  setupDone: params.get("setup") !== "1",
   workspaceAccounts: {},
   editor: "",
   defaultWorkspace: "~/dev",

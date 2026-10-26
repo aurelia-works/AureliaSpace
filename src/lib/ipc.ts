@@ -70,6 +70,8 @@ export interface Config {
   resumeOnLaunch: boolean;
   /** `--permission-mode` for Claude panes started here ("acceptEdits", "plan", …); empty = Auto-edit, "default" = Claude's own ask-before-edits. */
   claudePermissionMode: string;
+  /** The one-time setup on the start screen was answered; Settings changes it from then on. */
+  setupDone: boolean;
   /** ⌘-clicked paths and the Files view open in an editor pane; off = the external `editor`. */
   openFilesInApp: boolean;
   /** `aurelia_*` tools: Claude panes may list, read and message other panes and show HTML. */

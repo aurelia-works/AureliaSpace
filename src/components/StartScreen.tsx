@@ -15,7 +15,7 @@ import { useConfig } from "../store/config";
 import { useCustomAgents, type CustomAgent } from "../store/customAgents";
 import { useLayout } from "../store/layout";
 import { useRecents } from "../store/recents";
-import { useUi } from "../store/ui";
+import { toast, useUi } from "../store/ui";
 import { AgentAvatar } from "./AgentChip";
 import { AgentLogo } from "./AgentLogos";
 import { ArrowIcon, ArrowUpIcon, ChevronDownIcon, CloseIcon, FolderIcon, PrIcon, SparkIcon, TerminalIcon } from "./Icons";
@@ -59,6 +59,7 @@ export function StartScreen({ paneId }: { paneId: string }) {
   const [picked, setAccount] = useState<string>();
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const worktree = useUi((s) => s.useWorktree);
+  const setupDone = useConfig((s) => s.config?.setupDone);
 
   useEffect(() => {
     let alive = true;
@@ -238,56 +239,62 @@ export function StartScreen({ paneId }: { paneId: string }) {
             <span className="mono br">{shortenPath(folder)}</span>
           )}
         </div>
-        <div className="chat-card start-card" onClick={() => promptRef.current?.focus()}>
-          <label className="sr-only" htmlFor={`start-${paneId}`}>
-            Message
-          </label>
-          <textarea
-            id={`start-${paneId}`}
-            ref={promptRef}
-            rows={2}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the change. Enter starts a Claude chat; ⌥Enter a terminal"
-          />
-          <div className="chat-card-bar">
-            {accounts.length > 0 && (
-              <label className="opt" title="The Claude account this thread runs as">
-                <AgentLogo logo="claude" size={14} />
-                <select value={account ?? ""} onChange={(e) => setAccount(e.target.value)} aria-label="Account">
-                  {accounts.map((a) => (
-                    <option key={a.name} value={a.name}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDownIcon width={12} height={12} className="cv" />
+        {setupDone === false ? (
+          <FirstRunSetup />
+        ) : (
+          <>
+            <div className="chat-card start-card" onClick={() => promptRef.current?.focus()}>
+              <label className="sr-only" htmlFor={`start-${paneId}`}>
+                Message
               </label>
-            )}
-            {git && (
-              <button className="opt tog" aria-pressed={worktree} title="Give this thread its own git worktree" onClick={() => useUi.getState().set({ useWorktree: !worktree })}>
-                <span className="sw" />
-                New worktree
-              </button>
-            )}
-            <span className="chat-card-gap" />
-            <button className="chat-send" aria-label="Start" title="Start a chat (Enter)" disabled={!prompt.trim()} onClick={() => void begin()}>
-              <ArrowUpIcon width={16} height={16} />
-            </button>
-          </div>
-        </div>
-        <div className="start-others">
-          <span>Or open</span>
-          {choices.map((c, i) => (
-            <button key={c.key} className={`start-chip ${c.logo}`} onClick={(e) => c.run(e.altKey)} title={`${c.hint}${i < 9 ? ` (${i + 1})` : ""}`}>
-              <span className="start-logo">
-                {c.agent ? <AgentAvatar agent={c.agent} size={12} /> : c.logo === "terminal" ? <TerminalIcon width={13} height={13} /> : c.logo === "more" ? <SparkIcon width={13} height={13} /> : <AgentLogo logo={c.logo} size={13} />}
-              </span>
-              {c.label}
-            </button>
-          ))}
-        </div>
-        <Resume />
+              <textarea
+                id={`start-${paneId}`}
+                ref={promptRef}
+                rows={2}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Describe the change. Enter starts a Claude chat; ⌥Enter a terminal"
+              />
+              <div className="chat-card-bar">
+                {accounts.length > 0 && (
+                  <label className="opt" title="The Claude account this thread runs as">
+                    <AgentLogo logo="claude" size={14} />
+                    <select value={account ?? ""} onChange={(e) => setAccount(e.target.value)} aria-label="Account">
+                      {accounts.map((a) => (
+                        <option key={a.name} value={a.name}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDownIcon width={12} height={12} className="cv" />
+                  </label>
+                )}
+                {git && (
+                  <button className="opt tog" aria-pressed={worktree} title="Give this thread its own git worktree" onClick={() => useUi.getState().set({ useWorktree: !worktree })}>
+                    <span className="sw" />
+                    New worktree
+                  </button>
+                )}
+                <span className="chat-card-gap" />
+                <button className="chat-send" aria-label="Start" title="Start a chat (Enter)" disabled={!prompt.trim()} onClick={() => void begin()}>
+                  <ArrowUpIcon width={16} height={16} />
+                </button>
+              </div>
+            </div>
+            <div className="start-others">
+              <span>Or open</span>
+              {choices.map((c, i) => (
+                <button key={c.key} className={`start-chip ${c.logo}`} onClick={(e) => c.run(e.altKey)} title={`${c.hint}${i < 9 ? ` (${i + 1})` : ""}`}>
+                  <span className="start-logo">
+                    {c.agent ? <AgentAvatar agent={c.agent} size={12} /> : c.logo === "terminal" ? <TerminalIcon width={13} height={13} /> : c.logo === "more" ? <SparkIcon width={13} height={13} /> : <AgentLogo logo={c.logo} size={13} />}
+                  </span>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <Resume />
+          </>
+        )}
       </div>
     </div>
   );
@@ -436,4 +443,90 @@ function Bloom() {
     };
   }, []);
   return <canvas ref={ref} className="bloom" aria-hidden />;
+}
+
+const PERMISSIONS = [
+  { mode: "auto", label: "Auto", what: "Claude decides what's safe to run. Recommended." },
+  { mode: "acceptEdits", label: "Auto-edit", what: "Edits files on its own, asks before commands." },
+  { mode: "default", label: "Ask", what: "Asks before every edit and command." },
+  { mode: "plan", label: "Plan", what: "Reads and plans, changes nothing." },
+];
+
+/** Asked once, before the first thread: how Claude starts. Settings changes it after. */
+function FirstRunSetup() {
+  const config = useConfig((s) => s.config);
+  const [mode, setMode] = useState(config?.claudePermissionMode || "auto");
+  const [autoModel, setAutoModel] = useState(config?.effort?.autoModel ?? false);
+  const [autoEffort, setAutoEffort] = useState(config?.effort?.auto ?? true);
+  const [account, setAccount] = useState(config?.defaultAccount || config?.accounts[0]?.name || "");
+  const [saving, setSaving] = useState(false);
+  if (!config) return null;
+  const save = async () => {
+    setSaving(true);
+    try {
+      await useConfig.getState().save({
+        ...config,
+        claudePermissionMode: mode,
+        defaultAccount: account,
+        effort: { ...config.effort, auto: autoEffort, autoModel },
+        setupDone: true,
+      });
+    } catch (e) {
+      toast(String(e), true);
+      setSaving(false);
+    }
+  };
+  const seg = (on: boolean, pick: (v: boolean) => void, yes: string, no: string) => (
+    <div className="seg" role="radiogroup">
+      <button role="radio" aria-checked={on} className={on ? "on" : ""} onClick={() => pick(true)}>
+        {yes}
+      </button>
+      <button role="radio" aria-checked={!on} className={on ? "" : "on"} onClick={() => pick(false)}>
+        {no}
+      </button>
+    </div>
+  );
+  return (
+    <section className="setup" aria-label="One-time setup">
+      <h3>One-time setup</h3>
+      <p className="setup-sub">How new Claude threads start. Asked once; Settings changes it later.</p>
+      <div className="setup-row">
+        <span>Permissions</span>
+        <div className="setup-perms" role="radiogroup" aria-label="Permissions">
+          {PERMISSIONS.map((p) => (
+            <button key={p.mode} role="radio" aria-checked={mode === p.mode} className={`setup-perm${mode === p.mode ? " on" : ""}`} onClick={() => setMode(p.mode)}>
+              <b>{p.label}</b>
+              <span>{p.what}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="setup-row">
+        <span>Model</span>
+        {seg(autoModel, setAutoModel, "Pick per task", "Account's default")}
+      </div>
+      <div className="setup-row">
+        <span>Effort</span>
+        {seg(autoEffort, setAutoEffort, "Pick per prompt", "Account's default")}
+      </div>
+      {config.accounts.length > 1 && (
+        <label className="setup-row">
+          <span>Account</span>
+          <select value={account} onChange={(e) => setAccount(e.target.value)}>
+            {config.accounts.map((a) => (
+              <option key={a.name} value={a.name}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <div className="setup-foot">
+        <span>Settings → General, Auto effort and Accounts</span>
+        <button className="btn solid" disabled={saving} onClick={() => void save()}>
+          Done
+        </button>
+      </div>
+    </section>
+  );
 }

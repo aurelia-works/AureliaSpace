@@ -65,16 +65,17 @@ export function GeneralSection({ draft, update }: SectionProps) {
         <label className="field">
           <span>Start in</span>
           <select value={draft.claudePermissionMode || "acceptEdits"} onChange={(e) => update((c) => (c.claudePermissionMode = e.target.value))}>
+            <option value="auto">Auto: Claude decides what's safe to run</option>
             <option value="acceptEdits">Auto-edit: accept file edits, ask for commands</option>
             <option value="default">Claude's default: ask before edits</option>
             <option value="plan">Plan mode: read and plan, no changes</option>
-            <option value="auto">Auto: Claude decides what's safe to run</option>
             <option value="bypassPermissions">Bypass: never ask (risky)</option>
           </select>
         </label>
         <p className="hint">
           Applies to Claude panes AureliaSpace starts, as <code>claude --permission-mode</code>. Each pane's mode chip switches it
-          later (Shift+Tab in Claude).
+          later (Shift+Tab in Claude). First picked in the one-time setup; model and effort are under Auto effort, the account
+          under Accounts.
         </p>
       </section>
 

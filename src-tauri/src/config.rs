@@ -311,6 +311,8 @@ pub struct Config {
     pub resume_on_launch: bool,
     /// `--permission-mode` for Claude panes AureliaSpace starts; empty = Claude's own default.
     pub claude_permission_mode: String,
+    /// The one-time setup (permissions, model, effort, account) has been answered; it never asks again.
+    pub setup_done: bool,
     /// ⌘-clicked paths and the Files view open in an editor pane; off = `editor` above.
     pub open_files_in_app: bool,
     pub subagents: SubagentsConfig,
@@ -345,6 +347,7 @@ impl Default for Config {
             workspace_accounts: Default::default(),
             resume_on_launch: true,
             claude_permission_mode: String::new(),
+            setup_done: false,
             open_files_in_app: true,
             subagents: SubagentsConfig::default(),
             orchestrator: true,

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useChat } from "../lib/chat";
 import { basename } from "../lib/format";
+import { closePaneSafely } from "../lib/openFile";
 import { showPane } from "../lib/terminals";
 import { useAgents } from "../store/agents";
 import { paneDir, useGit } from "../store/git";
@@ -196,6 +197,9 @@ function PaneRow({ paneId, focused, snoozed, selected, now, onSelect }: { paneId
             <button className="nav-act" title="Back to the active threads" onClick={() => update(paneId, { settled: false, snoozedUntil: undefined })}>
               Wake
             </button>
+            <button className="nav-act" title="Close this thread for good (Settle only files it away)" onClick={() => closePaneSafely(paneId)}>
+              Close
+            </button>
           </>
         ) : (
           <>
@@ -349,6 +353,16 @@ export function ProjectsSidebar() {
                 Clean up
               </button>
             )}
+            <button
+              className="nav-act"
+              title="Close these threads for good"
+              onClick={() => {
+                for (const id of live) closePaneSafely(id);
+                setSelected(new Set());
+              }}
+            >
+              Close
+            </button>
             <button className="nav-act" title="Clear the selection" onClick={() => setSelected(new Set())}>
               ✕
             </button>
